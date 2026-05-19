@@ -1,13 +1,131 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model SystemConfig {
+  id               String   @id @default("singleton")
+  restaurantName   String
+  managerEmail     String
+  licenseKey       String   @unique
+  licenseExpiredAt DateTime
+  updatedAt        DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  STAFF
+  KITCHEN
+}
+
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  name         String
+  role         Role
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  devices      TrustedDevice[]
+}
+
+model TrustedDevice {
+  id        String    @id @default(uuid())
+  label     String
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  lastUsed  DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+}
+
+model Table {
+  id          String         @id @default(uuid())
+  tableNumber Int            @unique
+  label       String
+  status      TableStatus
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  sessions    TableSession[]
+}
+
+enum SessionStatus {
+  OPEN
+  PAID
+  CANCELLED
+}
+
+model TableSession {
+  id         String        @id @default(uuid())
+  tableId    String
+  table      Table         @relation(fields: [tableId], references: [id])
+  status     SessionStatus
+  openedAt   DateTime      @default(now())
+  closedAt   DateTime?
+  orderItems OrderItem[]
+
+  @@index([tableId])
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String     @unique
+  sortOrder Int        @default(0)
+  menuItems MenuItem[]
+}
+
+model MenuItem {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal     @db.Decimal(10, 2)
+  imageUrl    String?
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id])
+  isSoldOut   Boolean     @default(false)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+
+  @@index([categoryId])
+}
+
+enum OrderItemStatus {
+  PENDING
+  PREPARING
+  DONE
+  VOID
+}
+
+model OrderItem {
+  id         String          @id @default(uuid())
+  sessionId  String
+  session    TableSession    @relation(fields: [sessionId], references: [id])
+  menuItemId String
+  menuItem   MenuItem        @relation(fields: [menuItemId], references: [id])
+  qty        Int
+  unitPrice  Decimal         @db.Decimal(10, 2)
+  note       String?
+  status     OrderItemStatus
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([sessionId, menuItemId])
+  @@index([sessionId])
+  @@index([menuItemId])
 }
