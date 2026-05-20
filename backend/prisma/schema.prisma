@@ -32,6 +32,7 @@ model User {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   devices      TrustedDevice[]
+  shifts       Shift[]
 }
 
 model TrustedDevice {
@@ -76,6 +77,7 @@ model TableSession {
   openedAt   DateTime      @default(now())
   closedAt   DateTime?
   orderItems OrderItem[]
+  payment    Payment?
 
   @@index([tableId])
 }
@@ -101,6 +103,7 @@ model MenuItem {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   orderItems  OrderItem[]
+  bom         BOM[]
 
   @@index([categoryId])
 }
@@ -128,4 +131,108 @@ model OrderItem {
   @@unique([sessionId, menuItemId])
   @@index([sessionId])
   @@index([menuItemId])
+}
+
+model Ingredient {
+  id        String         @id @default(cuid())
+  name      String
+  unit      String
+  stock     Decimal
+  minStock  Decimal
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  bom       BOM[]
+  logs      InventoryLog[]
+}
+
+model BOM {
+  id           String     @id @default(cuid())
+  menuItemId   String
+  menuItem     MenuItem   @relation(fields: [menuItemId], references: [id])
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  quantity     Decimal
+
+  @@unique([menuItemId, ingredientId])
+  @@index([menuItemId])
+  @@index([ingredientId])
+}
+
+model InventoryLog {
+  id           String     @id @default(cuid())
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  delta        Decimal
+  reason       String
+  orderId      String?
+  createdBy    String?
+  createdAt    DateTime   @default(now())
+
+  @@index([ingredientId])
+  @@index([createdAt])
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+model Shift {
+  id            String      @id @default(cuid())
+  cashierId     String
+  cashier       User        @relation(fields: [cashierId], references: [id])
+  openFloat     Decimal
+  closeFloat    Decimal?
+  cashTotal     Decimal?
+  transferTotal Decimal?
+  orderCount    Int?
+  status        ShiftStatus
+  openedAt      DateTime    @default(now())
+  closedAt      DateTime?
+  payments      Payment[]
+
+  @@index([cashierId])
+  @@index([status])
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  sessionId      String        @unique
+  session        TableSession  @relation(fields: [sessionId], references: [id])
+  shiftId        String
+  shift          Shift         @relation(fields: [shiftId], references: [id])
+  subtotal       Decimal
+  discountAmount Decimal       @default(0)
+  total          Decimal
+  method         PaymentMethod
+  voucherId      String?
+  voucher        Voucher?      @relation(fields: [voucherId], references: [id])
+  paidAt         DateTime      @default(now())
+
+  @@index([shiftId])
+  @@index([paidAt])
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+model Voucher {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  discountType  DiscountType
+  discountValue Decimal
+  maxUsage      Int?
+  usedCount     Int          @default(0)
+  isActive      Boolean      @default(true)
+  expiredAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  payments      Payment[]
 }
