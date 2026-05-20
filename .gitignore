@@ -1,5 +1,68 @@
+# ==========================================
+# RESTOFLOW MONOREPO GITIGNORE SYSTEM
+# ==========================================
+
+# 📦 Dependencies
 node_modules/
+**/node_modules/
+.pnp
+.pnp.*
+
+# 🔑 Environment Variables & Private Secrets
 .env
 .env.local
-.DS_Store
+.env.development.local
+.env.test.local
+.env.production.local
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+**/.env.example.local
+**/.env*.local
+
+# 🚀 Next.js & Frontend Build Outputs
+.next/
+**/.next/
+out/
+**/out/
+build/
+**/build/
 dist/
+**/dist/
+
+# 🧪 Testing and Coverage
+coverage/
+**/coverage/
+.nyc_output
+
+# 📝 System Logs & Debugging
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 💻 IDE, Editors & OS Metadata
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 🔧 TypeScript Compile Info
+*.tsbuildinfo
+next-env.d.ts
