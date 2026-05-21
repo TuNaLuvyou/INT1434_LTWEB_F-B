@@ -16,7 +16,6 @@ app.use('/api/menu', menuRoutes);
 
 // Đăng ký route quản lý admin
 app.use('/api/admin/menu-items', adminMenuRoutes);
-
 // Route mặc định kiểm tra server
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'RestoFlow POS Backend API is running!' });
