@@ -148,7 +148,7 @@ export default async function MenuPage({ params }: PageProps) {
               
               {/* Flex wrapper for centering food cards */}
               <div className="flex flex-wrap justify-center gap-6">
-                {catItems.map((item) => (
+                {catItems.map((item, idx) => (
                   <div
                     key={item.id}
                     className={`flex gap-4.5 p-4 bg-white rounded-xl shadow-sm border border-gray-100 transition-all w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.33%-16px)] max-w-sm shrink-0 ${
@@ -162,6 +162,7 @@ export default async function MenuPage({ params }: PageProps) {
                         alt={item.name}
                         fill
                         className="object-cover"
+                        priority={idx === 0}
                       />
                     </div>
 
