@@ -3,18 +3,14 @@
 /**
  * MenuItemList — Client Component chính quản lý luồng hiển thị thực đơn và giỏ hàng.
  *
- * Tái cấu trúc giao diện (Pure UI Commit):
- *   - Layout: Chuyển đổi thành layout tập trung `max-w-2xl mx-auto px-4 py-6`.
- *   - Grid MenuCard: Hiển thị 1 cột trên mobile, 2 cột trên sm+, không dùng 3 cột.
- *   - Cuộn theo danh mục: Áp dụng `category-${cat.slug}` làm ID phần và tự động cuộn chuẩn xác
- *     với độ lệch bù (offset) 80px để không bị che khuất bởi thanh CategoryFilter sticky.
- *   - Giỏ hàng nổi (Floating Cart Button): Xuất hiện sinh động ở góc dưới bên phải (`fixed bottom-6 right-6`)
- *     khi có món trong giỏ hàng. Hiển thị số lượng món ăn dạng badge và tổng tiền với animation tinh tế.
- *   - Bottom Drawer (Giỏ hàng trượt đáy): Bảng điều khiển chi tiết giỏ hàng trượt lên mượt mà
- *     khi nhấp vào nút giỏ hàng, kết hợp lớp backdrop mờ và blur sang trọng.
+ * Tối ưu hóa hiệu năng (React Performance Optimization):
+ *   - Trích xuất component `CartItemList` ra bên ngoài component chính `MenuItemList`
+ *     để tránh việc tái tạo kiểu (re-create component type) trên mỗi chu kỳ render của component cha.
+ *     Điều này giúp ngăn chặn triệt để hiện tượng DOM teardown & rebuild không cần thiết,
+ *     tối ưu hóa tốc độ phản hồi giao diện đáng kể khi khách thêm/giảm số lượng món ăn.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { ShoppingBag, Plus, Minus, Trash2, Receipt, X, Trash } from 'lucide-react';
 import Image from 'next/image';
 
@@ -58,7 +54,87 @@ interface MenuItemListProps {
 const fmt = (price: string | number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Sub-component (Đã tối ưu: Đưa ra ngoài để tránh re-render DOM) ──────────────
+
+interface CartItemListProps {
+  entries: CartEntry[];
+  showActions?: boolean;
+  onUpdateQty?: (itemId: string, delta: number) => void;
+  onRemove?: (itemId: string) => void;
+}
+
+function CartItemList({ entries, showActions = true, onUpdateQty, onRemove }: CartItemListProps) {
+  if (entries.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
+        <ShoppingBag size={48} strokeWidth={1} className="text-gray-200" />
+        <p className="text-sm font-medium text-gray-400">Giỏ hàng trống</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 overflow-y-auto flex-1 pr-1 scrollbar-hide py-1">
+      {entries.map(({ item, quantity }) => (
+        <div
+          key={item.id}
+          className="flex items-center gap-3 bg-gray-50/80 rounded-xl p-3 border border-gray-100/50 group"
+        >
+          {/* Ảnh thu nhỏ */}
+          <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-orange-50 shrink-0 border border-gray-100">
+            {item.imageUrl ? (
+              <Image src={item.imageUrl} alt={item.name} fill className="object-cover" sizes="48px" />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-amber-100" />
+            )}
+          </div>
+
+          {/* Tên và giá tiền */}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs sm:text-sm font-bold text-gray-800 truncate leading-snug">{item.name}</p>
+            <p className="text-xs text-amber-600 font-bold tabular-nums mt-0.5">
+              {fmt(Number(item.price) * quantity)}
+            </p>
+          </div>
+
+          {/* Nút tăng/giảm và xóa */}
+          {showActions ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => onUpdateQty?.(item.id, -1)}
+                aria-label="Giảm số lượng"
+                className="h-7 w-7 rounded-full bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 transition-colors shadow-sm cursor-pointer"
+              >
+                <Minus size={12} strokeWidth={2.5} />
+              </button>
+              <span className="text-xs sm:text-sm font-extrabold text-gray-900 w-5 text-center tabular-nums">{quantity}</span>
+              <button
+                onClick={() => onUpdateQty?.(item.id, 1)}
+                aria-label="Tăng số lượng"
+                className="h-7 w-7 rounded-full bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center shadow-sm transition-colors cursor-pointer"
+              >
+                <Plus size={12} strokeWidth={2.5} />
+              </button>
+              <button
+                onClick={() => onRemove?.(item.id)}
+                aria-label="Xóa khỏi đơn"
+                className="h-7 w-7 rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 flex items-center justify-center transition-colors ml-1 cursor-pointer"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs font-black text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full tabular-nums shrink-0">
+              Số lượng: {quantity}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Component Chính ──────────────────────────────────────────────────────────
 
 export default function MenuItemList({ initialItems, categories }: MenuItemListProps) {
   // ── Realtime sold-out sync (Lắng nghe sự thay đổi hết món qua Socket.io) ──
@@ -112,16 +188,18 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
     });
   }, [items]);
 
-  const updateQty = (itemId: string, delta: number) =>
+  const updateQty = useCallback((itemId: string, delta: number) => {
     setCart((prev) =>
       prev.map((e) =>
         e.item.id === itemId ? { ...e, quantity: e.quantity + delta } : e
       )
       .filter((e) => e.quantity > 0)
     );
+  }, []);
 
-  const removeFromCart = (itemId: string) =>
+  const removeFromCart = useCallback((itemId: string) => {
     setCart((prev) => prev.filter((e) => e.item.id !== itemId));
+  }, []);
 
   const clearCart = () => setCart([]);
 
@@ -148,67 +226,6 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
     clearCart();
     setMobileCartOpen(true); // Tiếp tục mở để khách tiện quan sát các món đã gọi
   };
-
-  // ── Giao diện danh sách món ăn trong Giỏ hàng (Tái sử dụng) ──
-  const CartItemList = ({ entries, showActions = true }: { entries: CartEntry[]; showActions?: boolean }) => (
-    <div className="space-y-3 overflow-y-auto flex-1 pr-1 scrollbar-hide py-1">
-      {entries.map(({ item, quantity }) => (
-        <div
-          key={item.id}
-          className="flex items-center gap-3 bg-gray-50/80 rounded-xl p-3 border border-gray-100/50 group"
-        >
-          {/* Ảnh thu nhỏ */}
-          <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-orange-50 shrink-0 border border-gray-100">
-            {item.imageUrl ? (
-              <Image src={item.imageUrl} alt={item.name} fill className="object-cover" sizes="48px" />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-amber-100" />
-            )}
-          </div>
-
-          {/* Tên và giá tiền */}
-          <div className="flex-1 min-w-0">
-            <p className="text-xs sm:text-sm font-bold text-gray-800 truncate leading-snug">{item.name}</p>
-            <p className="text-xs text-amber-600 font-bold tabular-nums mt-0.5">
-              {fmt(Number(item.price) * quantity)}
-            </p>
-          </div>
-
-          {/* Nút tăng/giảm và xóa */}
-          {showActions ? (
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => updateQty(item.id, -1)}
-                aria-label="Giảm số lượng"
-                className="h-7 w-7 rounded-full bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 transition-colors shadow-sm cursor-pointer"
-              >
-                <Minus size={12} strokeWidth={2.5} />
-              </button>
-              <span className="text-xs sm:text-sm font-extrabold text-gray-900 w-5 text-center tabular-nums">{quantity}</span>
-              <button
-                onClick={() => updateQty(item.id, 1)}
-                aria-label="Tăng số lượng"
-                className="h-7 w-7 rounded-full bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center shadow-sm transition-colors cursor-pointer"
-              >
-                <Plus size={12} strokeWidth={2.5} />
-              </button>
-              <button
-                onClick={() => removeFromCart(item.id)}
-                aria-label="Xóa khỏi đơn"
-                className="h-7 w-7 rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 flex items-center justify-center transition-colors ml-1 cursor-pointer"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          ) : (
-            <div className="text-xs font-black text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full tabular-nums shrink-0">
-              Số lượng: {quantity}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
 
   return (
     <>
@@ -403,7 +420,12 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             {/* Nội dung danh sách món */}
             <div className="flex-1 overflow-y-auto min-h-0 mb-5 scrollbar-hide">
               {cart.length > 0 ? (
-                <CartItemList entries={cart} showActions={true} />
+                <CartItemList
+                  entries={cart}
+                  showActions={true}
+                  onUpdateQty={updateQty}
+                  onRemove={removeFromCart}
+                />
               ) : lastOrder && lastOrder.length > 0 ? (
                 <div className="space-y-4">
                   <div className="bg-emerald-50 text-emerald-800 text-xs font-semibold p-3 rounded-xl border border-emerald-100 flex items-start gap-2">
@@ -413,13 +435,13 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                       <p className="font-normal opacity-90 mt-0.5">Món ăn sẽ sớm được phục vụ tại bàn của bạn.</p>
                     </div>
                   </div>
-                  <CartItemList entries={lastOrder} showActions={false} />
+                  <CartItemList
+                    entries={lastOrder}
+                    showActions={false}
+                  />
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
-                  <ShoppingBag size={48} strokeWidth={1} className="text-gray-200" />
-                  <p className="text-sm font-medium text-gray-400">Giỏ hàng trống</p>
-                </div>
+                <CartItemList entries={[]} />
               )}
             </div>
 
