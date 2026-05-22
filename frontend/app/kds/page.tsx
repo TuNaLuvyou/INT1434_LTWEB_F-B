@@ -13,8 +13,12 @@ import {
   Activity,
   Layers,
   Archive,
-  RotateCcw
+  RotateCcw,
+  X,
+  Search,
+  Loader2
 } from "lucide-react";
+import { io } from "socket.io-client";
 
 interface KDSItem {
   name: string;
@@ -83,8 +87,126 @@ const INITIAL_ORDERS: KDSOther[] = [
   }
 ];
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface MenuItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: string | number;
+  imageUrl: string | null;
+  categoryId: string;
+  isActive: boolean;
+  isSoldOut: boolean;
+  category?: {
+    name: string;
+  };
+}
+
 export default function KDSPage() {
   const [orders, setOrders] = useState<KDSOther[]>(INITIAL_ORDERS);
+
+  // State quản lý Báo hết món
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [menuLoading, setMenuLoading] = useState(false);
+  const [isMenuDrawerOpen, setIsMenuDrawerOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const fetchMenuItems = async () => {
+    setMenuLoading(true);
+    setFetchError(null);
+    try {
+      const response = await fetch(`${API_URL}/api/menu`);
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setCategories(result.data.categories || []);
+        setMenuItems(result.data.items || []);
+      } else {
+        throw new Error(result.message || "Không thể tải danh sách món ăn");
+      }
+    } catch (err: any) {
+      console.error("[KDS Menu] Lỗi tải thực đơn:", err);
+      setFetchError(err.message || "Không thể kết nối đến máy chủ.");
+    } finally {
+      setMenuLoading(false);
+    }
+  };
+
+  const handleToggleSoldOut = async (itemId: string, currentSoldOut: boolean) => {
+    setUpdatingItems(prev => ({ ...prev, [itemId]: true }));
+    try {
+      const response = await fetch(`${API_URL}/api/admin/menu-items/${itemId}/sold-out`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-mock-role": "KITCHEN",
+        },
+        body: JSON.stringify({ isSoldOut: !currentSoldOut }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Cập nhật trạng thái món thất bại");
+      }
+      
+      setMenuItems(prev =>
+        prev.map(item =>
+          item.id === itemId ? { ...item, isSoldOut: !currentSoldOut } : item
+        )
+      );
+    } catch (err: any) {
+      alert(err.message || "Đã xảy ra lỗi");
+    } finally {
+      setUpdatingItems(prev => ({ ...prev, [itemId]: false }));
+    }
+  };
+
+  // Sync realtime qua socket
+  useEffect(() => {
+    fetchMenuItems();
+
+    const socket = io(API_URL, {
+      transports: ['websocket'],
+      reconnection: true,
+    });
+
+    socket.on('connect', () => {
+      console.log('[KDS Socket] Connected to Socket.io:', socket.id);
+      socket.emit('join:menu-updates');
+    });
+
+    socket.on('menu:soldout', ({ menuItemId, isSoldOut }: { menuItemId: string; isSoldOut: boolean }) => {
+      console.log(`[KDS Socket] Nhận event "menu:soldout": item ${menuItemId} -> isSoldOut=${isSoldOut}`);
+      setMenuItems(prev =>
+        prev.map(item =>
+          item.id === menuItemId ? { ...item, isSoldOut } : item
+        )
+      );
+    });
+
+    return () => {
+      if (socket.connected) {
+        socket.emit('leave:menu-updates');
+      }
+      socket.disconnect();
+    };
+  }, []);
+
+  // Filtered menu items
+  const filteredItems = menuItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === "" || item.categoryId === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   // Simulate active timers updating every second
   useEffect(() => {
@@ -156,6 +278,16 @@ export default function KDSPage() {
           </div>
 
           <div className="flex items-center gap-4">
+            <button 
+              onClick={() => {
+                fetchMenuItems();
+                setIsMenuDrawerOpen(true);
+              }}
+              className="text-xs bg-orange-600/10 border border-orange-500/20 hover:bg-orange-600 hover:text-white px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 text-orange-400 font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+            >
+              <ChefHat className="h-3.5 w-3.5 animate-pulse" />
+              Báo Hết Món
+            </button>
             <button 
               onClick={resetDemo}
               className="text-xs bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-zinc-300 font-medium transition-colors"
@@ -379,6 +511,194 @@ export default function KDSPage() {
                 <p className="text-xs font-light">Không có đơn hàng nào sẵn sàng trả khách.</p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Sliding Drawer Báo Hết Món */}
+        <div 
+          className={`fixed inset-0 z-50 overflow-hidden transition-all duration-300 ${
+            isMenuDrawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          {/* Backdrop */}
+          <div 
+            onClick={() => setIsMenuDrawerOpen(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300"
+          />
+
+          <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
+            <div 
+              className={`w-screen max-w-md transform transition-transform duration-300 ease-out bg-zinc-950 border-l border-zinc-900 flex flex-col shadow-2xl relative ${
+                isMenuDrawerOpen ? "translate-x-0" : "translate-x-full"
+              }`}
+            >
+              {/* Glow effects inside Drawer */}
+              <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-orange-600/5 blur-[80px] pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-amber-600/5 blur-[80px] pointer-events-none" />
+
+              {/* Header Drawer */}
+              <div className="px-6 py-5 border-b border-zinc-900 bg-zinc-900/20 flex items-center justify-between shrink-0 relative z-10">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400">
+                    <ChefHat className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-white">Quản lý Hết món</h3>
+                    <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">Bếp trưởng báo hết / còn món realtime</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsMenuDrawerOpen(false)}
+                  className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer transition-colors"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
+              </div>
+
+              {/* Bộ lọc & Tìm kiếm nhanh */}
+              <div className="p-4 border-b border-zinc-900 bg-zinc-950 space-y-3 shrink-0 relative z-10">
+                {/* Tìm kiếm */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 h-4 w-4" />
+                  <input 
+                    type="text"
+                    placeholder="Tìm tên món ăn..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-800 text-xs font-semibold rounded-xl focus:outline-none focus:border-orange-500/40 transition-all text-zinc-100 placeholder-zinc-500 shadow-inner"
+                  />
+                </div>
+
+                {/* Tabs Danh mục */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  <button
+                    onClick={() => setSelectedCategory("")}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-wider uppercase whitespace-nowrap border transition-all cursor-pointer ${
+                      selectedCategory === ""
+                        ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
+                        : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                  {categories.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-wider uppercase whitespace-nowrap border transition-all cursor-pointer ${
+                        selectedCategory === cat.id
+                          ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
+                          : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* List Món ăn */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 relative z-10 scrollbar-thin">
+                {menuLoading ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-zinc-400">
+                    <Loader2 className="animate-spin text-orange-500 h-8 w-8 mb-3" />
+                    <p className="text-xs font-semibold">Đang tải danh sách thực đơn...</p>
+                  </div>
+                ) : fetchError ? (
+                  <div className="text-center py-10 px-4 border border-red-900/20 bg-red-950/5 rounded-2xl">
+                    <p className="text-xs font-black text-red-400">Lỗi: {fetchError}</p>
+                    <button 
+                      onClick={fetchMenuItems}
+                      className="mt-3 px-4 py-1.5 bg-red-650 hover:bg-red-500 text-white text-[10px] font-bold rounded-lg transition-all"
+                    >
+                      Thử lại
+                    </button>
+                  </div>
+                ) : filteredItems.length === 0 ? (
+                  <div className="text-center py-20 text-zinc-500">
+                    <p className="text-xs font-light">Không tìm thấy món ăn nào.</p>
+                  </div>
+                ) : (
+                  filteredItems.map(item => {
+                    const isUpdating = !!updatingItems[item.id];
+                    return (
+                      <div 
+                        key={item.id}
+                        className={`flex items-center justify-between p-3 rounded-2xl border transition-all duration-300 ${
+                          item.isSoldOut 
+                            ? "bg-zinc-900/30 border-red-950/20 opacity-70"
+                            : "bg-zinc-900/60 border-zinc-900/80 hover:border-zinc-800"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Image */}
+                          <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-zinc-950 border border-zinc-800/80 shrink-0">
+                            <img 
+                              src={item.imageUrl || "/placeholder-food.svg"} 
+                              alt={item.name}
+                              className="object-cover w-full h-full"
+                            />
+                            {item.isSoldOut && (
+                              <div className="absolute inset-0 bg-red-500/10 flex items-center justify-center">
+                                <span className="text-[7px] font-black text-white bg-red-600 px-1 py-0.5 rounded leading-none uppercase">Hết</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Info */}
+                          <div>
+                            <h4 className={`text-xs font-bold text-zinc-100 line-clamp-1 ${item.isSoldOut ? "line-through text-zinc-500" : ""}`}>
+                              {item.name}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-black text-orange-400">
+                                {new Intl.NumberFormat("vi-VN", {
+                                  style: "currency",
+                                  currency: "VND"
+                                }).format(Number(item.price))}
+                              </span>
+                              {item.category?.name && (
+                                <span className="text-[8px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded font-bold">
+                                  {item.category.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Toggle Switch */}
+                        <div className="flex items-center">
+                          <button
+                            disabled={isUpdating}
+                            onClick={() => handleToggleSoldOut(item.id, item.isSoldOut)}
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
+                              item.isSoldOut ? "bg-red-600" : "bg-zinc-700"
+                            }`}
+                          >
+                            <span 
+                              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out flex items-center justify-center ${
+                                item.isSoldOut ? "translate-x-5" : "translate-x-0"
+                              }`}
+                            >
+                              {isUpdating && (
+                                <Loader2 className="animate-spin text-orange-500 h-3 w-3" />
+                              )}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Footer Drawer */}
+              <div className="p-4 border-t border-zinc-900 bg-zinc-900/10 shrink-0 text-center relative z-10">
+                <span className="text-[9px] text-zinc-500 font-medium">
+                  * Trạng thái hết món sẽ tự động gửi đi realtime qua WebSocket.
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
