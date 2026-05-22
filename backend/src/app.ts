@@ -1,7 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
+import cookieParser from 'cookie-parser';
 import 'dotenv/config';
+import authRoutes from './routes/auth.routes';
 import menuRoutes from './routes/menu.routes';
 import adminMenuRoutes from './routes/admin.menu.routes';
 import soldOutRoutes from './routes/sold-out.routes';
@@ -17,8 +19,10 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 // Đăng ký routes
+app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/tables', tableRoutes);
 
