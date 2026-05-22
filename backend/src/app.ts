@@ -5,6 +5,7 @@ import 'dotenv/config';
 import menuRoutes from './routes/menu.routes';
 import adminMenuRoutes from './routes/admin.menu.routes';
 import soldOutRoutes from './routes/sold-out.routes';
+import tableRoutes from './routes/table.routes';
 import { initSocket } from './socket';
 
 const app = express();
@@ -19,6 +20,7 @@ app.use(express.json());
 
 // Đăng ký routes
 app.use('/api/menu', menuRoutes);
+app.use('/api/tables', tableRoutes);
 
 // Đăng ký route sold-out TRƯỚC để nó bắt lấy request PATCH /:id/sold-out
 // và xử lý quyền hạn cho cả KITCHEN, tránh bị chặn bởi adminMenuRoutes ở dưới.
