@@ -1,29 +1,50 @@
 import express from 'express';
 import cors from 'cors';
+import http from 'http';
 import 'dotenv/config';
 import menuRoutes from './routes/menu.routes';
 import adminMenuRoutes from './routes/admin.menu.routes';
+import soldOutRoutes from './routes/sold-out.routes';
+import { initSocket } from './socket';
 
 const app = express();
-const PORT = process.env.PORT || 5000; // Cổng chạy mặc định là 5000 hoặc PORT từ .env
+const PORT = process.env.PORT || 5000;
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+}));
 app.use(express.json());
 
-// Đăng ký route GET /api/menu
+// Đăng ký routes
 app.use('/api/menu', menuRoutes);
 
-// Đăng ký route quản lý admin
+// Đăng ký route sold-out TRƯỚC để nó bắt lấy request PATCH /:id/sold-out
+// và xử lý quyền hạn cho cả KITCHEN, tránh bị chặn bởi adminMenuRoutes ở dưới.
+app.use('/api/admin/menu-items', soldOutRoutes);
+
+// Đăng ký route quản lý admin (yêu cầu ADMIN/MANAGER cho các thao tác CRUD)
 app.use('/api/admin/menu-items', adminMenuRoutes);
-// Route mặc định kiểm tra server
+
+// Route kiểm tra server
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'RestoFlow POS Backend API is running!' });
 });
 
-// Khởi chạy server
-app.listen(PORT, () => {
+// ─── QUAN TRỌNG: Tạo HTTP server thủ công để Socket.io có thể attach vào ───
+// Nếu dùng app.listen() trực tiếp thì Socket.io không thể share cùng port.
+// Thay vào đó: http.createServer(app) -> server.listen(PORT)
+// Socket.io attach vào cùng http server -> cùng port, không cần mở thêm port mới.
+const httpServer = http.createServer(app);
+
+// Khởi tạo Socket.io SAU KHI tạo httpServer
+initSocket(httpServer);
+
+// Khởi chạy server qua httpServer thay vì app.listen
+httpServer.listen(PORT, () => {
   console.log(`🚀 Server RestoFlow đang chạy tại: http://localhost:${PORT}`);
+  console.log(`🔌 Socket.io sẵn sàng trên cùng port ${PORT}`);
 });
 
 export default app;
