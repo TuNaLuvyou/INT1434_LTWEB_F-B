@@ -10,7 +10,9 @@ import {
   Activity, 
   Clock, 
   TrendingUp, 
-  Layers 
+  Layers,
+  Utensils,
+  Table
 } from "lucide-react";
 
 export default function Home() {
@@ -43,11 +45,11 @@ export default function Home() {
       metrics: { label: "Doanh thu hôm nay", value: "+24.5%" }
     },
     {
-      title: "Digital Menu",
-      description: "Thực đơn điện tử dành cho khách hàng. Trải nghiệm gọi món hiện đại, phân loại danh mục, tìm kiếm nhanh và giỏ hàng nổi.",
-      href: "/menu",
-      icon: BookOpen,
-      color: "from-emerald-500 to-teal-600",
+      title: "Table",
+      description: "Danh sách các bàn trong nhà hàng — giao diện nội bộ (quản lý, POS, KDS).",
+      href: "/table",
+      icon: Table,
+      color: "from-emerald-700 to-emerald-500",
       accent: "emerald",
       metrics: { label: "Món ăn có sẵn", value: "48 Món" }
     }
@@ -121,7 +123,7 @@ export default function Home() {
                 <div className="flex items-start justify-between">
                   <div className={`h-12 w-12 rounded-2xl bg-gradient-to-tr ${app.color} p-0.5 flex items-center justify-center shadow-lg shadow-indigo-500/5`}>
                     <div className="h-full w-full rounded-[14px] bg-zinc-950 flex items-center justify-center">
-                      <IconComponent className="h-5 w-5 text-zinc-100 group-hover:text-white transition-colors duration-300" />
+                      <IconComponent className={`h-5 w-5 ${app.accent === 'emerald' ? 'text-emerald-300 group-hover:text-white' : 'text-zinc-100 group-hover:text-white'} transition-colors duration-300`} />
                     </div>
                   </div>
 
