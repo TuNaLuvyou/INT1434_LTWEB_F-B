@@ -168,7 +168,16 @@ export default function POSPage() {
             {filteredItems.map(item => (
               <div 
                 key={item.id} 
-                className="group relative flex flex-col justify-between bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 hover:border-zinc-800 transition-all duration-300 hover:translate-y-[-2px] overflow-hidden"
+                role="button"
+                tabIndex={0}
+                onClick={() => addToCart(item)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    addToCart(item);
+                  }
+                }}
+                className="group relative flex flex-col justify-between bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 hover:border-zinc-800 transition-all duration-300 hover:translate-y-[-2px] overflow-hidden cursor-pointer"
               >
                 {/* Accent Background Glow */}
                 <div className={`absolute -right-12 -top-12 h-24 w-24 rounded-full bg-gradient-to-tr ${item.bgColor} opacity-[0.02] blur-xl transition-all duration-300 group-hover:opacity-[0.08]`} />
@@ -195,12 +204,6 @@ export default function POSPage() {
                   <span className="font-mono font-bold text-sm text-zinc-100">
                     {formatCurrency(item.price)}
                   </span>
-                  <button 
-                    onClick={() => addToCart(item)}
-                    className="h-8 w-8 rounded-lg bg-blue-600/10 hover:bg-blue-600 border border-blue-500/20 text-blue-400 hover:text-white flex items-center justify-center transition-all duration-300 hover:scale-105"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
                 </div>
               </div>
             ))}
@@ -212,96 +215,128 @@ export default function POSPage() {
           </div>
         </div>
 
-        {/* Right Section: Sidebar Cart */}
-        <div className="w-full lg:w-96 bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 flex flex-col justify-between max-h-[calc(100vh-100px)] relative overflow-hidden">
-          <div className="flex items-center gap-2 pb-4 border-b border-zinc-900">
-            <ShoppingBag className="h-5 w-5 text-blue-500" />
-            <h2 className="font-bold text-white text-base">Đơn hàng hiện tại</h2>
-            <span className="ml-auto font-mono text-xs px-2 py-0.5 rounded bg-zinc-950 text-zinc-400 border border-zinc-800">
+        {/* Right Section: Cart Panel — LUÔN HIỂN THỊ */}
+        <aside
+          aria-label="Đơn hàng hiện tại"
+          className="w-full lg:w-96 shrink-0 flex flex-col bg-zinc-900/50 border border-zinc-800/60 rounded-3xl overflow-hidden"
+          style={{ maxHeight: 'calc(100vh - 100px)', position: 'sticky', top: '80px' }}
+        >
+          {/* Header */}
+          <div className="flex items-center gap-2.5 px-5 py-4 border-b border-zinc-800/60 bg-zinc-900/60 shrink-0">
+            <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <ShoppingBag className="h-4 w-4 text-blue-400" />
+            </div>
+            <h2 className="font-bold text-white text-sm flex-1">Đơn hàng hiện tại</h2>
+            <span className={`font-mono text-xs px-2.5 py-1 rounded-full font-bold border ${
+              cart.length > 0
+                ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                : 'bg-zinc-950 text-zinc-500 border-zinc-800'
+            }`}>
               {cart.reduce((sum, item) => sum + item.quantity, 0)} món
             </span>
           </div>
 
-          {/* Cart Items List */}
-          <div className="flex-1 overflow-y-auto py-4 space-y-4 my-2 pr-1" style={{ minHeight: "220px" }}>
-            {cart.map(cartItem => (
-              <div key={cartItem.item.id} className="flex gap-3 bg-zinc-950/40 p-3 rounded-xl border border-zinc-900/60 group">
-                <div className={`h-10 w-10 shrink-0 rounded-lg bg-gradient-to-tr ${cartItem.item.bgColor} flex items-center justify-center text-lg`}>
-                  {cartItem.item.emoji}
-                </div>
-                <div className="flex-1 min-w-0 flex flex-col justify-between">
-                  <div className="flex justify-between items-start gap-1">
-                    <span className="font-semibold text-xs text-white truncate block">{cartItem.item.name}</span>
-                    <button 
-                      onClick={() => removeFromCart(cartItem.item.id)}
-                      className="text-zinc-600 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+          {/* Cart Items — scrollable */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 min-h-0">
+            {cart.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center text-zinc-600 py-14 gap-3">
+                <ShoppingBag className="h-10 w-10 stroke-[1]" />
+                <p className="text-xs font-light max-w-[160px] leading-relaxed">
+                  Chưa có món nào. Chọn món từ thực đơn bên trái.
+                </p>
+              </div>
+            ) : (
+              cart.map(cartItem => (
+                <div
+                  key={cartItem.item.id}
+                  className="flex gap-3 bg-zinc-950/50 p-3 rounded-2xl border border-zinc-800/50 group hover:border-zinc-700/60 transition-colors"
+                >
+                  <div className={`h-10 w-10 shrink-0 rounded-xl bg-gradient-to-tr ${cartItem.item.bgColor} flex items-center justify-center text-lg shadow-sm`}>
+                    {cartItem.item.emoji}
                   </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="font-mono text-[11px] text-zinc-400">
-                      {formatCurrency(cartItem.item.price * cartItem.quantity)}
-                    </span>
-                    <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5">
-                      <button 
-                        onClick={() => updateQuantity(cartItem.item.id, -1)}
-                        className="h-5 w-5 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 flex items-center justify-center"
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start gap-1">
+                      <span className="font-semibold text-xs text-zinc-100 truncate block">{cartItem.item.name}</span>
+                      <button
+                        onClick={() => removeFromCart(cartItem.item.id)}
+                        aria-label={`Xóa ${cartItem.item.name}`}
+                        className="text-zinc-700 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
                       >
-                        <Minus className="h-3 w-3" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
-                      <span className="font-mono text-xs text-white min-w-4 text-center">{cartItem.quantity}</span>
-                      <button 
-                        onClick={() => updateQuantity(cartItem.item.id, 1)}
-                        className="h-5 w-5 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 flex items-center justify-center"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="font-mono text-[11px] text-blue-400 font-bold">
+                        {formatCurrency(cartItem.item.price * cartItem.quantity)}
+                      </span>
+                      <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5">
+                        <button
+                          onClick={() => updateQuantity(cartItem.item.id, -1)}
+                          aria-label="Giảm số lượng"
+                          className="h-5 w-5 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition-colors"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="font-mono text-xs text-white min-w-[18px] text-center tabular-nums">{cartItem.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(cartItem.item.id, 1)}
+                          aria-label="Tăng số lượng"
+                          className="h-5 w-5 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition-colors"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-            {cart.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-center text-zinc-600 py-16 gap-3">
-                <ShoppingBag className="h-8 w-8 stroke-[1.2]" />
-                <p className="text-xs font-light max-w-[180px]">Giỏ hàng trống. Hãy chọn món ăn bên trái để bắt đầu tạo đơn hàng.</p>
-              </div>
+              ))
             )}
           </div>
 
-          {/* Pricing Calculation Summary */}
-          <div className="border-t border-zinc-900 pt-4 space-y-2.5">
-            <div className="flex justify-between text-xs text-zinc-400">
-              <span>Tạm tính</span>
-              <span className="font-mono text-zinc-200">{formatCurrency(getSubtotal())}</span>
+          {/* Footer: total + CTA */}
+          <div className="shrink-0 border-t border-zinc-800/60 px-5 py-4 space-y-3 bg-zinc-900/40">
+            {/* Summary rows */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs text-zinc-500">
+                <span>Tạm tính</span>
+                <span className="font-mono text-zinc-300 tabular-nums">{formatCurrency(getSubtotal())}</span>
+              </div>
+              <div className="flex justify-between text-xs text-zinc-500">
+                <span>Thuế VAT (10%)</span>
+                <span className="font-mono text-zinc-300 tabular-nums">{formatCurrency(getTax())}</span>
+              </div>
             </div>
-            <div className="flex justify-between text-xs text-zinc-400">
-              <span>Thuế VAT (10%)</span>
-              <span className="font-mono text-zinc-200">{formatCurrency(getTax())}</span>
-            </div>
-            <div className="flex justify-between text-sm font-bold text-white pt-2 border-t border-dashed border-zinc-900">
-              <span className="flex items-center gap-1">
+
+            {/* Total */}
+            <div className="flex justify-between items-center pt-2 border-t border-dashed border-zinc-800">
+              <span className="text-sm font-bold text-white flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-blue-400" />
                 Tổng hóa đơn
               </span>
-              <span className="font-mono text-blue-400 text-base">{formatCurrency(getTotal())}</span>
+              <span className="font-mono font-extrabold text-lg text-blue-400 tabular-nums">
+                {formatCurrency(getTotal())}
+              </span>
             </div>
 
-            <button 
+            {/* CTA */}
+            <button
               onClick={handleCheckout}
               disabled={cart.length === 0}
-              className={`w-full mt-4 h-11 rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
-                cart.length > 0
-                  ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-lg shadow-blue-500/20 scale-[1.01] active:scale-95 cursor-pointer"
-                  : "bg-zinc-900 border border-zinc-800 text-zinc-600 cursor-not-allowed"
-              }`}
+              className={`
+                w-full h-12 rounded-2xl font-bold text-sm
+                flex items-center justify-center gap-2
+                transition-all duration-150
+                ${cart.length > 0
+                  ? 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-lg shadow-blue-500/20 active:scale-[0.98] cursor-pointer'
+                  : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                }
+              `}
             >
-              <CreditCard className="h-4 w-4" />
-              Thanh toán & Gửi đến bếp
+              <CreditCard className="h-4.5 w-4.5" />
+              {cart.length > 0 ? 'Thanh toán & Gửi bếp' : 'Chưa có món nào'}
             </button>
           </div>
-        </div>
+        </aside>
       </div>
 
       {/* Checkout Success Modal */}
