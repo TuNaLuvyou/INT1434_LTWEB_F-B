@@ -10,7 +10,7 @@ router.patch(
   '/:id/sold-out',
   authMiddleware,
   requireRole(['ADMIN', 'MANAGER', 'KITCHEN']),
-  updateSoldOut
+  updateSoldOut as any
 );
 
 export default router;

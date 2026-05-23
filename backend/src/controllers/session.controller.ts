@@ -35,7 +35,7 @@ export async function joinSession(req: Request, res: Response): Promise<void> {
  */
 export async function getSession(req: Request, res: Response): Promise<void> {
   try {
-    const { sessionId } = req.params;
+    const { sessionId } = req.params as { sessionId: string };
 
     const session = await sessionService.getSessionById(sessionId);
     const { orderItems, ...sessionMeta } = session as any;
@@ -56,7 +56,7 @@ export async function getSession(req: Request, res: Response): Promise<void> {
  */
 export async function getActiveSession(req: Request, res: Response): Promise<void> {
   try {
-    const { tableId } = req.params;
+    const { tableId } = req.params as { tableId: string };
 
     const session = await sessionService.getActiveSessionByTableId(tableId);
     const { orderItems, ...sessionMeta } = session as any;
@@ -77,7 +77,7 @@ export async function getActiveSession(req: Request, res: Response): Promise<voi
  */
 export async function updateSessionStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
-    const { sessionId } = req.params;
+    const { sessionId } = req.params as { sessionId: string };
     const { status } = req.body as { status?: string };
 
     if (!status || !['PAID', 'CANCELLED'].includes(status)) {
