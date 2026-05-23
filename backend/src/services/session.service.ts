@@ -1,6 +1,6 @@
 import prisma from '../config/prisma';
-import { getIO } from '../socket';
-import { SessionStatus, TableStatus } from '@prisma/client';
+import { SessionStatus } from '@prisma/client';
+import { emitTableStatusChanged, emitSessionClosed } from '../socket/emit.helpers';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -103,16 +103,11 @@ export async function joinOrCreateSession(tableId: string): Promise<{
     }),
   ]);
 
-  // 4. Emit socket event tới floor-plan (F4)
-  try {
-    const io = getIO();
-    io.to('floor-plan').emit('table:status-changed', {
-      tableId,
-      status: 'OCCUPIED' satisfies TableStatus,
-    });
-  } catch {
-    // Socket chưa init (test environment) — bỏ qua
-  }
+  // 4. Emit socket event tới floor-plan (F4) bằng emit helpers mới
+  emitTableStatusChanged({
+    tableId,
+    status: 'OCCUPIED',
+  });
 
   return { session: newSession as unknown as SessionWithItems, isNew: true };
 }
@@ -156,7 +151,7 @@ export async function getActiveSessionByTableId(tableId: string): Promise<Sessio
 /**
  * Cập nhật trạng thái session (PAID | CANCELLED).
  * Chỉ cho phép đóng session đang OPEN.
- * Emit socket events cho floor-plan và table room.
+ * Emit socket events cho floor-plan và table room bằng emit helpers mới.
  */
 export async function updateSessionStatus(
   sessionId: string,
@@ -197,24 +192,18 @@ export async function updateSessionStatus(
     }),
   ]);
 
-  // 4. Emit socket events
-  try {
-    const io = getIO();
+  // 4. Emit socket events bằng emit helpers mới
+  emitTableStatusChanged({
+    tableId: session.tableId,
+    status: 'AVAILABLE',
+  });
 
-    // Notify floor-plan để cập nhật sơ đồ bàn
-    io.to('floor-plan').emit('table:status-changed', {
-      tableId: session.tableId,
-      status: 'AVAILABLE' satisfies TableStatus,
-    });
-
-    // Notify khách hàng đang ngồi tại bàn (trang menu của họ)
-    io.to(`table:${session.tableId}`).emit('session:closed', {
-      sessionId,
-      status: newStatus,
-    });
-  } catch {
-    // Socket chưa init — bỏ qua
-  }
+  emitSessionClosed(session.tableId, {
+    sessionId,
+    tableId: session.tableId,
+    status: newStatus,
+    closedAt: new Date().toISOString(),
+  });
 
   return updatedSession as unknown as SessionWithItems;
 }
