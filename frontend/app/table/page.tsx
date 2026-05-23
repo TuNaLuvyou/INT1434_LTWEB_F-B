@@ -14,6 +14,7 @@ import {
   QrCode,
   Flame,
   ArrowLeft,
+  Loader2,
   Table as TableIcon
 } from "lucide-react";
 
@@ -33,6 +34,32 @@ export default function TableSelectionInternalPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const updateTableStatus = async (tableId: string, newStatus: "AVAILABLE" | "OCCUPIED" | "RESERVED") => {
+    setUpdatingId(tableId);
+    try {
+      const res = await fetch(`${API_URL}/api/tables/${tableId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error("Cập nhật trạng thái thất bại.");
+      const result = await res.json();
+      if (result.success && result.data) {
+        setTables(prev => prev.map(t => t.id === tableId ? { ...t, status: newStatus } : t));
+      } else {
+        throw new Error(result.message || "Cập nhật thất bại.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Không thể cập nhật trạng thái bàn.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   const fetchTables = async () => {
     setLoading(true);
@@ -288,9 +315,46 @@ export default function TableSelectionInternalPage() {
                     </h3>
                   </div>
 
-                  <div className="mt-6 relative z-10">
+                  {/* Status Toggle Buttons */}
+                  <div className="mt-4 pt-4 border-t border-zinc-900/50 flex gap-2 relative z-10">
+                    <button
+                      onClick={() => updateTableStatus(table.id, "OCCUPIED")}
+                      disabled={updatingId === table.id || table.status === "OCCUPIED"}
+                      className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                        table.status === "OCCUPIED"
+                          ? "bg-orange-600/90 text-white shadow-md shadow-orange-950/20"
+                          : "bg-zinc-950/40 text-zinc-400 hover:text-orange-300 hover:bg-orange-950/20 border border-zinc-900"
+                      }`}
+                    >
+                      {updatingId === table.id && table.status !== "OCCUPIED" ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Users className="h-3 w-3" />
+                      )}
+                      Có khách
+                    </button>
+
+                    <button
+                      onClick={() => updateTableStatus(table.id, "AVAILABLE")}
+                      disabled={updatingId === table.id || table.status === "AVAILABLE"}
+                      className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                        table.status === "AVAILABLE"
+                          ? "bg-emerald-600/90 text-white shadow-md shadow-emerald-950/20"
+                          : "bg-zinc-950/40 text-zinc-400 hover:text-emerald-300 hover:bg-emerald-950/20 border border-zinc-900"
+                      }`}
+                    >
+                      {updatingId === table.id && table.status !== "AVAILABLE" ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-3 w-3" />
+                      )}
+                      Đang trống
+                    </button>
+                  </div>
+
+                  <div className="mt-4 relative z-10">
                     <Link
-                      href={`/table/${table.id}`}
+                      href="/table/1"
                       className="w-full h-10 rounded-xl bg-zinc-950/30 border border-zinc-800 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white hover:shadow-md flex items-center justify-center gap-1.5 text-xs font-bold text-gray-200 transition-all cursor-pointer"
                     >
                       Vào thực đơn
