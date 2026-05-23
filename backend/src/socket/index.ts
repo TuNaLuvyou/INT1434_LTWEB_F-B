@@ -43,6 +43,32 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       console.log(`[Socket.io] Socket ${socket.id} đã leave room "menu-updates"`);
     });
 
+    // ─── Floor-plan room (F4 — sơ đồ bàn) ───────────────────────────────────
+    // Staff/cashier screen join room này để nhận real-time table status updates
+    socket.on('join:floor-plan', () => {
+      socket.join('floor-plan');
+      console.log(`[Socket.io] Socket ${socket.id} đã join room "floor-plan"`);
+    });
+
+    socket.on('leave:floor-plan', () => {
+      socket.leave('floor-plan');
+      console.log(`[Socket.io] Socket ${socket.id} đã leave room "floor-plan"`);
+    });
+
+    // ─── Table room (khách hàng tại bàn cụ thể) ──────────────────────────────
+    // Trang /menu/[tableId] join room "table:[tableId]" để nhận "session:closed"
+    socket.on('join:table', (tableId: string) => {
+      const room = `table:${tableId}`;
+      socket.join(room);
+      console.log(`[Socket.io] Socket ${socket.id} đã join room "${room}"`);
+    });
+
+    socket.on('leave:table', (tableId: string) => {
+      const room = `table:${tableId}`;
+      socket.leave(room);
+      console.log(`[Socket.io] Socket ${socket.id} đã leave room "${room}"`);
+    });
+
     socket.on('disconnect', (reason) => {
       console.log(`[Socket.io] Client ngắt kết nối: ${socket.id} | Lý do: ${reason}`);
     });
