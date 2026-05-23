@@ -21,8 +21,7 @@ router.post('/join', joinSession);
 /**
  * GET /api/sessions/table/:tableId/active
  * Lấy session OPEN của bàn — màn hình cashier.
- * ⚠️ Phải đặt TRƯỚC route /:sessionId để tránh Express khớp nhầm
- *    "table" vào param :sessionId.
+ * Phải đặt TRƯỚC route /:sessionId để tránh Express khớp nhầm "table" vào :sessionId.
  */
 router.get('/table/:tableId/active', getActiveSession);
 
