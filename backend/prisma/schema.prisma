@@ -74,6 +74,7 @@ model TableSession {
   tableId    String
   table      Table         @relation(fields: [tableId], references: [id])
   status     SessionStatus
+  version    Int           @default(0) // optimistic lock — dùng cho commit 4
   openedAt   DateTime      @default(now())
   closedAt   DateTime?
   orderItems OrderItem[]
