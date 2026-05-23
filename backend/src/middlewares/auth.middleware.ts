@@ -9,7 +9,6 @@ export interface AuthenticatedRequest extends Request {
     role: Role;
   };
 }
-
 export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
   try {
     const authHeader = req.headers.authorization;
