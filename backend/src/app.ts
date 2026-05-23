@@ -9,6 +9,10 @@ import adminMenuRoutes from './routes/admin.menu.routes';
 import soldOutRoutes from './routes/sold-out.routes';
 import tableRoutes from './routes/table.routes';
 import sessionRoutes from './routes/session.routes';
+import ingredientRoutes from './routes/ingredient.routes';
+import deviceRoutes from './routes/device.routes';
+import attendanceRoutes from './routes/attendance.routes';
+import scheduleRoutes from './routes/schedule.routes';
 import { initSocket } from './socket';
 
 const app = express();
@@ -27,6 +31,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/tables', tableRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/ingredients', ingredientRoutes);
+app.use('/api/inventory', ingredientRoutes); // alias for /logs sub-route
+app.use('/api/devices', deviceRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/schedules', scheduleRoutes);
 
 // Đăng ký route sold-out TRƯỚC để nó bắt lấy request PATCH /:id/sold-out
 // và xử lý quyền hạn cho cả KITCHEN, tránh bị chặn bởi adminMenuRoutes ở dưới.
