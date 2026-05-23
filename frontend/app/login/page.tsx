@@ -27,6 +27,12 @@ export default async function LoginPage({
       
       if (redirectUrl) {
         redirect(redirectUrl);
+      } else if (role === 'ADMIN' || role === 'MANAGER') {
+        redirect('/admin/dashboard');
+      } else if (role === 'STAFF') {
+        redirect('/pos');
+      } else if (role === 'KITCHEN') {
+        redirect('/kds');
       } else {
         redirect('/');
       }
