@@ -70,7 +70,7 @@ export const createMenuItem = async (req: AuthenticatedRequest, res: Response) =
       // Nếu có ảnh đã tải lên Cloudinary bằng Multer, cần rollback xóa đi
       if (req.file) {
         uploadedImageUrl = req.file.path;
-        const publicId = getPublicIdFromUrl(uploadedImageUrl);
+        const publicId = getPublicIdFromUrl(uploadedImageUrl!);
         if (publicId) await cloudinary.uploader.destroy(publicId);
       }
       return res.status(400).json({ success: false, message: 'Vui lòng cung cấp đầy đủ thông tin: Tên, Giá và Danh mục' });
@@ -84,7 +84,7 @@ export const createMenuItem = async (req: AuthenticatedRequest, res: Response) =
     if (!categoryExists) {
       if (req.file) {
         uploadedImageUrl = req.file.path;
-        const publicId = getPublicIdFromUrl(uploadedImageUrl);
+        const publicId = getPublicIdFromUrl(uploadedImageUrl!);
         if (publicId) await cloudinary.uploader.destroy(publicId);
       }
       return res.status(400).json({ success: false, message: 'Danh mục món ăn không tồn tại' });

@@ -14,9 +14,9 @@ const router = Router();
 router.use(authMiddleware);
 router.use(requireRole(['ADMIN', 'MANAGER']));
 
-router.get('/', getAdminMenuItems);
-router.post('/', upload.single('image'), createMenuItem);
-router.put('/:id', upload.single('image'), updateMenuItem);
-router.delete('/:id', deleteMenuItem);
+router.get('/', getAdminMenuItems as any);
+router.post('/', upload.single('image'), createMenuItem as any);
+router.put('/:id', upload.single('image'), updateMenuItem as any);
+router.delete('/:id', deleteMenuItem as any);
 
 export default router;

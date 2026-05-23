@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const { path, type } = body as { path?: string; type?: 'page' | 'layout' };
 
     // Revalidate path cụ thể được yêu cầu, hoặc mặc định là trang menu
-    const targetPath = path || '/menu/[tableId]';
+    const targetPath = path || '/table/[tableId]';
     const targetType = type || 'page';
 
     revalidatePath(targetPath, targetType);
