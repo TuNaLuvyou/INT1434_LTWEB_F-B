@@ -1,26 +1,16 @@
 'use client';
 
-/**
- * MenuItemList — Client Component chính quản lý luồng hiển thị thực đơn và giỏ hàng.
- *
- * Tái cấu trúc giao diện (Pure UI Commit):
- *   - Layout: Chuyển đổi thành layout tập trung `max-w-2xl mx-auto px-4 py-6`.
- *   - Grid MenuCard: Hiển thị 1 cột trên mobile, 2 cột trên sm+, không dùng 3 cột.
- *   - Cuộn theo danh mục: Áp dụng `category-${cat.slug}` làm ID phần và tự động cuộn chuẩn xác
- *     với độ lệch bù (offset) 80px để không bị che khuất bởi thanh CategoryFilter sticky.
- *   - Giỏ hàng nổi (Floating Cart Button): Xuất hiện sinh động ở góc dưới bên phải (`fixed bottom-6 right-6`)
- *     khi có món trong giỏ hàng. Hiển thị số lượng món ăn dạng badge và tổng tiền với animation tinh tế.
- *   - Bottom Drawer (Giỏ hàng trượt đáy): Bảng điều khiển chi tiết giỏ hàng trượt lên mượt mà
- *     khi nhấp vào nút giỏ hàng, kết hợp lớp backdrop mờ và blur sang trọng.
- */
-
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { ShoppingBag, Plus, Minus, Trash2, Receipt, X, Trash } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, Trash2, Receipt, X, Trash, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
+import { useParams, useRouter } from 'next/navigation';
 
-import MenuCard, { MenuCardItem, Decimal } from '@/components/MenuCard';
+import MenuCard, { MenuCardItem } from '@/components/MenuCard';
 import CategoryFilter from '@/components/CategoryFilter';
 import { useMenuSoldOut } from '../hooks/useMenuSoldOut';
+import { useCartStore, CartItem } from '@/stores/cart.store';
+import { submitOrder } from '@/app/actions/order.actions';
+import { useCartSync } from '@/hooks/useCartSync';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,11 +33,6 @@ export interface MenuItemForDisplay {
   [key: string]: unknown;
 }
 
-interface CartEntry {
-  item: MenuItemForDisplay;
-  quantity: number;
-}
-
 interface MenuItemListProps {
   initialItems: MenuItemForDisplay[];
   categories: CategoryInfo[];
@@ -61,15 +46,83 @@ const fmt = (price: string | number) =>
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function MenuItemList({ initialItems, categories }: MenuItemListProps) {
+  const params = useParams();
+  const router = useRouter();
+  const tableNumber = params?.tableId as string;
+
   // ── Realtime sold-out sync (Lắng nghe sự thay đổi hết món qua Socket.io) ──
   const { items: rawItems, isConnected } = useMenuSoldOut(initialItems);
   const items = rawItems as MenuItemForDisplay[];
 
+  // ── Zustand Store State & Actions ──
+  const cartItems = useCartStore((s) => s.items);
+  const sessionId = useCartStore((s) => s.sessionId);
+  const sessionTableId = useCartStore((s) => s.tableId);
+  const isSubmitting = useCartStore((s) => s.isSubmitting);
+  const submitError = useCartStore((s) => s.submitError);
+
+  const initSession = useCartStore((s) => s.initSession);
+  const addItem = useCartStore((s) => s.addItem);
+  const updateQty = useCartStore((s) => s.updateQty);
+  const updateNote = useCartStore((s) => s.updateNote);
+  const clearCart = useCartStore((s) => s.clearCart);
+  const setSubmitting = useCartStore((s) => s.setSubmitting);
+  const setSubmitError = useCartStore((s) => s.setSubmitError);
+  const getTotalPrice = useCartStore((s) => s.getTotalPrice);
+  const getTotalItems = useCartStore((s) => s.getTotalItems);
+
+  const totalItems = getTotalItems();
+  const subtotal = getTotalPrice();
+
   // ── UI state ──
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-  const [cart, setCart] = useState<CartEntry[]>([]);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
-  const [lastOrder, setLastOrder] = useState<CartEntry[] | null>(null);
+  const [lastOrder, setLastOrder] = useState<CartItem[] | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [loadingItemIds, setLoadingItemIds] = useState<Record<string, boolean>>({});
+
+  // ── Realtime cart synchronization ──
+  const { registerActivity } = useCartSync(
+    sessionId,
+    sessionTableId,
+    useCallback((message: string) => {
+      showToast({ type: 'success', message });
+    }, [])
+  );
+
+  const handleUpdateQty = useCallback(async (itemId: string, qty: number) => {
+    registerActivity();
+    setLoadingItemIds((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      await updateQty(itemId, qty);
+    } finally {
+      setLoadingItemIds((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }, [updateQty, registerActivity]);
+
+  const handleUpdateNote = useCallback(async (itemId: string, note: string) => {
+    registerActivity();
+    setLoadingItemIds((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      await updateNote(itemId, note);
+    } finally {
+      setLoadingItemIds((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }, [updateNote, registerActivity]);
+
+  // ── Khởi tạo session tự động khi quét QR code / vào bàn ──
+  useEffect(() => {
+    if (tableNumber) {
+      initSession(tableNumber).catch((err) => {
+        console.error('[MenuItemList] Khởi tạo session thất bại:', err);
+        const msg = (err as Error)?.message || '';
+        if (msg.includes('404') || msg.toLowerCase().includes('bàn không tồn tại')) {
+          router.replace('/404');
+        }
+      });
+    }
+  }, [tableNumber, initSession, router]);
 
   // Thao tác với DOM để phục vụ auto-scroll của CategoryFilter
   const handleCategoryChange = (id: string | null) => {
@@ -97,36 +150,30 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
     }
   };
 
-  // ── Cart logic ──
-  const addToCart = useCallback((itemId: string) => {
+  // ── Toast helper ──
+  const showToast = (t: { type: 'success' | 'error'; message: string }) => {
+    setToast(t);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
+  };
+
+  // ── Cart actions bridge ──
+  const addToCart = useCallback(async (itemId: string) => {
     const found = items.find((i) => i.id === itemId);
     if (!found || found.isSoldOut) return;
-    setCart((prev) => {
-      const existing = prev.find((e) => e.item.id === itemId);
-      if (existing) {
-        return prev.map((e) =>
-          e.item.id === itemId ? { ...e, quantity: e.quantity + 1 } : e
-        );
-      }
-      return [...prev, { item: found, quantity: 1 }];
-    });
-  }, [items]);
-
-  const updateQty = (itemId: string, delta: number) =>
-    setCart((prev) =>
-      prev.map((e) =>
-        e.item.id === itemId ? { ...e, quantity: e.quantity + delta } : e
-      )
-      .filter((e) => e.quantity > 0)
-    );
-
-  const removeFromCart = (itemId: string) =>
-    setCart((prev) => prev.filter((e) => e.item.id !== itemId));
-
-  const clearCart = () => setCart([]);
-
-  const totalItems = cart.reduce((s, e) => s + e.quantity, 0);
-  const subtotal = cart.reduce((s, e) => s + Number(e.item.price) * e.quantity, 0);
+    registerActivity();
+    setLoadingItemIds((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      await addItem({
+        menuItemId: found.id,
+        name: found.name,
+        price: Number(found.price),
+        imageUrl: found.imageUrl,
+      });
+    } finally {
+      setLoadingItemIds((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }, [items, addItem, registerActivity]);
 
   const visibleCategories = categories.filter((cat) => {
     if (activeCategoryId !== null && cat.id !== activeCategoryId) return false;
@@ -135,75 +182,131 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
 
   // Tự động đóng Drawer khi giỏ hàng trống và không có lịch sử đơn hàng cũ
   useEffect(() => {
-    if (cart.length === 0 && !lastOrder) {
+    if (cartItems.length === 0 && !lastOrder) {
       setMobileCartOpen(false);
     }
-  }, [cart.length, lastOrder]);
+  }, [cartItems.length, lastOrder]);
 
-  // ── Xử lý gọi món ──
-  const handleOrder = () => {
-    if (cart.length === 0) return;
-    alert(`✅ Đã gửi ${totalItems} món tới bếp! Tổng: ${fmt(subtotal)}`);
-    setLastOrder(cart.map((c) => ({ ...c })));
-    clearCart();
-    setMobileCartOpen(true); // Tiếp tục mở để khách tiện quan sát các món đã gọi
+  // ── Gọi món chính thức bằng Server Action ──
+  const handleOrder = async () => {
+    if (!sessionId || !sessionTableId || cartItems.length === 0) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const result = await submitOrder({
+        sessionId,
+        tableId: sessionTableId,
+        items: cartItems.map((i) => ({
+          menuItemId: i.menuItemId,
+          qty: i.qty,
+          note: i.note || undefined,
+        })),
+      });
+
+      if (result.success) {
+        setLastOrder(cartItems.map((c) => ({ ...c })));
+        clearCart();
+        setMobileCartOpen(true); // Tiếp tục mở để khách tiện quan sát các món đã gọi
+        showToast({
+          type: 'success',
+          message: '🍳 Gửi món lên hệ thống thành công! Nhà bếp đang xử lý.',
+        });
+      } else {
+        const errMsg = result.message || 'Có lỗi xảy ra khi gọi món.';
+        setSubmitError(errMsg);
+        showToast({ type: 'error', message: errMsg });
+      }
+    } catch (networkErr) {
+      const errMsg = 'Mất kết nối mạng. Vui lòng kiểm tra lại kết nối và thử lại.';
+      setSubmitError(errMsg);
+      showToast({ type: 'error', message: errMsg });
+      console.error('[MenuItemList] submitOrder error:', networkErr);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  // ── Giao diện danh sách món ăn trong Giỏ hàng (Tái sử dụng) ──
-  const CartItemList = ({ entries, showActions = true }: { entries: CartEntry[]; showActions?: boolean }) => (
+  // ── Giao diện danh sách món ăn trong Giỏ hàng ──
+  const CartItemList = ({ entries, showActions = true }: { entries: CartItem[]; showActions?: boolean }) => (
     <div className="space-y-3 overflow-y-auto flex-1 pr-1 scrollbar-hide py-1">
-      {entries.map(({ item, quantity }) => (
+      {entries.map((item) => (
         <div
-          key={item.id}
-          className="flex items-center gap-3 bg-gray-50/80 rounded-xl p-3 border border-gray-100/50 group"
+          key={item.menuItemId}
+          className="flex flex-col gap-2 bg-gray-50/80 rounded-xl p-3 border border-gray-100/50 group"
         >
-          {/* Ảnh thu nhỏ */}
-          <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-orange-50 shrink-0 border border-gray-100">
-            {item.imageUrl ? (
-              <Image src={item.imageUrl} alt={item.name} fill className="object-cover" sizes="48px" />
+          <div className="flex items-center gap-3">
+            {/* Ảnh thu nhỏ */}
+            <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-orange-50 shrink-0 border border-gray-100">
+              {item.imageUrl ? (
+                <Image src={item.imageUrl} alt={item.name} fill className="object-cover" sizes="48px" />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-amber-100" />
+              )}
+            </div>
+
+            {/* Tên và giá tiền */}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs sm:text-sm font-bold text-gray-800 truncate leading-snug">{item.name}</p>
+              <p className="text-xs text-amber-600 font-bold tabular-nums mt-0.5">
+                {fmt(item.price * item.qty)}
+              </p>
+            </div>
+
+            {/* Nút tăng/giảm và xóa */}
+            {showActions ? (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateQty(item.menuItemId, item.qty - 1)}
+                  disabled={loadingItemIds[item.menuItemId]}
+                  aria-label="Giảm số lượng"
+                  className="h-7 w-7 rounded-full bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 transition-colors shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Minus size={12} strokeWidth={2.5} />
+                </button>
+                {loadingItemIds[item.menuItemId] ? (
+                  <Loader2 size={12} className="animate-spin text-amber-600 w-5 text-center" />
+                ) : (
+                  <span className="text-xs sm:text-sm font-extrabold text-gray-900 w-5 text-center tabular-nums">{item.qty}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleUpdateQty(item.menuItemId, item.qty + 1)}
+                  disabled={loadingItemIds[item.menuItemId]}
+                  aria-label="Tăng số lượng"
+                  className="h-7 w-7 rounded-full bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus size={12} strokeWidth={2.5} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateQty(item.menuItemId, 0)}
+                  disabled={loadingItemIds[item.menuItemId]}
+                  aria-label="Xóa khỏi đơn"
+                  className="h-7 w-7 rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 flex items-center justify-center transition-colors ml-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-100 to-amber-100" />
+              <div className="text-xs font-black text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full tabular-nums shrink-0">
+                Số lượng: {item.qty}
+              </div>
             )}
           </div>
 
-          {/* Tên và giá tiền */}
-          <div className="flex-1 min-w-0">
-            <p className="text-xs sm:text-sm font-bold text-gray-800 truncate leading-snug">{item.name}</p>
-            <p className="text-xs text-amber-600 font-bold tabular-nums mt-0.5">
-              {fmt(Number(item.price) * quantity)}
-            </p>
-          </div>
-
-          {/* Nút tăng/giảm và xóa */}
-          {showActions ? (
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => updateQty(item.id, -1)}
-                aria-label="Giảm số lượng"
-                className="h-7 w-7 rounded-full bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 transition-colors shadow-sm cursor-pointer"
-              >
-                <Minus size={12} strokeWidth={2.5} />
-              </button>
-              <span className="text-xs sm:text-sm font-extrabold text-gray-900 w-5 text-center tabular-nums">{quantity}</span>
-              <button
-                onClick={() => updateQty(item.id, 1)}
-                aria-label="Tăng số lượng"
-                className="h-7 w-7 rounded-full bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center shadow-sm transition-colors cursor-pointer"
-              >
-                <Plus size={12} strokeWidth={2.5} />
-              </button>
-              <button
-                onClick={() => removeFromCart(item.id)}
-                aria-label="Xóa khỏi đơn"
-                className="h-7 w-7 rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 flex items-center justify-center transition-colors ml-1 cursor-pointer"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          ) : (
-            <div className="text-xs font-black text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full tabular-nums shrink-0">
-              Số lượng: {quantity}
-            </div>
+          {/* Ghi chú chi tiết cho từng món ăn */}
+          {showActions && (
+            <input
+              type="text"
+              placeholder="Ghi chú (ít cay, không hành...)"
+              value={item.note || ''}
+              disabled={loadingItemIds[item.menuItemId]}
+              onChange={(e) => handleUpdateNote(item.menuItemId, e.target.value)}
+              className="w-full bg-white border border-gray-200 hover:border-gray-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-lg px-2.5 py-1 text-[11px] text-gray-700 placeholder-gray-400 focus:outline-none transition-all disabled:opacity-50 disabled:bg-gray-50"
+            />
           )}
         </div>
       ))}
@@ -259,16 +362,16 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
 
               {/* Lưới MenuCard: 1 cột mobile → 2 cột sm+ */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {catItems.map((item) => {
+                {catItems.map((item, index) => {
                   const card: MenuCardItem = {
                     id: item.id,
                     name: item.name,
                     description: item.description,
-                    price: item.price as unknown as Decimal,
+                    price: Number(item.price),
                     imageUrl: item.imageUrl,
                     isSoldOut: item.isSoldOut,
                   };
-                  return <MenuCard key={item.id} item={card} onAddToCart={addToCart} />;
+                  return <MenuCard key={item.id} item={card} onAddToCart={addToCart} priority={index < 2} />;
                 })}
               </div>
             </section>
@@ -285,7 +388,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
       {/* ══════════════════════════════════════════════════
           GIỎ HÀNG NỔI (Floating Cart Button)
           ══════════════════════════════════════════════════ */}
-      {cart.length > 0 && (
+      {cartItems.length > 0 && (
         <button
           onClick={() => setMobileCartOpen(true)}
           type="button"
@@ -319,7 +422,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
       )}
 
       {/* Lịch sử nút gọi món phụ khi không có giỏ hàng hoạt động nhưng đã gọi món trước đó */}
-      {cart.length === 0 && lastOrder && lastOrder.length > 0 && (
+      {cartItems.length === 0 && lastOrder && lastOrder.length > 0 && (
         <button
           onClick={() => setMobileCartOpen(true)}
           type="button"
@@ -340,11 +443,11 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
           BOTTOM SHEET DRAWER (Giỏ hàng kéo từ đáy)
           ══════════════════════════════════════════════════ */}
       {mobileCartOpen && (
-        <div className="fixed inset-0 z-50">
+        <div className="fixed inset-0 z-50 animate-in fade-in duration-200">
           {/* Backdrop tối mờ có hiệu ứng nhòe (blur) sang xịn */}
           <div
             onClick={() => setMobileCartOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-[4px] transition-opacity duration-300"
+            className="fixed inset-0 bg-black/60 backdrop-blur-[4px]"
             aria-hidden="true"
           />
 
@@ -355,7 +458,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
               max-w-2xl mx-auto bg-white rounded-t-[32px]
               shadow-2xl border-t border-orange-100/60
               p-5 pb-8 flex flex-col max-h-[85vh]
-              transition-transform duration-300 ease-out transform translate-y-0
+              animate-in slide-in-from-bottom duration-300 ease-out
             "
           >
             {/* Thanh dẫn kéo tay mô phỏng ở đỉnh */}
@@ -365,10 +468,10 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base sm:text-lg font-black text-gray-900">
-                  {cart.length > 0 ? 'Chi tiết đơn gọi món' : 'Đơn đã gửi bếp thành công'}
+                  {cartItems.length > 0 ? 'Chi tiết đơn gọi món' : 'Đơn đã gửi bếp thành công'}
                 </h3>
                 <p className="text-[10px] sm:text-xs text-gray-400 font-medium mt-0.5">
-                  {cart.length > 0
+                  {cartItems.length > 0
                     ? `Bạn có ${totalItems} món ăn đang chờ gọi`
                     : `Đã gửi bếp chế biến lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
                   }
@@ -376,7 +479,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
               </div>
 
               <div className="flex items-center gap-2">
-                {cart.length > 0 && (
+                {cartItems.length > 0 && (
                   <button
                     onClick={clearCart}
                     type="button"
@@ -402,8 +505,8 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
 
             {/* Nội dung danh sách món */}
             <div className="flex-1 overflow-y-auto min-h-0 mb-5 scrollbar-hide">
-              {cart.length > 0 ? (
-                <CartItemList entries={cart} showActions={true} />
+              {cartItems.length > 0 ? (
+                <CartItemList entries={cartItems} showActions={true} />
               ) : lastOrder && lastOrder.length > 0 ? (
                 <div className="space-y-4">
                   <div className="bg-emerald-50 text-emerald-800 text-xs font-semibold p-3 rounded-xl border border-emerald-100 flex items-start gap-2">
@@ -424,13 +527,19 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             </div>
 
             {/* Tóm tắt tổng tiền & Hành động gửi món */}
-            {cart.length > 0 && (
+            {cartItems.length > 0 && (
               <div className="border-t border-gray-100 pt-4 space-y-4">
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-gray-500 font-medium">
                     <span>Tạm tính ({totalItems} món)</span>
                     <span className="tabular-nums font-semibold text-gray-700">{fmt(subtotal)}</span>
                   </div>
+                  {submitError && (
+                    <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-100">
+                      <AlertTriangle size={14} className="text-red-500 mt-0.5 shrink-0" />
+                      <p className="text-xs text-red-600 leading-relaxed">{submitError}</p>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center pt-2 border-t border-dashed border-gray-200">
                     <span className="text-sm font-black text-gray-900">Tổng thanh toán</span>
                     <span className="text-lg font-black text-amber-600 tabular-nums">{fmt(subtotal)}</span>
@@ -440,6 +549,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                 <button
                   onClick={handleOrder}
                   type="button"
+                  disabled={isSubmitting || !sessionId}
                   className="
                     w-full py-3.5 rounded-2xl
                     bg-gradient-to-r from-orange-500 to-amber-500
@@ -447,16 +557,31 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                     text-white text-sm font-bold tracking-wide
                     flex items-center justify-center gap-2
                     shadow-lg shadow-orange-200/50 transition-all duration-200
-                    active:scale-[0.98] cursor-pointer
+                    active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed
                   "
                 >
-                  <Receipt size={16} strokeWidth={2.5} />
-                  Gửi yêu cầu Gọi món ({totalItems} món)
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Đang gửi yêu cầu...
+                    </>
+                  ) : (
+                    <>
+                      <Receipt size={16} strokeWidth={2.5} />
+                      Gửi yêu cầu Gọi món ({totalItems} món)
+                    </>
+                  )}
                 </button>
+
+                {!sessionId && (
+                  <p className="text-center text-[10px] text-gray-400">
+                    Đang thiết lập phiên kết nối bàn... Vui lòng chờ giây lát.
+                  </p>
+                )}
               </div>
             )}
 
-            {cart.length === 0 && lastOrder && lastOrder.length > 0 && (
+            {cartItems.length === 0 && lastOrder && lastOrder.length > 0 && (
               <button
                 onClick={() => setMobileCartOpen(false)}
                 type="button"
@@ -466,6 +591,39 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Toast Notification ─────────────────────────────────────────── */}
+      {toast && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className={`
+            fixed bottom-24 right-4 z-[60] max-w-xs
+            flex items-start gap-3 p-4 rounded-2xl shadow-2xl
+            text-white text-sm font-medium
+            transition-all duration-300 animate-in slide-in-from-bottom-4
+            ${toast.type === 'success'
+              ? 'bg-emerald-600 shadow-emerald-900/30'
+              : 'bg-red-600 shadow-red-900/30'
+            }
+          `}
+        >
+          {toast.type === 'success' ? (
+            <CheckCircle size={18} className="shrink-0 mt-0.5" />
+          ) : (
+            <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+          )}
+          <span className="leading-snug">{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="ml-auto shrink-0 opacity-70 hover:opacity-100 transition-opacity"
+            aria-label="Đóng thông báo"
+          >
+            <X size={14} />
+          </button>
         </div>
       )}
     </>
