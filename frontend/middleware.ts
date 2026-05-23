@@ -19,7 +19,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
 };
 
 // 2. PUBLIC ROUTES
-const PUBLIC_ROUTES = ['/login', '/menu', '/expired'];
+const PUBLIC_ROUTES = ['/login', '/table', '/expired'];
 
 // 3. MIDDLEWARE LOGIC
 export async function middleware(request: NextRequest) {

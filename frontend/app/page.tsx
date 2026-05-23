@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { 
   Store, 
@@ -12,10 +13,19 @@ import {
   TrendingUp, 
   Layers,
   Utensils,
-  Table
+  Table,
+  LogOut
 } from "lucide-react";
+import { useAuthStore } from "../stores/auth.store";
+import { logout } from "../lib/auth/client";
 
 export default function Home() {
+  const { user, fetchCurrentUser } = useAuthStore();
+
+  useEffect(() => {
+    fetchCurrentUser();
+  }, [fetchCurrentUser]);
+
   const apps = [
     {
       title: "Point of Sale (POS)",
@@ -79,10 +89,28 @@ export default function Home() {
           </div>
           
           <div className="flex items-center gap-4">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-              Hệ thống đang hoạt động
-            </span>
+            {user ? (
+              <div className="flex items-center gap-3">
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs font-bold text-zinc-200 leading-none">{user.name}</p>
+                  <p className="text-[9px] text-indigo-400 font-semibold tracking-wider uppercase mt-1">{user.role}</p>
+                </div>
+                <button
+                  onClick={() => logout()}
+                  className="h-9 px-3.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-red-950/30 hover:border-red-900/50 hover:text-red-300 text-xs font-bold text-zinc-300 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Đăng xuất
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Hệ thống đang hoạt động
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </header>
