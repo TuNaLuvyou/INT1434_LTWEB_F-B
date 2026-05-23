@@ -1,6 +1,5 @@
 import prisma from '../config/prisma';
-import { getIO } from '../socket';
-import { SessionStatus, TableStatus } from '@prisma/client';
+import { SessionStatus } from '@prisma/client';
 import { emitTableStatusChanged, emitSessionClosed } from '../socket/emit.helpers';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
