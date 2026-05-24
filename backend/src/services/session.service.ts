@@ -1,6 +1,7 @@
 import prisma from '../config/prisma';
 import { SessionStatus } from '@prisma/client';
 import { emitTableStatusChanged, emitSessionClosed } from '../socket/emit.helpers';
+import { AppError } from '../utils/app-error';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -215,4 +216,172 @@ export async function updateSessionStatus(
   });
 
   return updatedSession as unknown as SessionWithItems;
+}
+
+/**
+ * Thêm hoặc cập nhật một item trong giỏ hàng.
+ * Sử dụng Last-Write-Wins (LWW) với client timestamp guard.
+ */
+export async function addToCart(
+  sessionId: string,
+  menuItemId: string,
+  qty: number,
+  note: string | undefined,
+  clientTimestamp: number
+) {
+  return await prisma.$transaction(async (tx) => {
+    // STEP 1: Verify session còn OPEN
+    const session = await tx.tableSession.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session || session.status !== 'OPEN') {
+      throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
+    }
+
+    // STEP 2: Verify menuItem isActive và không sold out
+    const menuItem = await tx.menuItem.findUnique({
+      where: { id: menuItemId },
+    });
+    if (!menuItem || !menuItem.isActive) {
+      throw new AppError(404, 'ITEM_NOT_FOUND', 'Món không còn phục vụ');
+    }
+    if (menuItem.isSoldOut) {
+      throw new AppError(409, 'ITEM_SOLD_OUT', 'Món này đã hết');
+    }
+
+    // STEP 3: LWW CONFLICT CHECK
+    const existing = await tx.orderItem.findUnique({
+      where: { sessionId_menuItemId: { sessionId, menuItemId } },
+    });
+
+    if (existing) {
+      const dbTimestamp = existing.updatedAt.getTime();
+      // Nếu client gửi data CŨ HƠN record trong DB → conflict
+      if (dbTimestamp > clientTimestamp) {
+        // Lấy toàn bộ cart hiện tại để sync về client
+        const currentCart = await tx.orderItem.findMany({
+          where: { sessionId },
+          include: {
+            menuItem: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                imageUrl: true,
+              },
+            },
+          },
+        });
+        throw new AppError(409, 'CONFLICT', 'Giỏ hàng đã được cập nhật từ thiết bị khác', { currentCart });
+      }
+    }
+
+    // STEP 4: Upsert OrderItem
+    if (qty <= 0) {
+      // qty <= 0 nghĩa là xóa item
+      await tx.orderItem.deleteMany({
+        where: { sessionId, menuItemId },
+      });
+    } else {
+      await tx.orderItem.upsert({
+        where: { sessionId_menuItemId: { sessionId, menuItemId } },
+        update: {
+          qty,
+          note: note ?? '',
+        },
+        create: {
+          sessionId,
+          menuItemId,
+          qty,
+          note: note ?? '',
+          unitPrice: menuItem.price,
+          status: 'PENDING',
+        },
+      });
+    }
+
+    // STEP 5: Lấy cart mới nhất sau khi upsert
+    const updatedCart = await tx.orderItem.findMany({
+      where: { sessionId },
+      include: {
+        menuItem: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            imageUrl: true,
+          },
+        },
+      },
+    });
+
+    return { session, updatedCart };
+  });
+}
+
+/**
+ * Xóa một item khỏi giỏ hàng.
+ * Sử dụng Last-Write-Wins (LWW) với client timestamp guard.
+ */
+export async function deleteCartItem(
+  sessionId: string,
+  menuItemId: string,
+  clientTimestamp: number
+) {
+  return await prisma.$transaction(async (tx) => {
+    // STEP 1: Verify session còn OPEN
+    const session = await tx.tableSession.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session || session.status !== 'OPEN') {
+      throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
+    }
+
+    // STEP 2: LWW CONFLICT CHECK
+    const existing = await tx.orderItem.findUnique({
+      where: { sessionId_menuItemId: { sessionId, menuItemId } },
+    });
+
+    if (existing) {
+      const dbTimestamp = existing.updatedAt.getTime();
+      if (dbTimestamp > clientTimestamp) {
+        const currentCart = await tx.orderItem.findMany({
+          where: { sessionId },
+          include: {
+            menuItem: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                imageUrl: true,
+              },
+            },
+          },
+        });
+        throw new AppError(409, 'CONFLICT', 'Giỏ hàng đã được cập nhật từ thiết bị khác', { currentCart });
+      }
+
+      // Xóa item
+      await tx.orderItem.deleteMany({
+        where: { sessionId, menuItemId },
+      });
+    }
+
+    // Lấy cart mới nhất sau khi xóa
+    const updatedCart = await tx.orderItem.findMany({
+      where: { sessionId },
+      include: {
+        menuItem: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            imageUrl: true,
+          },
+        },
+      },
+    });
+
+    return { session, updatedCart };
+  });
 }

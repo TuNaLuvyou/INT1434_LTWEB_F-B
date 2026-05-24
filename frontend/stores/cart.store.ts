@@ -35,6 +35,7 @@ export type CartStore = {
   items: CartItem[];
   isSubmitting: boolean;
   submitError: string | null;
+  clockOffset: number; // Thêm clockOffset để bù giờ client-server
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -50,22 +51,27 @@ export type CartStore = {
    * - Nếu đã có (theo menuItemId): tăng qty lên 1
    * - Nếu chưa có: thêm mới với qty=1, note=""
    */
-  addItem: (item: Omit<CartItem, 'qty' | 'note'>) => void;
+  addItem: (item: Omit<CartItem, 'qty' | 'note'>) => Promise<void>;
 
   /**
    * Giảm qty xuống 1, nếu qty về 0 thì xóa khỏi items.
    */
-  removeItem: (menuItemId: string) => void;
+  removeItem: (menuItemId: string) => Promise<void>;
 
   /**
    * Set qty trực tiếp. Nếu qty <= 0 thì xóa item khỏi cart.
    */
-  updateQty: (menuItemId: string, qty: number) => void;
+  updateQty: (menuItemId: string, qty: number) => Promise<void>;
 
   /**
    * Cập nhật ghi chú cho một item.
    */
-  updateNote: (menuItemId: string, note: string) => void;
+  updateNote: (menuItemId: string, note: string) => Promise<void>;
+
+  /**
+   * Đồng bộ toàn bộ giỏ hàng từ server.
+   */
+  syncCartFromServer: (items: any[]) => void;
 
   /**
    * Xóa toàn bộ items nhưng GIỮ sessionId (dùng sau khi submit thành công,
@@ -98,6 +104,7 @@ export const useCartStore = create<CartStore>()(
       items: [],
       isSubmitting: false,
       submitError: null,
+      clockOffset: 0,
 
       // ── initSession ───────────────────────────────────────────────────────
       initSession: async (tableId: string) => {
@@ -120,78 +127,215 @@ export const useCartStore = create<CartStore>()(
         }
 
         const { data } = await res.json() as {
-          data: { session: { id: string; tableId: string }; isNew: boolean };
+          data: { session: { id: string; tableId: string }; isNew: boolean; serverTime?: number };
         };
+
+        const serverTime = data.serverTime || Date.now();
+        const clockOffset = serverTime - Date.now();
 
         set({
           sessionId: data.session.id,
           tableId: data.session.tableId,
+          clockOffset,
         });
 
         return { sessionId: data.session.id, isNew: data.isNew };
       },
 
+      // ── syncCartFromServer ────────────────────────────────────────────────
+      syncCartFromServer: (items) => {
+        const mappedItems = items.map((item: any) => ({
+          menuItemId: item.menuItemId,
+          name: item.menuItem?.name || item.menuItemName || '',
+          price: Number(item.unitPrice),
+          imageUrl: item.menuItem?.imageUrl || null,
+          qty: item.qty,
+          note: item.note || '',
+        }));
+        set({ items: mappedItems });
+      },
+
       // ── addItem ───────────────────────────────────────────────────────────
-      addItem: (item) => {
-        set((state) => {
-          const existing = state.items.find((i) => i.menuItemId === item.menuItemId);
-          if (existing) {
-            return {
-              items: state.items.map((i) =>
-                i.menuItemId === item.menuItemId
-                  ? { ...i, qty: i.qty + 1 }
-                  : i
-              ),
-            };
+      addItem: async (item) => {
+        const state = get();
+        if (!state.sessionId) return;
+
+        const existing = state.items.find((i) => i.menuItemId === item.menuItemId);
+        const newQty = existing ? existing.qty + 1 : 1;
+
+        try {
+          const clientTimestamp = Date.now() + state.clockOffset;
+          const res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              menuItemId: item.menuItemId,
+              qty: newQty,
+              note: existing?.note || '',
+              clientTimestamp,
+            }),
+          });
+
+          if (res.status === 409) {
+            const data = await res.json().catch(() => ({}));
+            if (data.code === 'CONFLICT' && data.currentCart) {
+              state.syncCartFromServer(data.currentCart);
+            }
+            return;
           }
-          return {
-            items: [
-              ...state.items,
-              { ...item, qty: 1, note: '' },
-            ],
-          };
-        });
+
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.message || `HTTP ${res.status}`);
+          }
+
+          const { data: updatedCart } = await res.json() as { data: any[] };
+          state.syncCartFromServer(updatedCart);
+        } catch (err: any) {
+          console.error('[cartStore] addItem failed:', err);
+          set({ submitError: err.message || 'Lỗi thêm món' });
+        }
       },
 
       // ── removeItem ────────────────────────────────────────────────────────
-      removeItem: (menuItemId) => {
-        set((state) => {
-          const item = state.items.find((i) => i.menuItemId === menuItemId);
-          if (!item) return state;
+      removeItem: async (menuItemId) => {
+        const state = get();
+        if (!state.sessionId) return;
 
-          if (item.qty <= 1) {
-            return { items: state.items.filter((i) => i.menuItemId !== menuItemId) };
+        const item = state.items.find((i) => i.menuItemId === menuItemId);
+        if (!item) return;
+
+        const newQty = item.qty - 1;
+        try {
+          const clientTimestamp = Date.now() + state.clockOffset;
+          let res;
+          if (newQty <= 0) {
+            res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart/${menuItemId}?clientTimestamp=${clientTimestamp}`, {
+              method: 'DELETE',
+            });
+          } else {
+            res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                menuItemId,
+                qty: newQty,
+                note: item.note,
+                clientTimestamp,
+              }),
+            });
           }
-          return {
-            items: state.items.map((i) =>
-              i.menuItemId === menuItemId ? { ...i, qty: i.qty - 1 } : i
-            ),
-          };
-        });
+
+          if (res.status === 409) {
+            const data = await res.json().catch(() => ({}));
+            if (data.code === 'CONFLICT' && data.currentCart) {
+              state.syncCartFromServer(data.currentCart);
+            }
+            return;
+          }
+
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.message || `HTTP ${res.status}`);
+          }
+
+          const { data: updatedCart } = await res.json() as { data: any[] };
+          state.syncCartFromServer(updatedCart);
+        } catch (err: any) {
+          console.error('[cartStore] removeItem failed:', err);
+          set({ submitError: err.message || 'Lỗi bớt món' });
+        }
       },
 
       // ── updateQty ─────────────────────────────────────────────────────────
-      updateQty: (menuItemId, qty) => {
-        if (qty <= 0) {
-          set((state) => ({
-            items: state.items.filter((i) => i.menuItemId !== menuItemId),
-          }));
-          return;
+      updateQty: async (menuItemId, qty) => {
+        const state = get();
+        if (!state.sessionId) return;
+
+        const item = state.items.find((i) => i.menuItemId === menuItemId);
+        const note = item?.note || '';
+
+        try {
+          const clientTimestamp = Date.now() + state.clockOffset;
+          let res;
+          if (qty <= 0) {
+            res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart/${menuItemId}?clientTimestamp=${clientTimestamp}`, {
+              method: 'DELETE',
+            });
+          } else {
+            res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                menuItemId,
+                qty,
+                note,
+                clientTimestamp,
+              }),
+            });
+          }
+
+          if (res.status === 409) {
+            const data = await res.json().catch(() => ({}));
+            if (data.code === 'CONFLICT' && data.currentCart) {
+              state.syncCartFromServer(data.currentCart);
+            }
+            return;
+          }
+
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.message || `HTTP ${res.status}`);
+          }
+
+          const { data: updatedCart } = await res.json() as { data: any[] };
+          state.syncCartFromServer(updatedCart);
+        } catch (err: any) {
+          console.error('[cartStore] updateQty failed:', err);
+          set({ submitError: err.message || 'Lỗi cập nhật số lượng' });
         }
-        set((state) => ({
-          items: state.items.map((i) =>
-            i.menuItemId === menuItemId ? { ...i, qty } : i
-          ),
-        }));
       },
 
       // ── updateNote ────────────────────────────────────────────────────────
-      updateNote: (menuItemId, note) => {
-        set((state) => ({
-          items: state.items.map((i) =>
-            i.menuItemId === menuItemId ? { ...i, note } : i
-          ),
-        }));
+      updateNote: async (menuItemId, note) => {
+        const state = get();
+        if (!state.sessionId) return;
+
+        const item = state.items.find((i) => i.menuItemId === menuItemId);
+        if (!item) return;
+
+        try {
+          const clientTimestamp = Date.now() + state.clockOffset;
+          const res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              menuItemId,
+              qty: item.qty,
+              note,
+              clientTimestamp,
+            }),
+          });
+
+          if (res.status === 409) {
+            const data = await res.json().catch(() => ({}));
+            if (data.code === 'CONFLICT' && data.currentCart) {
+              state.syncCartFromServer(data.currentCart);
+            }
+            return;
+          }
+
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.message || `HTTP ${res.status}`);
+          }
+
+          const { data: updatedCart } = await res.json() as { data: any[] };
+          state.syncCartFromServer(updatedCart);
+        } catch (err: any) {
+          console.error('[cartStore] updateNote failed:', err);
+          set({ submitError: err.message || 'Lỗi cập nhật ghi chú' });
+        }
       },
 
       // ── clearCart ─────────────────────────────────────────────────────────
