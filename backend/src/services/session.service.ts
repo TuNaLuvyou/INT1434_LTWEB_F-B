@@ -62,17 +62,26 @@ export async function joinOrCreateSession(tableId: string): Promise<{
   session: SessionWithItems;
   isNew: boolean;
 }> {
-  // 1. Validate table tồn tại
-  const table = await prisma.table.findUnique({ where: { id: tableId } });
+  // 1. Validate table tồn tại (hỗ trợ cả khóa UUID và số hiệu bàn tableNumber)
+  let table = await prisma.table.findUnique({ where: { id: tableId } });
+  if (!table) {
+    const parsedNum = parseInt(tableId, 10);
+    if (!isNaN(parsedNum)) {
+      table = await prisma.table.findUnique({ where: { tableNumber: parsedNum } });
+    }
+  }
+
   if (!table) {
     const err = new Error('Bàn không tồn tại') as any;
     err.statusCode = 404;
     throw err;
   }
 
+  const actualTableId = table.id;
+
   // 2. Tìm session OPEN hiện tại
   const existingSession = await prisma.tableSession.findFirst({
-    where: { tableId, status: 'OPEN' },
+    where: { tableId: actualTableId, status: 'OPEN' },
     include: orderItemsInclude,
   });
 
@@ -80,7 +89,7 @@ export async function joinOrCreateSession(tableId: string): Promise<{
     // 3a. Session đã tồn tại — đảm bảo trạng thái bàn là OCCUPIED
     if (table.status !== 'OCCUPIED') {
       await prisma.table.update({
-        where: { id: tableId },
+        where: { id: actualTableId },
         data: { status: 'OCCUPIED' },
       });
     }
@@ -91,21 +100,21 @@ export async function joinOrCreateSession(tableId: string): Promise<{
   const [newSession] = await prisma.$transaction([
     prisma.tableSession.create({
       data: {
-        tableId,
+        tableId: actualTableId,
         status: 'OPEN',
         version: 0,
       },
       include: orderItemsInclude,
     }),
     prisma.table.update({
-      where: { id: tableId },
+      where: { id: actualTableId },
       data: { status: 'OCCUPIED' },
     }),
   ]);
 
   // 4. Emit socket event tới floor-plan (F4) bằng emit helpers mới
   emitTableStatusChanged({
-    tableId,
+    tableId: actualTableId,
     status: 'OCCUPIED',
   });
 
