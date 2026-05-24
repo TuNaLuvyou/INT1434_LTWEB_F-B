@@ -102,7 +102,7 @@ async function triggerNextRevalidation(): Promise<void> {
       'Content-Type': 'application/json',
       'x-revalidation-secret': secret,
     },
-    body: JSON.stringify({ path: '/menu/[tableId]', type: 'page' }),
+    body: JSON.stringify({ path: '/table/[tableId]', type: 'page' }),
   });
 
   if (!response.ok) {
@@ -110,5 +110,5 @@ async function triggerNextRevalidation(): Promise<void> {
     throw new Error(`Next.js revalidation thất bại (${response.status}): ${body}`);
   }
 
-  console.log('[Revalidate] Đã invalidate SSG cache /menu/[tableId] thành công');
+  console.log('[Revalidate] Đã invalidate SSG cache /table/[tableId] thành công');
 }

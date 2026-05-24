@@ -59,12 +59,6 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
 
       if (redirectUrl) {
         router.push(redirectUrl);
-      } else if (user.role === 'ADMIN' || user.role === 'MANAGER') {
-        router.push('/admin/dashboard');
-      } else if (user.role === 'STAFF') {
-        router.push('/pos');
-      } else if (user.role === 'KITCHEN') {
-        router.push('/kds');
       } else {
         router.push('/');
       }
@@ -95,7 +89,7 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
             placeholder="admin@restoflow.demo"
             {...register('email')}
             aria-describedby={errors.email ? "email-error" : undefined}
-            className={`appearance-none block w-full px-4 py-3.5 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-sm transition-all bg-gray-50/50 ${
+            className={`appearance-none block w-full px-4 py-3.5 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-sm transition-all bg-gray-50/50 text-gray-900 ${
               errors.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 hover:border-gray-300'
             }`}
           />
@@ -116,9 +110,10 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
             id="password"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
+            placeholder="••••••••"
             {...register('password')}
             aria-describedby={errors.password ? "password-error" : undefined}
-            className={`appearance-none block w-full px-4 py-3.5 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-sm transition-all bg-gray-50/50 ${
+            className={`appearance-none block w-full px-4 py-3.5 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-sm transition-all bg-gray-50/50 text-gray-900 ${
               errors.password ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 hover:border-gray-300'
             }`}
           />
