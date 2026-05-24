@@ -34,6 +34,7 @@ model User {
   devices      TrustedDevice[]
   shifts       Shift[]
   attendances  Attendance[]
+  schedules    WorkSchedule[]
 }
 
 model TrustedDevice {
@@ -255,4 +256,22 @@ model Attendance {
 
   @@index([userId])
   @@index([checkInAt])
+}
+
+model WorkSchedule {
+  id         String   @id @default(cuid())
+  userId     String
+  date       DateTime @db.Date
+  shiftStart String
+  shiftEnd   String
+  position   String
+  assignedBy String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+  @@index([date])
+  @@index([userId])
 }
