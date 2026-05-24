@@ -18,7 +18,8 @@ import {
   Search,
   Loader2
 } from "lucide-react";
-import { io } from "socket.io-client";
+import { useSocket } from "@/hooks/useSocket";
+import { getAccessTokenFromCookie } from "@/lib/auth/client";
 
 interface KDSItem {
   name: string;
@@ -110,7 +111,8 @@ interface MenuItem {
 }
 
 export default function KDSPage() {
-  const [orders, setOrders] = useState<KDSOther[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<KDSOther[]>([]);
+  const [rawSessions, setRawSessions] = useState<any[]>([]);
 
   // State quản lý Báo hết món
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -142,14 +144,32 @@ export default function KDSPage() {
     }
   };
 
+  const fetchKdsOrders = async () => {
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      const response = await fetch(`${API_URL}/api/kds/orders`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken || ''}`,
+        }
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setRawSessions(result.data || []);
+      }
+    } catch (err) {
+      console.error("[KDS] Lỗi tải đơn hàng:", err);
+    }
+  };
+
   const handleToggleSoldOut = async (itemId: string, currentSoldOut: boolean) => {
     setUpdatingItems(prev => ({ ...prev, [itemId]: true }));
     try {
+      const accessToken = getAccessTokenFromCookie();
       const response = await fetch(`${API_URL}/api/admin/menu-items/${itemId}/sold-out`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-mock-role": "KITCHEN",
+          "Authorization": `Bearer ${accessToken || ''}`,
         },
         body: JSON.stringify({ isSoldOut: !currentSoldOut }),
       });
@@ -170,21 +190,23 @@ export default function KDSPage() {
     }
   };
 
-  // Sync realtime qua socket
+  // Socket setup for Kitchen and Menu updates
+  const token = typeof window !== 'undefined' ? (getAccessTokenFromCookie() || undefined) : undefined;
+  
+  const { socket: kitchenSocket, isConnected: isKitchenConnected } = useSocket({
+    room: 'kitchen',
+    token,
+  });
+
+  const { socket: menuSocket, isConnected: isMenuConnected } = useSocket({
+    room: 'menu-updates',
+  });
+
+  // Listen to menu soldout
   useEffect(() => {
-    fetchMenuItems();
+    if (!menuSocket || !isMenuConnected) return;
 
-    const socket = io(API_URL, {
-      transports: ['websocket'],
-      reconnection: true,
-    });
-
-    socket.on('connect', () => {
-      console.log('[KDS Socket] Connected to Socket.io:', socket.id);
-      socket.emit('join:menu-updates');
-    });
-
-    socket.on('menu:soldout', ({ menuItemId, isSoldOut }: { menuItemId: string; isSoldOut: boolean }) => {
+    menuSocket.on('menu:soldout', ({ menuItemId, isSoldOut }: { menuItemId: string; isSoldOut: boolean }) => {
       console.log(`[KDS Socket] Nhận event "menu:soldout": item ${menuItemId} -> isSoldOut=${isSoldOut}`);
       setMenuItems(prev =>
         prev.map(item =>
@@ -194,12 +216,32 @@ export default function KDSPage() {
     });
 
     return () => {
-      if (socket.connected) {
-        socket.emit('leave:menu-updates');
-      }
-      socket.disconnect();
+      menuSocket.off('menu:soldout');
     };
+  }, [menuSocket, isMenuConnected]);
+
+  // Listen to new kitchen orders or ticket status updates
+  useEffect(() => {
+    fetchKdsOrders();
+    fetchMenuItems();
   }, []);
+
+  useEffect(() => {
+    if (!kitchenSocket || !isKitchenConnected) return;
+
+    const handleUpdate = () => {
+      console.log('[KDS Socket] Nhận được thay đổi đơn hàng từ socket, cập nhật...');
+      fetchKdsOrders();
+    };
+
+    kitchenSocket.on('kitchen:new-ticket', handleUpdate);
+    kitchenSocket.on('kitchen:item-updated', handleUpdate);
+
+    return () => {
+      kitchenSocket.off('kitchen:new-ticket', handleUpdate);
+      kitchenSocket.off('kitchen:item-updated', handleUpdate);
+    };
+  }, [kitchenSocket, isKitchenConnected]);
 
   // Filtered menu items
   const filteredItems = menuItems.filter(item => {
@@ -208,7 +250,53 @@ export default function KDSPage() {
     return matchesSearch && matchesCategory;
   });
 
-  // Simulate active timers updating every second
+  // Map rawSessions to orders (filtering out archived items)
+  useEffect(() => {
+    const archivedIdsStr = typeof window !== 'undefined' ? (localStorage.getItem("kds_archived_item_ids") || "[]") : "[]";
+    const archivedItemIds: string[] = JSON.parse(archivedIdsStr);
+
+    const mappedOrders: KDSOther[] = rawSessions.map(session => {
+      // Lọc các items chưa được lưu trữ
+      const activeItems = session.orderItems.filter((oi: any) => !archivedItemIds.includes(oi.id));
+      if (activeItems.length === 0) return null;
+
+      const items = activeItems.map((oi: any) => ({
+        name: oi.menuItem.name,
+        quantity: oi.qty
+      }));
+
+      // Xác định trạng thái chung của ticket dựa trên các items
+      let status: "pending" | "preparing" | "ready" = "pending";
+      const hasPending = activeItems.some((item: any) => item.status === "PENDING");
+      const hasPreparing = activeItems.some((item: any) => item.status === "PREPARING");
+      const allDone = activeItems.every((item: any) => item.status === "DONE" || item.status === "VOID");
+      
+      if (allDone) {
+        status = "ready";
+      } else if (hasPreparing) {
+        status = "preparing";
+      } else {
+        status = "pending";
+      }
+
+      const openedTime = new Date(session.openedAt).getTime();
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - openedTime) / 1000));
+
+      return {
+        id: session.id,
+        orderNo: `ORD-${session.id.substring(0, 4).toUpperCase()}`,
+        tableNo: session.table?.label || `Bàn ${session.table?.tableNumber || ""}`,
+        items,
+        status,
+        createdAt: new Date(session.openedAt),
+        elapsedSeconds
+      };
+    }).filter(Boolean) as KDSOther[];
+
+    setOrders(mappedOrders);
+  }, [rawSessions]);
+
+  // Timers updating every second
   useEffect(() => {
     const timer = setInterval(() => {
       setOrders(prev => 
@@ -221,28 +309,54 @@ export default function KDSPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const advanceStatus = (id: string, currentStatus: "pending" | "preparing" | "ready") => {
-    setOrders(prev => {
-      return prev.map(order => {
-        if (order.id === id) {
-          if (currentStatus === "pending") return { ...order, status: "preparing" };
-          if (currentStatus === "preparing") return { ...order, status: "ready" };
-        }
-        return order;
+  const advanceStatus = async (sessionId: string, currentStatus: "pending" | "preparing" | "ready") => {
+    if (currentStatus === "ready") return;
+    
+    const newStatus = currentStatus === "pending" ? "PREPARING" : "DONE";
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      const response = await fetch(`${API_URL}/api/kds/orders/${sessionId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken || ''}`,
+        },
+        body: JSON.stringify({ currentStatus, newStatus }),
       });
-    });
+      
+      const result = await response.json();
+      if (response.ok && result.success) {
+        fetchKdsOrders();
+      } else {
+        alert(result.message || "Không thể cập nhật trạng thái");
+      }
+    } catch (err: any) {
+      console.error("[KDS] Lỗi cập nhật trạng thái:", err);
+      alert("Đã xảy ra lỗi khi cập nhật trạng thái");
+    }
   };
 
-  const completeOrder = (id: string) => {
-    setOrders(prev => prev.filter(order => order.id !== id));
+  const completeOrder = (sessionId: string) => {
+    const session = rawSessions.find(s => s.id === sessionId);
+    if (session) {
+      const itemIdsToArchive = session.orderItems.map((oi: any) => oi.id);
+      const existingStr = typeof window !== 'undefined' ? (localStorage.getItem("kds_archived_item_ids") || "[]") : "[]";
+      const existingArchived = JSON.parse(existingStr);
+      const updatedArchived = [...existingArchived, ...itemIdsToArchive];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("kds_archived_item_ids", JSON.stringify(updatedArchived));
+      }
+      
+      // Update local state instantly
+      setOrders(prev => prev.filter(order => order.id !== sessionId));
+    }
   };
 
   const resetDemo = () => {
-    setOrders(INITIAL_ORDERS.map(o => ({
-      ...o,
-      createdAt: new Date(Date.now() - (o.id === "o1" ? 3 : o.id === "o2" ? 9 : o.id === "o3" ? 15 : 11) * 60 * 1000),
-      elapsedSeconds: (o.id === "o1" ? 180 : o.id === "o2" ? 540 : o.id === "o3" ? 900 : 660)
-    })));
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem("kds_archived_item_ids");
+    }
+    fetchKdsOrders();
   };
 
   const formatTimer = (seconds: number) => {
