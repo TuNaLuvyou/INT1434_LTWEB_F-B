@@ -84,7 +84,7 @@ export const getSchedules = async (req: Request, res: Response): Promise<void> =
 
 export const deleteSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const schedule = await scheduleService.getSchedules().then(s => s.find(x => x.id === id));
     
     if (!schedule) {

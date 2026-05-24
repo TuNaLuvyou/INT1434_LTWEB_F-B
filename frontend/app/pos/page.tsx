@@ -13,17 +13,22 @@ import {
   DollarSign, 
   Sparkles, 
   CheckCircle,
-  X
+  X,
+  Loader2,
+  Table as TableIcon
 } from "lucide-react";
+import { useSocket } from "@/hooks/useSocket";
+import { getAccessTokenFromCookie } from "@/lib/auth/client";
 
 interface MenuItem {
   id: string;
   name: string;
   price: number;
-  category: "main" | "drink" | "dessert";
+  category: string;
   bgColor: string;
   emoji: string;
   description: string;
+  imageUrl?: string | null;
 }
 
 interface CartItem {
