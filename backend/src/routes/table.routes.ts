@@ -1,66 +1,41 @@
-import { Router, Request, Response } from 'express';
-import prisma from '../config/prisma';
-import { emitTableStatusChanged } from '../socket/emit.helpers';
+import { Router } from 'express';
+import {
+  handleGetAllTables,
+  handleCreateTable,
+  handleUpdateTable,
+  handleDeleteTable,
+  handleUpdateTableStatus
+} from '../controllers/table.controller';
+import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-// GET /api/tables
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const tables = await prisma.table.findMany({
-      orderBy: {
-        tableNumber: 'asc',
-      },
-    });
+// GET /api/tables - Public / Hybrid (Không bắt buộc token để phục vụ Next.js SSG build)
+router.get('/', handleGetAllTables as any);
 
-    res.status(200).json({
-      success: true,
-      data: tables,
-    });
-  } catch (error) {
-    console.error('[TableRoutes] Error fetching tables:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-    });
-  }
-});
+// PATCH /api/tables/:id/status - Public (Dành cho trang quản lý bàn nội bộ của staff không dùng token)
+router.patch('/:id/status', handleUpdateTableStatus as any);
 
-// PATCH /api/tables/:id/status
-router.patch('/:id/status', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body as { status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' };
+// Các thao tác thay đổi dữ liệu yêu cầu đăng nhập ADMIN hoặc MANAGER
+router.post(
+  '/',
+  authMiddleware as any,
+  requireRole(['ADMIN', 'MANAGER']) as any,
+  handleCreateTable as any
+);
 
-    if (!['AVAILABLE', 'OCCUPIED', 'RESERVED'].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Trạng thái không hợp lệ. Chỉ chấp nhận AVAILABLE, OCCUPIED, RESERVED.',
-      });
-    }
+router.put(
+  '/:id',
+  authMiddleware as any,
+  requireRole(['ADMIN', 'MANAGER']) as any,
+  handleUpdateTable as any
+);
 
-    const updatedTable = await prisma.table.update({
-      where: { id },
-      data: { status },
-    });
-
-    // Emit table status changed to listeners
-    emitTableStatusChanged({
-      tableId: updatedTable.id,
-      status: updatedTable.status,
-    });
-
-    res.status(200).json({
-      success: true,
-      data: updatedTable,
-    });
-  } catch (error) {
-    console.error('[TableRoutes] Error updating table status:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-    });
-  }
-});
+router.delete(
+  '/:id',
+  authMiddleware as any,
+  requireRole(['ADMIN', 'MANAGER']) as any,
+  handleDeleteTable as any
+);
 
 export default router;
