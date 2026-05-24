@@ -33,6 +33,7 @@ model User {
   updatedAt    DateTime        @updatedAt
   devices      TrustedDevice[]
   shifts       Shift[]
+  attendances  Attendance[]
 }
 
 model TrustedDevice {
@@ -43,6 +44,7 @@ model TrustedDevice {
   user      User      @relation(fields: [userId], references: [id])
   lastUsed  DateTime?
   createdAt DateTime  @default(now())
+  attendances Attendance[]
 
   @@index([userId])
 }
@@ -236,4 +238,21 @@ model Voucher {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   payments      Payment[]
+}
+
+model Attendance {
+  id          String    @id @default(cuid())
+  userId      String
+  deviceId    String
+  checkInAt   DateTime  @default(now())
+  checkOutAt  DateTime?
+  note        String?
+  isApproved  Boolean   @default(true)
+  approvedBy  String?
+  
+  user        User          @relation(fields: [userId], references: [id])
+  device      TrustedDevice @relation(fields: [deviceId], references: [id])
+
+  @@index([userId])
+  @@index([checkInAt])
 }

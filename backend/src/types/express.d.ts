@@ -8,6 +8,11 @@ declare global {
         email: string;
         role: Role;
       };
+      device?: {
+        id: string;
+        label: string;
+        userId: string;
+      };
     }
   }
 }
