@@ -11,6 +11,7 @@ import tableRoutes from './routes/table.routes';
 import sessionRoutes from './routes/session.routes';
 import deviceRoutes from './routes/device.routes';
 import attendanceRoutes from './routes/attendance.routes';
+import scheduleRoutes from './routes/schedule.routes';
 import { initSocket } from './socket';
 
 const app = express();
@@ -31,6 +32,7 @@ app.use('/api/tables', tableRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/devices', deviceRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/schedules', scheduleRoutes);
 
 // Đăng ký route sold-out TRƯỚC để nó bắt lấy request PATCH /:id/sold-out
 // và xử lý quyền hạn cho cả KITCHEN, tránh bị chặn bởi adminMenuRoutes ở dưới.

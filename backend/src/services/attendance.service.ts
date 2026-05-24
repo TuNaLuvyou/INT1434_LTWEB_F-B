@@ -57,3 +57,47 @@ export const getHistory = async (userId?: string, from?: string, to?: string) =>
     orderBy: { checkInAt: 'desc' }
   });
 };
+
+export const approveAttendance = async (id: string, isApproved: boolean, approvedBy: string, note?: string) => {
+  return await prisma.attendance.update({
+    where: { id },
+    data: {
+      isApproved,
+      approvedBy,
+      ...(note !== undefined && { note })
+    }
+  });
+};
+
+export const manualCheckIn = async (userId: string, checkInAt: Date, approvedBy: string, checkOutAt?: Date, note?: string) => {
+  return await prisma.attendance.create({
+    data: {
+      userId,
+      deviceId: 'MANUAL_ENTRY',
+      checkInAt,
+      checkOutAt,
+      note,
+      isApproved: true,
+      approvedBy
+    }
+  });
+};
+
+export const getReport = async (from: string, to: string, userId?: string) => {
+  const whereClause: any = {
+    checkInAt: {
+      gte: new Date(from),
+      lte: new Date(to)
+    }
+  };
+  if (userId) whereClause.userId = userId;
+
+  return await prisma.attendance.findMany({
+    where: whereClause,
+    include: {
+      user: { select: { id: true, name: true, email: true, role: true } },
+      device: { select: { label: true } }
+    },
+    orderBy: { checkInAt: 'asc' }
+  });
+};
