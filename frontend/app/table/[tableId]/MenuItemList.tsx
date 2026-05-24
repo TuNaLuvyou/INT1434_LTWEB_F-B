@@ -10,6 +10,7 @@ import CategoryFilter from '@/components/CategoryFilter';
 import { useMenuSoldOut } from '../hooks/useMenuSoldOut';
 import { useCartStore, CartItem } from '@/stores/cart.store';
 import { submitOrder } from '@/app/actions/order.actions';
+import { useCartSync } from '@/hooks/useCartSync';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,36 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   const [lastOrder, setLastOrder] = useState<CartItem[] | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [loadingItemIds, setLoadingItemIds] = useState<Record<string, boolean>>({});
+
+  // ── Realtime cart synchronization ──
+  const { registerActivity } = useCartSync(
+    sessionId,
+    sessionTableId,
+    useCallback((message: string) => {
+      showToast({ type: 'success', message });
+    }, [])
+  );
+
+  const handleUpdateQty = useCallback(async (itemId: string, qty: number) => {
+    registerActivity();
+    setLoadingItemIds((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      await updateQty(itemId, qty);
+    } finally {
+      setLoadingItemIds((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }, [updateQty, registerActivity]);
+
+  const handleUpdateNote = useCallback(async (itemId: string, note: string) => {
+    registerActivity();
+    setLoadingItemIds((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      await updateNote(itemId, note);
+    } finally {
+      setLoadingItemIds((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }, [updateNote, registerActivity]);
 
   // ── Khởi tạo session tự động khi quét QR code / vào bàn ──
   useEffect(() => {
@@ -127,16 +158,22 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   };
 
   // ── Cart actions bridge ──
-  const addToCart = useCallback((itemId: string) => {
+  const addToCart = useCallback(async (itemId: string) => {
     const found = items.find((i) => i.id === itemId);
     if (!found || found.isSoldOut) return;
-    addItem({
-      menuItemId: found.id,
-      name: found.name,
-      price: Number(found.price),
-      imageUrl: found.imageUrl,
-    });
-  }, [items, addItem]);
+    registerActivity();
+    setLoadingItemIds((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      await addItem({
+        menuItemId: found.id,
+        name: found.name,
+        price: Number(found.price),
+        imageUrl: found.imageUrl,
+      });
+    } finally {
+      setLoadingItemIds((prev) => ({ ...prev, [itemId]: false }));
+    }
+  }, [items, addItem, registerActivity]);
 
   const visibleCategories = categories.filter((cat) => {
     if (activeCategoryId !== null && cat.id !== activeCategoryId) return false;
@@ -222,26 +259,33 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => updateQty(item.menuItemId, item.qty - 1)}
+                  onClick={() => handleUpdateQty(item.menuItemId, item.qty - 1)}
+                  disabled={loadingItemIds[item.menuItemId]}
                   aria-label="Giảm số lượng"
-                  className="h-7 w-7 rounded-full bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 transition-colors shadow-sm cursor-pointer"
+                  className="h-7 w-7 rounded-full bg-white hover:bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-600 transition-colors shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Minus size={12} strokeWidth={2.5} />
                 </button>
-                <span className="text-xs sm:text-sm font-extrabold text-gray-900 w-5 text-center tabular-nums">{item.qty}</span>
+                {loadingItemIds[item.menuItemId] ? (
+                  <Loader2 size={12} className="animate-spin text-amber-600 w-5 text-center" />
+                ) : (
+                  <span className="text-xs sm:text-sm font-extrabold text-gray-900 w-5 text-center tabular-nums">{item.qty}</span>
+                )}
                 <button
                   type="button"
-                  onClick={() => updateQty(item.menuItemId, item.qty + 1)}
+                  onClick={() => handleUpdateQty(item.menuItemId, item.qty + 1)}
+                  disabled={loadingItemIds[item.menuItemId]}
                   aria-label="Tăng số lượng"
-                  className="h-7 w-7 rounded-full bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center shadow-sm transition-colors cursor-pointer"
+                  className="h-7 w-7 rounded-full bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus size={12} strokeWidth={2.5} />
                 </button>
                 <button
                   type="button"
-                  onClick={() => updateQty(item.menuItemId, 0)}
+                  onClick={() => handleUpdateQty(item.menuItemId, 0)}
+                  disabled={loadingItemIds[item.menuItemId]}
                   aria-label="Xóa khỏi đơn"
-                  className="h-7 w-7 rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 flex items-center justify-center transition-colors ml-1 cursor-pointer"
+                  className="h-7 w-7 rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 flex items-center justify-center transition-colors ml-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Trash2 size={12} />
                 </button>
@@ -259,8 +303,9 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
               type="text"
               placeholder="Ghi chú (ít cay, không hành...)"
               value={item.note || ''}
-              onChange={(e) => updateNote(item.menuItemId, e.target.value)}
-              className="w-full bg-white border border-gray-200 hover:border-gray-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-lg px-2.5 py-1 text-[11px] text-gray-700 placeholder-gray-400 focus:outline-none transition-all"
+              disabled={loadingItemIds[item.menuItemId]}
+              onChange={(e) => handleUpdateNote(item.menuItemId, e.target.value)}
+              className="w-full bg-white border border-gray-200 hover:border-gray-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-lg px-2.5 py-1 text-[11px] text-gray-700 placeholder-gray-400 focus:outline-none transition-all disabled:opacity-50 disabled:bg-gray-50"
             />
           )}
         </div>

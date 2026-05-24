@@ -5,6 +5,8 @@ import {
   getSession,
   getActiveSession,
   updateSessionStatus,
+  handleAddToCart,
+  handleDeleteCartItem,
 } from '../controllers/session.controller';
 import { emitCashierNewOrder } from '../socket/emit.helpers';
 import type { Request, Response } from 'express';
@@ -32,6 +34,18 @@ router.get('/table/:tableId/active', getActiveSession);
  * Lấy chi tiết session — client polling / reconnect.
  */
 router.get('/:sessionId', getSession);
+
+/**
+ * POST /api/sessions/:sessionId/cart
+ * Thêm hoặc cập nhật một món ăn trong giỏ hàng.
+ */
+router.post('/:sessionId/cart', handleAddToCart);
+
+/**
+ * DELETE /api/sessions/:sessionId/cart/:menuItemId
+ * Xóa một món ăn khỏi giỏ hàng.
+ */
+router.delete('/:sessionId/cart/:menuItemId', handleDeleteCartItem);
 
 // ─── PROTECTED (Staff / Manager / Admin) ─────────────────────────────────────
 
