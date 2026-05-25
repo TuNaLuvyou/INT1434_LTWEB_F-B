@@ -318,7 +318,7 @@ export default function CheckInClient({ user }: { user: any }) {
 
         {/* Error Modal banner */}
         {errorModal && (
-          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl flex flex-col gap-3 text-xs w-full max-w-md animate-in fade-in duration-200">
+          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl flex flex-col gap-3 text-xs w-full animate-in fade-in duration-200">
             <div className="flex items-start gap-2.5">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <div className="flex-1">
@@ -421,7 +421,7 @@ export default function CheckInClient({ user }: { user: any }) {
                   onClick={handleCheckIn}
                   className="w-full py-4 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold text-sm tracking-wider uppercase transition-all shadow-[0_0_20px_rgba(20,184,166,0.25)] hover:shadow-[0_0_25px_rgba(20,184,166,0.4)]"
                 >
-                  Bắt Đầu Ca Làm Mới (Check-in lại)
+                  Bắt Đầu Ca Làm (Check-in)
                 </button>
               </div>
             )}
