@@ -94,7 +94,7 @@ export const getHistory = async (req: Request, res: Response): Promise<void> => 
 
 export const approve = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { isApproved, note } = req.body;
     const approvedBy = req.user?.userId;
 

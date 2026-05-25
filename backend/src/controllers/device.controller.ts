@@ -36,7 +36,7 @@ export const registerDevice = async (req: Request, res: Response): Promise<void>
 
 export const revokeDevice = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     await deviceService.revokeDevice(id);
     res.status(200).json({ success: true, message: 'Đã thu hồi thiết bị' });
   } catch (error) {
