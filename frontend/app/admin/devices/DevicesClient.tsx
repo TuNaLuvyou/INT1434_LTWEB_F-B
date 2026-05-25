@@ -15,6 +15,8 @@ import {
   Search 
 } from 'lucide-react';
 
+import { getAccessTokenFromCookie } from '@/lib/auth/client';
+
 export default function DevicesClient() {
   const [devices, setDevices] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -26,9 +28,20 @@ export default function DevicesClient() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+  const getHeaders = (extraHeaders = {}) => {
+    const token = getAccessTokenFromCookie();
+    return {
+      ...extraHeaders,
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    };
+  };
+
   const fetchDevices = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/devices`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/api/devices`, { 
+        headers: getHeaders(),
+        credentials: 'include' 
+      });
       const data = await res.json();
       if (res.ok) setDevices(data.data);
     } catch (error) {
@@ -40,7 +53,10 @@ export default function DevicesClient() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/devices/users`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/api/devices/users`, { 
+        headers: getHeaders(),
+        credentials: 'include' 
+      });
       const data = await res.json();
       if (res.ok) {
         setUsers(data.data);
@@ -67,7 +83,7 @@ export default function DevicesClient() {
     try {
       const res = await fetch(`${API_URL}/api/devices/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(formData),
         credentials: 'include'
       });
@@ -90,6 +106,7 @@ export default function DevicesClient() {
     try {
       const res = await fetch(`${API_URL}/api/devices/${id}`, {
         method: 'DELETE',
+        headers: getHeaders(),
         credentials: 'include'
       });
       if (res.ok) {
@@ -286,6 +303,7 @@ export default function DevicesClient() {
                   <th className="px-5 py-3">Thiết bị</th>
                   <th className="px-5 py-3">Người dùng sở hữu</th>
                   <th className="px-5 py-3">Hoạt động gần nhất</th>
+                  <th className="px-5 py-3 text-center">Token</th>
                   <th className="px-5 py-3 text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -324,6 +342,23 @@ export default function DevicesClient() {
                         <span className="text-zinc-600 font-light italic">Chưa hoạt động</span>
                       )}
                     </td>
+                    <td className="px-5 py-4 text-center">
+                      {device.token ? (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(device.token);
+                            alert(`Đã sao chép token cho thiết bị "${device.label}"!`);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600/10 hover:bg-violet-600 border border-violet-500/20 hover:border-violet-500 text-violet-400 hover:text-white font-semibold text-xs transition-all shadow-sm hover:shadow-[0_0_12px_rgba(124,58,237,0.3)] cursor-pointer"
+                          title="Sao chép Token"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          <span>Sao chép</span>
+                        </button>
+                      ) : (
+                        <span className="text-zinc-500 font-light italic">Không có token</span>
+                      )}
+                    </td>
                     <td className="px-5 py-4 text-right">
                       <button
                         onClick={() => handleRevoke(device.id, device.label)}
@@ -337,7 +372,7 @@ export default function DevicesClient() {
                 ))}
                 {filteredDevices.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-zinc-600 font-light">
+                    <td colSpan={5} className="px-5 py-8 text-center text-zinc-600 font-light">
                       Chưa có thiết bị nào được thiết lập hoặc khớp với bộ lọc.
                     </td>
                   </tr>
