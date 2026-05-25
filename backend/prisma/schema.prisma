@@ -79,6 +79,7 @@ model TableSession {
   status     SessionStatus
   version    Int           @default(0) // optimistic lock — dùng cho commit 4
   openedAt   DateTime      @default(now())
+  lockedAt   DateTime?
   closedAt   DateTime?
   orderItems OrderItem[]
   payment    Payment?

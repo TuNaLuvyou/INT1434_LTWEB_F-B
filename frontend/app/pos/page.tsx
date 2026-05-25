@@ -186,7 +186,7 @@ export default function POSPage() {
   const token = typeof window !== 'undefined' ? (getAccessTokenFromCookie() || undefined) : undefined;
   
   const { socket: cashierSocket, isConnected: isCashierConnected } = useSocket({
-    room: 'cashier',
+    room: 'floor-plan',
     token,
   });
 
@@ -217,7 +217,7 @@ export default function POSPage() {
 
     const handleSessionUpdate = (payload: any) => {
       if (payload.sessionId === sessionId) {
-        console.log('[POS Socket] Nhận được thay đổi phiên từ khách hàng, đồng bộ lại...');
+        console.log('[POS Socket] Nhận được thay đổi phiên từ hệ thống, đồng bộ lại...');
         fetchSessionDetails(sessionId);
       }
     };
@@ -231,23 +231,12 @@ export default function POSPage() {
       );
     };
 
-    const handleMenuSoldoutNotify = (payload: any) => {
-      if (payload.isSoldOut) {
-        // TODO: Implement đầy đủ UI notification banner trong commit 3
-        alert(`⚠️ CHÚ Ý: Món "${payload.menuItemName}" vừa được Bếp báo HẾT MÓN. Vui lòng kiểm tra và xử lý các order đang pending chứa món này!`);
-      }
-    };
-
-    cashierSocket.on('cashier:new-order', handleSessionUpdate);
     cashierSocket.on('table:session-updated', handleSessionUpdate);
     cashierSocket.on('table:status-changed', handleTableStatusChanged);
-    cashierSocket.on('menu:soldout-notify', handleMenuSoldoutNotify);
 
     return () => {
-      cashierSocket.off('cashier:new-order', handleSessionUpdate);
       cashierSocket.off('table:session-updated', handleSessionUpdate);
       cashierSocket.off('table:status-changed', handleTableStatusChanged);
-      cashierSocket.off('menu:soldout-notify', handleMenuSoldoutNotify);
     };
   }, [cashierSocket, isCashierConnected, sessionId]);
 
@@ -427,6 +416,10 @@ export default function POSPage() {
                 </select>
               )}
             </div>
+            <Link href="/pos/cashier" className="ml-4 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+              <CreditCard className="h-4 w-4" />
+              Thu ngân
+            </Link>
             <span className="text-xs text-zinc-400 font-mono hidden sm:inline">COUNTER: THU NGÂN</span>
           </div>
         </div>
