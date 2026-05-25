@@ -238,6 +238,10 @@ export async function addToCart(
       throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
     }
 
+    if (session.lockedAt) {
+      throw new AppError(423, 'SESSION_LOCKED', 'Order đang được chuẩn bị bởi nhà hàng — không thể thêm món.', { isLocked: true });
+    }
+
     // STEP 2: Verify menuItem isActive và không sold out
     const menuItem = await tx.menuItem.findUnique({
       where: { id: menuItemId },
@@ -335,6 +339,10 @@ export async function deleteCartItem(
     });
     if (!session || session.status !== 'OPEN') {
       throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
+    }
+
+    if (session.lockedAt) {
+      throw new AppError(423, 'SESSION_LOCKED', 'Order đang được chuẩn bị bởi nhà hàng — không thể xóa món.', { isLocked: true });
     }
 
     // STEP 2: LWW CONFLICT CHECK

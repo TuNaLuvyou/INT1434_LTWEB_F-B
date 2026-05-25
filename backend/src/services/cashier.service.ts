@@ -1,5 +1,7 @@
 import prisma from '../config/prisma';
 import { OrderItemStatus, TableStatus } from '@prisma/client';
+import { AppError } from '../utils/app-error';
+import { emitKitchenNewTicket, emitCartUpdated, emitTableStatusChanged } from '../socket/emit.helpers';
 
 export interface CashierSessionOverview {
   sessionId: string;
@@ -156,5 +158,125 @@ export async function getCashierSessionItems(sessionId: string): Promise<Cashier
     tableNumber: session.table.tableNumber,
     tableLabel: session.table.label,
     groups,
+  };
+}
+
+export async function approveOrder(sessionId: string, approverId?: string): Promise<any> {
+  // 1. Tìm và validate TableSession
+  const session = await prisma.tableSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      table: true,
+      orderItems: {
+        include: {
+          menuItem: true,
+        },
+      },
+    },
+  });
+
+  if (!session) {
+    throw new AppError(404, 'SESSION_NOT_FOUND', 'Không tìm thấy phiên làm việc.');
+  }
+
+  if (session.status !== 'OPEN') {
+    throw new AppError(400, 'SESSION_CLOSED', 'Phiên làm việc đã đóng.');
+  }
+
+  if (session.lockedAt) {
+    throw new AppError(409, 'ALREADY_APPROVED', 'Đơn hàng đã được duyệt trước đó.');
+  }
+
+  // Lọc các món PENDING
+  const pendingItems = session.orderItems.filter(item => item.status === 'PENDING');
+  if (pendingItems.length === 0) {
+    throw new AppError(400, 'NO_PENDING_ITEMS', 'Không có món ăn nào đang chờ duyệt.');
+  }
+
+  const now = new Date();
+
+  // 2. Chạy transaction để update DB
+  const result = await prisma.$transaction(async (tx) => {
+    // Lock session
+    const updatedSession = await tx.tableSession.update({
+      where: { id: sessionId },
+      data: {
+        lockedAt: now,
+      },
+    });
+
+    // Chuyển PENDING sang PREPARING
+    await tx.orderItem.updateMany({
+      where: {
+        sessionId,
+        status: 'PENDING',
+      },
+      data: {
+        status: 'PREPARING',
+        updatedAt: now,
+      },
+    });
+
+    // Cập nhật trạng thái bàn thành OCCUPIED
+    const updatedTable = await tx.table.update({
+      where: { id: session.tableId },
+      data: {
+        status: 'OCCUPIED',
+      },
+    });
+
+    return { updatedSession, updatedTable };
+  });
+
+  // 3. Emit các sự kiện Socket.io và AuditLog TODO
+  // TODO: Khi có model AuditLog, hãy thêm ghi chép hành động duyệt đơn ở đây
+  console.log(`[AuditLog TODO] Cashier ${approverId || 'system'} approved session ${sessionId} at ${now.toISOString()}`);
+
+  // Emit table status changed
+  emitTableStatusChanged({
+    tableId: session.tableId,
+    status: 'OCCUPIED',
+    tableNumber: session.table.tableNumber,
+    label: session.table.label,
+  });
+
+  // Emit Kitchen New Ticket
+  emitKitchenNewTicket({
+    sessionId,
+    tableId: session.tableId,
+    tableNumber: session.table.tableNumber,
+    items: pendingItems.map(item => ({
+      orderItemId: item.id,
+      menuItemName: item.menuItem.name,
+      qty: item.qty,
+      note: item.note || undefined,
+      status: 'PREPARING',
+    })),
+    createdAt: now.toISOString(),
+  });
+
+  // Emit Cart Updated (gửi lock notification cho khách)
+  const total = session.orderItems.reduce((sum, item) => sum + Number(item.unitPrice) * item.qty, 0);
+  emitCartUpdated(session.tableId, {
+    sessionId,
+    tableId: session.tableId,
+    orderItems: session.orderItems.map(item => ({
+      id: item.id,
+      menuItemId: item.menuItemId,
+      menuItemName: item.menuItem.name,
+      qty: item.qty,
+      unitPrice: Number(item.unitPrice),
+      status: item.status === 'PENDING' ? 'PREPARING' : item.status,
+    })),
+    total,
+    isLocked: true,
+    message: '✅ Order của bạn đang được bếp chuẩn bị',
+  });
+
+  return {
+    sessionId,
+    lockedAt: now,
+    tableStatus: 'OCCUPIED',
+    approvedItemsCount: pendingItems.length,
   };
 }

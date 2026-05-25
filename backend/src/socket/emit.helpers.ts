@@ -26,6 +26,8 @@ export interface CartUpdatedPayload {
     status: string;
   }>;
   total: number;
+  isLocked?: boolean;
+  message?: string;
 }
 
 export interface TableStatusChangedPayload {
@@ -110,7 +112,8 @@ export interface MenuSoldOutPayload {
 export function emitCartUpdated(tableId: string, payload: CartUpdatedPayload): void {
   try {
     getIO().to(SOCKET_ROOMS.table(tableId)).emit(SOCKET_EVENTS.CART_UPDATED, payload);
-    console.log(`[emit] cart:updated → room table:${tableId}`);
+    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.CART_UPDATED, payload);
+    console.log(`[emit] cart:updated → room table:${tableId} & cashier`);
   } catch (err) {
     console.warn('[emit] emitCartUpdated failed (socket chưa init?):', err);
   }

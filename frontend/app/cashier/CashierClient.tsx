@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Bell, CheckCircle2, ChevronDown, ChevronUp, Clock, Dot } from "lucide-react";
+import { Bell, CheckCircle2, ChevronDown, ChevronUp, Clock, Dot, Loader2 } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
 import type { CashierNewOrderPayload } from "@/types/socket";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
@@ -145,6 +145,9 @@ export default function CashierClient({
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [activeTab, setActiveTab] = useState<"tables" | "details">(initialSelectedSessionId ? "details" : "tables");
   const [now, setNow] = useState(new Date());
+  const [isApproving, setIsApproving] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [localErrorMsg, setLocalErrorMsg] = useState<string | null>(errorMsg);
 
   const token = typeof window !== "undefined" ? getAccessTokenFromCookie() || undefined : undefined;
   const { socket, isConnected } = useSocket({ room: "cashier", token });
@@ -192,6 +195,52 @@ export default function CashierClient({
     },
     [fetchSessionItems]
   );
+
+  const handleApprove = async () => {
+    if (!selectedSessionId) return;
+    setIsApproving(true);
+    setSuccessMsg(null);
+    setLocalErrorMsg(null);
+    try {
+      const response = await fetch(`${API_URL}/api/cashier/sessions/${selectedSessionId}/approve`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token || ""}`,
+        },
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setSuccessMsg(`✓ Đã duyệt đơn hàng thành công! Đã gửi ${result.data?.approvedItemsCount || 0} món xuống bếp.`);
+        setTimeout(() => setSuccessMsg(null), 5000);
+
+        setTables((prev) =>
+          prev.map((table) => {
+            if (table.session?.sessionId !== selectedSessionId) return table;
+            return {
+              ...table,
+              session: table.session
+                ? {
+                    ...table.session,
+                    isLocked: true,
+                    pendingCount: 0,
+                    preparingCount: (table.session.preparingCount || 0) + (result.data?.approvedItemsCount || 0),
+                  }
+                : null,
+            };
+          })
+        );
+
+        await fetchSessionItems(selectedSessionId);
+      } else {
+        setLocalErrorMsg(result.message || "Duyệt đơn hàng thất bại.");
+      }
+    } catch (error: any) {
+      console.error("Lỗi khi duyệt đơn:", error);
+      setLocalErrorMsg("Lỗi kết nối server.");
+    } finally {
+      setIsApproving(false);
+    }
+  };
 
   const addNotification = useCallback((notification: Omit<Notification, "id" | "createdAt" | "isRead">) => {
     setNotifications((prev) => [
@@ -279,14 +328,39 @@ export default function CashierClient({
       });
     };
 
+    const handleCartUpdated = (payload: { sessionId: string; tableId: string; isLocked?: boolean }) => {
+      if (payload.isLocked) {
+        setTables((prev) =>
+          prev.map((table) => {
+            if (table.tableId !== payload.tableId) return table;
+            return {
+              ...table,
+              session: table.session
+                ? {
+                    ...table.session,
+                    isLocked: true,
+                    pendingCount: 0,
+                  }
+                : null,
+            };
+          })
+        );
+        if (payload.sessionId === selectedSessionId) {
+          fetchSessionItems(payload.sessionId);
+        }
+      }
+    };
+
     socket.on("cashier:new-order", handleNewOrder);
     socket.on("session:all-done", handleAllDone);
     socket.on("menu:soldout-notify", handleSoldOut);
+    socket.on("cart:updated", handleCartUpdated);
 
     return () => {
       socket.off("cashier:new-order", handleNewOrder);
       socket.off("session:all-done", handleAllDone);
       socket.off("menu:soldout-notify", handleSoldOut);
+      socket.off("cart:updated", handleCartUpdated);
     };
   }, [socket, isConnected, addNotification, selectedSessionId, fetchSessionItems]);
 
@@ -383,11 +457,18 @@ export default function CashierClient({
               <div className="flex gap-3">
                 <button
                   type="button"
-                  className="flex-1 rounded-lg bg-emerald-500/90 text-white py-2 text-sm font-semibold shadow-[0_8px_16px_rgba(16,185,129,0.2)] disabled:opacity-50"
-                  disabled
-                  title="Implement in next commit"
+                  onClick={handleApprove}
+                  disabled={isApproving}
+                  className="flex-1 rounded-lg bg-emerald-500/90 text-white py-2 text-sm font-semibold shadow-[0_8px_16px_rgba(16,185,129,0.2)] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer transition hover:bg-emerald-600"
                 >
-                  ✓ Duyệt tất cả
+                  {isApproving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Đang duyệt...
+                    </>
+                  ) : (
+                    "✓ Duyệt tất cả"
+                  )}
                 </button>
                 <button
                   type="button"
@@ -435,9 +516,15 @@ export default function CashierClient({
           </div>
         </div>
 
-        {errorMsg && (
+        {localErrorMsg && (
           <div className="mb-4 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-            {errorMsg}
+            {localErrorMsg}
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="mb-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            {successMsg}
           </div>
         )}
 
@@ -582,8 +669,15 @@ export default function CashierClient({
                 <>
                   <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                     <div>
-                      <div className="text-xl font-semibold text-slate-100">
-                        Bàn {selectedTable.tableNumber} — {selectedTable.tableLabel}
+                      <div className="flex items-center gap-3">
+                        <div className="text-xl font-semibold text-slate-100">
+                          Bàn {selectedTable.tableNumber} — {selectedTable.tableLabel}
+                        </div>
+                        {selectedTable.session?.isLocked && (
+                          <span className="bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full text-xs font-semibold">
+                            🔒 Đang chế biến
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-slate-400">
                         Session mở lúc {formatShortTime(selectedTable.session?.openedAt || new Date())}
@@ -612,11 +706,17 @@ export default function CashierClient({
                       <div className="text-sm text-slate-400">Tổng tiền tạm tính</div>
                       <div className="text-xl font-semibold text-slate-100">{currencyFormatter.format(subtotal)}</div>
                     </div>
-                    <button
+                     <button
                       type="button"
-                      className="w-full rounded-xl bg-slate-100 text-slate-900 py-3 font-semibold shadow-[0_12px_24px_rgba(148,163,184,0.25)] disabled:opacity-50"
-                      disabled={hasPendingOrPreparing}
-                      title={hasPendingOrPreparing ? "Không thể thanh toán khi còn món chờ" : ""}
+                      className="w-full rounded-xl bg-slate-100 text-slate-900 py-3 font-semibold shadow-[0_12px_24px_rgba(148,163,184,0.25)] disabled:opacity-50 transition duration-200 hover:bg-slate-200"
+                      disabled={!selectedTable.session?.isLocked || hasPendingOrPreparing}
+                      title={
+                        !selectedTable.session?.isLocked
+                          ? "Cần duyệt đơn hàng trước khi thanh toán"
+                          : hasPendingOrPreparing
+                          ? "Không thể thanh toán khi còn món chờ duyệt hoặc đang làm"
+                          : ""
+                      }
                     >
                       💳 Thanh toán
                     </button>
