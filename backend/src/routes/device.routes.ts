@@ -16,7 +16,7 @@ router.delete('/:id', requireRole(['ADMIN', 'MANAGER']), revokeDevice);
 // Strictly ADMIN only route for role management
 router.put('/users/:id/role', requireRole(['ADMIN']), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { role } = req.body;
     
     const validRoles = ['ADMIN', 'MANAGER', 'STAFF', 'KITCHEN', 'CASHIER'];
@@ -26,7 +26,7 @@ router.put('/users/:id/role', requireRole(['ADMIN']), async (req, res) => {
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id },
+      where: { id: id },
       data: { role: role as any }
     });
 
