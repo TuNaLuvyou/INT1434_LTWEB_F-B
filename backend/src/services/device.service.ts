@@ -30,7 +30,14 @@ export const registerDevice = async (userId: string, label: string) => {
 };
 
 export const revokeDevice = async (id: string) => {
-  return await prisma.trustedDevice.delete({
-    where: { id }
+  return await prisma.$transaction(async (tx) => {
+    // Delete all attendance logs associated with this device first to satisfy foreign key constraints
+    await tx.attendance.deleteMany({
+      where: { deviceId: id }
+    });
+    // Now delete the device
+    return await tx.trustedDevice.delete({
+      where: { id }
+    });
   });
 };
