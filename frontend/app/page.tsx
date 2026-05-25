@@ -70,7 +70,7 @@ export default function Home() {
       color: "from-teal-600 to-emerald-500",
       accent: "teal",
       metrics: { label: "Trạng thái", value: "Sẵn sàng" },
-      visible: !!user && (user.role === "STAFF" || user.role === "KITCHEN" || user.role === "CASHIER")
+      visible: !!user && user.role === "STAFF"
     },
     {
       title: "Table",
