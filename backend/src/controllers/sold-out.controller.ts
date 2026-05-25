@@ -56,14 +56,29 @@ export const updateSoldOut = async (req: AuthenticatedRequest, res: Response) =>
       },
     });
 
-    // 3. Emit Socket.io event → patch real-time cho tất cả client đang xem menu
-    //    Payload nhỏ gọn: chỉ cần menuItemId + isSoldOut để client tự update state cục bộ
+    // 3. Emit Socket.io events → patch real-time cho tất cả các bên
     const io = getIO();
+    // a. Room "menu-updates" event "menu:soldout"
     io.to('menu-updates').emit('menu:soldout', {
+      menuItemId: id,
+      menuItemName: updated.name,
+      isSoldOut,
+    });
+    
+    // b. Room "cashier" event "menu:soldout-notify"
+    io.to('cashier').emit('menu:soldout-notify', {
+      menuItemId: id,
+      menuItemName: updated.name,
+      isSoldOut,
+    });
+
+    // c. Room "kitchen" event "kitchen:item-updated" (loại soldout)
+    io.to('kitchen').emit('kitchen:item-updated', {
+      type: 'soldout',
       menuItemId: id,
       isSoldOut,
     });
-    console.log(`[Socket.io] Đã emit "menu:soldout" → menuItemId=${id}, isSoldOut=${isSoldOut}`);
+    console.log(`[Socket.io] Đã emit soldout events → menuItemId=${id}, name=${updated.name}, isSoldOut=${isSoldOut}`);
 
     // 4. Gọi Next.js On-Demand Revalidation API để invalidate SSG cache
     //    → Lần load trang tiếp theo (user mới mở tab) sẽ lấy data mới từ DB

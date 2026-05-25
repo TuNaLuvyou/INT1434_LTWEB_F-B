@@ -137,9 +137,10 @@ export async function submitOrder(
     }
 
     if (itemErrors.length > 0) {
+      const errorDetails = itemErrors.map((e) => e.message).join(', ');
       return {
         success: false,
-        message: `${itemErrors.length} món không thể đặt`,
+        message: `Không thể đặt hàng do: ${errorDetails}`,
         errors: { itemErrors },
       };
     }

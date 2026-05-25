@@ -246,7 +246,7 @@ export async function addToCart(
       throw new AppError(404, 'ITEM_NOT_FOUND', 'Món không còn phục vụ');
     }
     if (menuItem.isSoldOut) {
-      throw new AppError(409, 'ITEM_SOLD_OUT', 'Món này đã hết');
+      throw new AppError(409, 'ITEM_SOLD_OUT', `Món "${menuItem.name}" đã hết`);
     }
 
     // STEP 3: LWW CONFLICT CHECK
