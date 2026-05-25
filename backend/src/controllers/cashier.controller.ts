@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as cashierService from '../services/cashier.service';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 export async function getCashierOverview(req: Request, res: Response): Promise<void> {
   try {
@@ -31,8 +32,29 @@ export async function getCashierSessionItems(req: Request, res: Response): Promi
 }
 
 export async function approveCashierSessionItems(req: Request, res: Response): Promise<void> {
-  res.status(501).json({
-    success: false,
-    message: 'Implement in next commit',
-  });
+  try {
+    const sessionId = req.params.sessionId as string;
+    if (!sessionId) {
+      res.status(400).json({ success: false, message: 'Thiếu sessionId' });
+      return;
+    }
+
+    const authReq = req as AuthenticatedRequest;
+    const approverId = authReq.user?.userId;
+
+    const data = await cashierService.approveOrder(sessionId, approverId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Duyệt đơn hàng thành công',
+      data,
+    });
+  } catch (error: any) {
+    console.error('approveCashierSessionItems error:', error);
+    res.status(error?.statusCode || 500).json({
+      success: false,
+      code: error?.code || 'INTERNAL_ERROR',
+      message: error?.message || 'Lỗi server nội bộ',
+    });
+  }
 }

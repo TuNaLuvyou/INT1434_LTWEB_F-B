@@ -88,6 +88,13 @@ export async function submitOrder(
       };
     }
 
+    if (session.lockedAt) {
+      return {
+        success: false,
+        message: 'Order đang được chuẩn bị bởi nhà hàng — không thể thêm món mới.',
+      };
+    }
+
     // ── Step 3: Verify tableId khớp với session.tableId ────────────────────
     if (session.tableId !== tableId) {
       return {
