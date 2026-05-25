@@ -30,9 +30,7 @@ export const getDeviceUsers = async (req: Request, res: Response): Promise<void>
 export const getDevices = async (req: Request, res: Response): Promise<void> => {
   try {
     const devices = await deviceService.getAllDevices();
-    // Ẩn token khi trả về danh sách, chỉ trả về các trường khác
-    const safeDevices = devices.map(({ token, ...rest }) => rest);
-    res.status(200).json({ success: true, data: safeDevices });
+    res.status(200).json({ success: true, data: devices });
   } catch (error) {
     console.error('getDevices error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
