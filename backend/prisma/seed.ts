@@ -33,6 +33,7 @@ async function main() {
     { email: 'admin@restoflow.demo', role: Role.ADMIN, name: 'Admin RestoFlow' },
     { email: 'manager@restoflow.demo', role: Role.MANAGER, name: 'Nguyễn Văn Manager' },
     { email: 'kitchen@restoflow.demo', role: Role.KITCHEN, name: 'Bếp Trưởng' },
+    { email: 'staff@restoflow.demo', role: Role.STAFF, name: 'Nhân Viên RestoFlow' },
   ];
 
   for (const u of users) {
