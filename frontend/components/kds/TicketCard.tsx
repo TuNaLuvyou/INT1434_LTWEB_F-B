@@ -2,15 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { setSoldOutAction } from '@/app/actions/menu.actions';
 
 export interface KdsItem {
   orderItemId: string;
+  menuItemId: string;
   menuItemName: string;
   menuItemImage: string | null;
   qty: number;
   note: string;
-  status: 'PENDING' | 'PREPARING' | 'DONE';
+  status: 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
   waitMinutes: number;
+  isSoldOut: boolean;
   createdAt: string;
 }
 
@@ -85,6 +88,41 @@ export default function TicketCard({ ticket, onStatusChange }: TicketCardProps) 
     }
   };
 
+  const [soldOutLoading, setSoldOutLoading] = useState<Record<string, boolean>>({});
+
+  const handleSoldOutToggle = async (item: KdsItem) => {
+    const nextState = !item.isSoldOut;
+    const actionText = nextState ? 'HẾT MÓN' : 'CÒN HÀNG';
+    const confirmMsg = nextState
+      ? `⚠️ Xác nhận báo HẾT MÓN: "${item.menuItemName}"?\n(Món ăn này sẽ bị khóa trên Menu QR của toàn bộ khách hàng)`
+      : `🔄 Xác nhận MỞ LẠI món: "${item.menuItemName}"?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setSoldOutLoading(prev => ({ ...prev, [item.orderItemId]: true }));
+    
+    // Optimistic Update
+    const originalItems = [...localItems];
+    setLocalItems(prev => prev.map(i =>
+      i.menuItemId === item.menuItemId ? { ...i, isSoldOut: nextState } : i
+    ));
+
+    try {
+      const result = await setSoldOutAction(item.menuItemId, nextState);
+      if (result.success) {
+        alert(`🎉 "${item.menuItemName}" đã được chuyển sang: ${actionText}`);
+      } else {
+        throw new Error(result.message || 'Cập nhật thất bại');
+      }
+    } catch (error: any) {
+      // Rollback
+      setLocalItems(originalItems);
+      alert(`❌ Lỗi: ${error.message || 'Không thể cập nhật trạng thái món ăn'}`);
+    } finally {
+      setSoldOutLoading(prev => ({ ...prev, [item.orderItemId]: false }));
+    }
+  };
+
   const formatTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
@@ -118,9 +156,17 @@ export default function TicketCard({ ticket, onStatusChange }: TicketCardProps) 
                     )}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-100 text-base leading-tight flex items-center gap-2">
+                    <h4 className="font-semibold text-gray-100 text-base leading-tight flex items-center gap-2 flex-wrap">
                       <span className="text-blue-400 font-bold text-lg">{item.qty}x</span>
                       {item.menuItemName}
+                      {item.isSoldOut && (
+                        <span 
+                          title="Món này đã được báo hết. Cân nhắc hủy item."
+                          className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded border border-red-500/30 font-bold cursor-help"
+                        >
+                          Hết món
+                        </span>
+                      )}
                     </h4>
                     {item.note && (
                       <p className="text-yellow-400 text-sm mt-1 flex gap-1 items-start">
@@ -134,33 +180,56 @@ export default function TicketCard({ ticket, onStatusChange }: TicketCardProps) 
                 </div>
               </div>
 
-              {/* Action Button */}
-              <div className="mt-1 flex justify-end">
-                {item.status === 'PENDING' && (
+              {/* Action Buttons */}
+              <div className="mt-1 flex justify-between items-center">
+                {/* Sold-out toggle: Only show if status is not DONE or VOID */}
+                {item.status !== 'DONE' && (item.status as string) !== 'VOID' ? (
                   <button
-                    onClick={() => handleStatusClick(item)}
-                    disabled={loadingItems[item.orderItemId]}
-                    className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50"
+                    onClick={() => handleSoldOutToggle(item)}
+                    disabled={soldOutLoading[item.orderItemId]}
+                    className={`text-xs font-semibold py-1.5 px-3 rounded-lg border transition-colors ${
+                      item.isSoldOut
+                        ? 'border-emerald-500 text-emerald-500 hover:bg-emerald-500/10'
+                        : 'border-red-500 text-red-500 hover:bg-red-500/10'
+                    } disabled:opacity-50`}
                   >
-                    ▶ Bắt đầu làm
+                    {soldOutLoading[item.orderItemId]
+                      ? 'Đang lưu...'
+                      : item.isSoldOut
+                      ? '↺ Mở lại'
+                      : '🚫 Hết món'}
                   </button>
-                )}
-                
-                {item.status === 'PREPARING' && (
-                  <button
-                    onClick={() => handleStatusClick(item)}
-                    disabled={loadingItems[item.orderItemId]}
-                    className="bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50"
-                  >
-                    ✓ Xong
-                  </button>
+                ) : (
+                  <div />
                 )}
 
-                {item.status === 'DONE' && (
-                  <span className="text-green-500 font-medium text-sm flex items-center gap-1 py-2 px-2">
-                    ✓ Hoàn thành
-                  </span>
-                )}
+                <div className="flex gap-2">
+                  {item.status === 'PENDING' && (
+                    <button
+                      onClick={() => handleStatusClick(item)}
+                      disabled={loadingItems[item.orderItemId]}
+                      className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50"
+                    >
+                      ▶ Bắt đầu làm
+                    </button>
+                  )}
+                  
+                  {item.status === 'PREPARING' && (
+                    <button
+                      onClick={() => handleStatusClick(item)}
+                      disabled={loadingItems[item.orderItemId]}
+                      className="bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50"
+                    >
+                      ✓ Xong
+                    </button>
+                  )}
+
+                  {item.status === 'DONE' && (
+                    <span className="text-green-500 font-medium text-sm flex items-center gap-1 py-2 px-2">
+                      ✓ Hoàn thành
+                    </span>
+                  )}
+                </div>
               </div>
             </li>
           ))}

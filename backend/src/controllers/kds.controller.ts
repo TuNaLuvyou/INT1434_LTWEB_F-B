@@ -17,12 +17,14 @@ export async function getKdsTickets(req: Request, res: Response): Promise<void> 
 
         return {
           orderItemId: item.id,
+          menuItemId: item.menuItem.id,
           menuItemName: item.menuItem.name,
           menuItemImage: item.menuItem.imageUrl,
           qty: item.qty,
           note: item.note,
           status: item.status,
           waitMinutes,
+          isSoldOut: item.menuItem.isSoldOut,
           createdAt: item.createdAt.toISOString()
         };
       });

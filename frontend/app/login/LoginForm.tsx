@@ -59,12 +59,6 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
 
       if (redirectUrl) {
         router.push(redirectUrl);
-      } else if (user.role === 'ADMIN' || user.role === 'MANAGER') {
-        router.push('/admin/dashboard');
-      } else if (user.role === 'STAFF') {
-        router.push('/pos');
-      } else if (user.role === 'KITCHEN') {
-        router.push('/kds');
       } else {
         router.push('/');
       }
