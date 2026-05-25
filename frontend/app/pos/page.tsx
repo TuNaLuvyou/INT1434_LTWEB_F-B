@@ -186,7 +186,7 @@ export default function POSPage() {
   const token = typeof window !== 'undefined' ? (getAccessTokenFromCookie() || undefined) : undefined;
   
   const { socket: cashierSocket, isConnected: isCashierConnected } = useSocket({
-    room: 'cashier',
+    room: 'floor-plan',
     token,
   });
 
@@ -217,17 +217,26 @@ export default function POSPage() {
 
     const handleSessionUpdate = (payload: any) => {
       if (payload.sessionId === sessionId) {
-        console.log('[POS Socket] Nhận được thay đổi phiên từ khách hàng, đồng bộ lại...');
+        console.log('[POS Socket] Nhận được thay đổi phiên từ hệ thống, đồng bộ lại...');
         fetchSessionDetails(sessionId);
       }
     };
 
-    cashierSocket.on('cashier:new-order', handleSessionUpdate);
+    const handleTableStatusChanged = (payload: any) => {
+      console.log('[POS Socket] Trạng thái bàn thay đổi:', payload);
+      setTables(prev =>
+        prev.map(t =>
+          t.id === payload.tableId ? { ...t, status: payload.status } : t
+        )
+      );
+    };
+
     cashierSocket.on('table:session-updated', handleSessionUpdate);
+    cashierSocket.on('table:status-changed', handleTableStatusChanged);
 
     return () => {
-      cashierSocket.off('cashier:new-order', handleSessionUpdate);
       cashierSocket.off('table:session-updated', handleSessionUpdate);
+      cashierSocket.off('table:status-changed', handleTableStatusChanged);
     };
   }, [cashierSocket, isCashierConnected, sessionId]);
 
@@ -407,6 +416,10 @@ export default function POSPage() {
                 </select>
               )}
             </div>
+            <Link href="/pos/cashier" className="ml-4 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+              <CreditCard className="h-4 w-4" />
+              Thu ngân
+            </Link>
             <span className="text-xs text-zinc-400 font-mono hidden sm:inline">COUNTER: THU NGÂN</span>
           </div>
         </div>
