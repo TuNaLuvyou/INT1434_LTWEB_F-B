@@ -302,8 +302,8 @@ export default function DevicesClient() {
                 <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
                   <th className="px-5 py-3">Thiết bị</th>
                   <th className="px-5 py-3">Người dùng sở hữu</th>
-                  <th className="px-5 py-3">Token (Để Copy)</th>
                   <th className="px-5 py-3">Hoạt động gần nhất</th>
+                  <th className="px-5 py-3 text-center">Token</th>
                   <th className="px-5 py-3 text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -332,27 +332,6 @@ export default function DevicesClient() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-5 py-4">
-                      {device.token ? (
-                        <div className="flex items-center gap-2 font-mono bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 w-fit group-hover:border-violet-500/40 hover:bg-zinc-900 transition-all shadow-inner">
-                          <span className="text-[11px] text-violet-300 font-bold select-all tracking-wider">
-                            {device.token}
-                          </span>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(device.token);
-                              alert(`Đã sao chép token cho thiết bị "${device.label}"!`);
-                            }}
-                            className="p-1 rounded-lg bg-zinc-950 text-zinc-400 hover:text-violet-400 hover:bg-violet-500/10 border border-zinc-800 hover:border-violet-500/30 transition-all ml-1.5"
-                            title="Sao chép Token"
-                          >
-                            <Copy className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-zinc-500 font-light italic">Không có token</span>
-                      )}
-                    </td>
                     <td className="px-5 py-4 font-mono text-zinc-400">
                       {device.lastUsed ? (
                         <div className="flex items-center gap-1.5">
@@ -361,6 +340,23 @@ export default function DevicesClient() {
                         </div>
                       ) : (
                         <span className="text-zinc-600 font-light italic">Chưa hoạt động</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      {device.token ? (
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(device.token);
+                            alert(`Đã sao chép token cho thiết bị "${device.label}"!`);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600/10 hover:bg-violet-600 border border-violet-500/20 hover:border-violet-500 text-violet-400 hover:text-white font-semibold text-xs transition-all shadow-sm hover:shadow-[0_0_12px_rgba(124,58,237,0.3)] cursor-pointer"
+                          title="Sao chép Token"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          <span>Sao chép</span>
+                        </button>
+                      ) : (
+                        <span className="text-zinc-500 font-light italic">Không có token</span>
                       )}
                     </td>
                     <td className="px-5 py-4 text-right">
