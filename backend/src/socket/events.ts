@@ -20,6 +20,8 @@ export const SOCKET_EVENTS = {
   // ─── Session ────────────────────────────────────────────────────────────────
   /** Emit khi cashier đóng bill hoặc huỷ session — khách thấy "Phiên kết thúc" */
   SESSION_CLOSED:         'session:closed',
+  /** Emit khi tất cả order items trong session đã hoàn thành (DONE) */
+  SESSION_ALL_DONE:       'session:all-done',
 
   // ─── Kitchen / KDS ──────────────────────────────────────────────────────────
   /** Emit khi khách submit order → KDS hiển thị ticket mới */
