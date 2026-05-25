@@ -52,16 +52,17 @@ export const createIngredient = async (req: Request, res: Response): Promise<voi
 
 export const updateIngredient = async (req: Request, res: Response): Promise<void> => {
   try {
+    const id = req.params.id as string;
     const parsed = ingredientSchema.parse(req.body);
 
     // Warn if unit changed and has BOM refs
-    const existing = await svc.getById(req.params.id);
+    const existing = await svc.getById(id);
     const unitChanged = existing && existing.unit !== parsed.unit;
     const bomCount = unitChanged
-      ? (await svc.getBom(req.params.id)).length   // any BOM using this ing?
+      ? (await svc.getBom(id)).length   // any BOM using this ing?
       : 0;
 
-    const item = await svc.update(req.params.id, parsed);
+    const item = await svc.update(id, parsed);
     res.json({
       success: true,
       data: item,
@@ -80,7 +81,8 @@ export const updateIngredient = async (req: Request, res: Response): Promise<voi
 
 export const deleteIngredient = async (req: Request, res: Response): Promise<void> => {
   try {
-    await svc.remove(req.params.id);
+    const id = req.params.id as string;
+    await svc.remove(id);
     res.json({ success: true, message: 'Đã xóa nguyên liệu' });
   } catch (e: any) {
     if (e?.code === 'BOM_CONFLICT') {
@@ -96,6 +98,7 @@ export const deleteIngredient = async (req: Request, res: Response): Promise<voi
 
 export const adjustStock = async (req: Request, res: Response): Promise<void> => {
   try {
+    const id = req.params.id as string;
     const { delta, reason, note } = stockAdjSchema.parse(req.body);
 
     if (reason === 'MANUAL_IMPORT' && delta <= 0) {
@@ -104,7 +107,7 @@ export const adjustStock = async (req: Request, res: Response): Promise<void> =>
     }
 
     const result = await svc.adjustStock(
-      req.params.id, delta, reason, req.user!.userId, note
+      id, delta, reason, req.user!.userId, note
     );
     res.json({ success: true, data: result });
   } catch (e: any) {
@@ -135,7 +138,8 @@ export const getLogs = async (req: Request, res: Response): Promise<void> => {
 
 export const getBom = async (req: Request, res: Response): Promise<void> => {
   try {
-    const data = await svc.getBom(req.params.menuItemId);
+    const menuItemId = req.params.menuItemId as string;
+    const data = await svc.getBom(menuItemId);
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
@@ -144,8 +148,9 @@ export const getBom = async (req: Request, res: Response): Promise<void> => {
 
 export const addBomEntry = async (req: Request, res: Response): Promise<void> => {
   try {
+    const menuItemId = req.params.menuItemId as string;
     const { ingredientId, quantity } = bomEntrySchema.parse(req.body);
-    const entry = await svc.addBomEntry(req.params.menuItemId, ingredientId, quantity);
+    const entry = await svc.addBomEntry(menuItemId, ingredientId, quantity);
     res.status(201).json({ success: true, data: entry });
   } catch (e: any) {
     if (e instanceof z.ZodError) {
@@ -162,8 +167,10 @@ export const addBomEntry = async (req: Request, res: Response): Promise<void> =>
 
 export const updateBomEntry = async (req: Request, res: Response): Promise<void> => {
   try {
+    const menuItemId = req.params.menuItemId as string;
+    const ingredientId = req.params.ingredientId as string;
     const { quantity } = z.object({ quantity: z.coerce.number().positive() }).parse(req.body);
-    const entry = await svc.updateBomEntry(req.params.menuItemId, req.params.ingredientId, quantity);
+    const entry = await svc.updateBomEntry(menuItemId, ingredientId, quantity);
     res.json({ success: true, data: entry });
   } catch (e: any) {
     if (e instanceof z.ZodError) {
@@ -176,7 +183,9 @@ export const updateBomEntry = async (req: Request, res: Response): Promise<void>
 
 export const deleteBomEntry = async (req: Request, res: Response): Promise<void> => {
   try {
-    await svc.deleteBomEntry(req.params.menuItemId, req.params.ingredientId);
+    const menuItemId = req.params.menuItemId as string;
+    const ingredientId = req.params.ingredientId as string;
+    await svc.deleteBomEntry(menuItemId, ingredientId);
     res.json({ success: true, message: 'Đã xóa khỏi công thức' });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
