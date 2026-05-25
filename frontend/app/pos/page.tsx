@@ -222,12 +222,23 @@ export default function POSPage() {
       }
     };
 
+    const handleTableStatusChanged = (payload: any) => {
+      console.log('[POS Socket] Trạng thái bàn thay đổi:', payload);
+      setTables(prev =>
+        prev.map(t =>
+          t.id === payload.tableId ? { ...t, status: payload.status } : t
+        )
+      );
+    };
+
     cashierSocket.on('cashier:new-order', handleSessionUpdate);
     cashierSocket.on('table:session-updated', handleSessionUpdate);
+    cashierSocket.on('table:status-changed', handleTableStatusChanged);
 
     return () => {
       cashierSocket.off('cashier:new-order', handleSessionUpdate);
       cashierSocket.off('table:session-updated', handleSessionUpdate);
+      cashierSocket.off('table:status-changed', handleTableStatusChanged);
     };
   }, [cashierSocket, isCashierConnected, sessionId]);
 

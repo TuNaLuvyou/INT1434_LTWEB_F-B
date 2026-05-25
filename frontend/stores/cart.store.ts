@@ -106,13 +106,8 @@ export const useCartStore = create<CartStore>()(
       submitError: null,
       clockOffset: 0,
 
-      // ── initSession ───────────────────────────────────────────────────────
       initSession: async (tableId: string) => {
-        // Nếu đã có session cho đúng bàn này → dùng lại, không gọi API
         const state = get();
-        if (state.sessionId && state.tableId === tableId) {
-          return { sessionId: state.sessionId, isNew: false };
-        }
 
         const res = await fetch(`${API_URL}/api/sessions/join`, {
           method: 'POST',
@@ -133,11 +128,21 @@ export const useCartStore = create<CartStore>()(
         const serverTime = data.serverTime || Date.now();
         const clockOffset = serverTime - Date.now();
 
-        set({
-          sessionId: data.session.id,
-          tableId: data.session.tableId,
-          clockOffset,
-        });
+        // Nếu session ID thay đổi (phiên cũ đã đóng, phiên mới được tạo)
+        if (state.sessionId !== data.session.id) {
+          set({
+            sessionId: data.session.id,
+            tableId: data.session.tableId,
+            items: [], // Reset giỏ hàng của phiên cũ
+            clockOffset,
+          });
+        } else {
+          set({
+            sessionId: data.session.id,
+            tableId: data.session.tableId,
+            clockOffset,
+          });
+        }
 
         return { sessionId: data.session.id, isNew: data.isNew };
       },
@@ -186,6 +191,19 @@ export const useCartStore = create<CartStore>()(
 
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
+            
+            // Khi phiên đặt món của bàn đã bị đóng (sau thanh toán)
+            if (res.status === 400 && data.message === 'Phiên đặt món đã kết thúc') {
+              console.log('[cartStore] Phát hiện phiên đã kết thúc trên server.');
+              
+              // Reset session ID cục bộ để dọn dẹp
+              set({ sessionId: null, items: [] });
+              
+              // Phát sự kiện thông báo phiên đã đóng để hiển thị màn hình Cảm ơn
+              window.dispatchEvent(new CustomEvent('session-closed'));
+              return;
+            }
+            
             throw new Error(data.message || `HTTP ${res.status}`);
           }
 

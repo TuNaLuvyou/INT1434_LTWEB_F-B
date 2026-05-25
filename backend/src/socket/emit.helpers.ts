@@ -42,6 +42,13 @@ export interface SessionClosedPayload {
   closedAt: string;
 }
 
+export interface SessionAllDonePayload {
+  sessionId: string;
+  tableId: string;
+  tableNumber?: number;
+  label?: string;
+}
+
 export interface KitchenTicketPayload {
   sessionId: string;
   tableId: string;
@@ -123,6 +130,19 @@ export function emitSessionClosed(tableId: string, payload: SessionClosedPayload
 }
 
 /**
+ * Emit khi tất cả order items trong session đã hoàn thành (DONE).
+ * Target: room cashier → thông báo thu ngân có thể tính tiền
+ */
+export function emitSessionAllDone(payload: SessionAllDonePayload): void {
+  try {
+    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.SESSION_ALL_DONE, payload);
+    console.log(`[emit] session:all-done → cashier | session: ${payload.sessionId}`);
+  } catch (err) {
+    console.warn('[emit] emitSessionAllDone failed:', err);
+  }
+}
+
+/**
  * Emit khi một item trong giỏ hàng bị sold-out (bếp toggle).
  * Target: room table:[tableId]
  */
@@ -144,7 +164,8 @@ export function emitCartItemSoldOut(tableId: string, payload: { menuItemId: stri
 export function emitTableStatusChanged(payload: TableStatusChangedPayload): void {
   try {
     getIO().to(SOCKET_ROOMS.FLOOR_PLAN).emit(SOCKET_EVENTS.TABLE_STATUS_CHANGED, payload);
-    console.log(`[emit] table:status-changed → floor-plan | bàn ${payload.tableId}: ${payload.status}`);
+    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.TABLE_STATUS_CHANGED, payload);
+    console.log(`[emit] table:status-changed → floor-plan & cashier | bàn ${payload.tableId}: ${payload.status}`);
   } catch (err) {
     console.warn('[emit] emitTableStatusChanged failed:', err);
   }
