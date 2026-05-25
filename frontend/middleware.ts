@@ -11,8 +11,9 @@ import { AccessTokenPayload } from '@/types/jwt.types';
 
 // 1. ROUTE PERMISSION MAP
 const ROUTE_PERMISSIONS: Record<string, string[]> = {
-  '/pos': ['ADMIN', 'MANAGER', 'STAFF'],
+  '/pos': ['ADMIN', 'MANAGER', 'CASHIER'],
   '/kds': ['ADMIN', 'MANAGER', 'KITCHEN'],
+  '/attendance': ['ADMIN', 'MANAGER', 'STAFF', 'CASHIER', 'KITCHEN'],
   '/admin/settings': ['ADMIN'], // Must be evaluated before /admin
   '/admin': ['ADMIN', 'MANAGER'],
 };

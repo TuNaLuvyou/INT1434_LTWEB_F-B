@@ -9,17 +9,15 @@ import {
   ShoppingBag, 
   Clock, 
   Search, 
-  Filter, 
   Calendar, 
   RefreshCw, 
   ArrowUpRight, 
   ArrowDownRight,
   DollarSign,
-  Briefcase,
-  Download,
   CreditCard,
   Wallet
 } from "lucide-react";
+import AdminTabs from "@/components/admin/AdminTabs";
 
 interface Transaction {
   id: string;
@@ -124,6 +122,11 @@ export default function AdminPage() {
       {/* Admin Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
         
+        {/* Navigation Tabs */}
+        <div className="flex justify-start">
+          <AdminTabs />
+        </div>
+
         {/* Row 1: KPI Stats Widgets */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1 */}
