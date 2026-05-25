@@ -45,7 +45,13 @@ export default function AdminSchedulePage() {
     setLoading(true);
     try {
       const data = await fetchSchedules();
-      setSchedules(data?.data ?? []);
+      if (Array.isArray(data?.data?.schedules)) {
+        setSchedules(data.data.schedules);
+      } else if (Array.isArray(data?.data)) {
+        setSchedules(data.data);
+      } else {
+        setSchedules([]);
+      }
     } catch (err) {
       console.error(err);
     } finally {
