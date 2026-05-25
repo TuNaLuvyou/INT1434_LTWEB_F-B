@@ -40,7 +40,7 @@ export default function Home() {
       color: "from-blue-600 to-cyan-500",
       accent: "blue",
       metrics: { label: "Hiệu năng", value: "99.9% Uptime" },
-      visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "STAFF"
+      visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "CASHIER"
     },
     {
       title: "Kitchen Display (KDS)",
@@ -70,7 +70,7 @@ export default function Home() {
       color: "from-teal-600 to-emerald-500",
       accent: "teal",
       metrics: { label: "Trạng thái", value: "Sẵn sàng" },
-      visible: !!user && (user.role === "STAFF" || user.role === "KITCHEN")
+      visible: !!user && (user.role === "STAFF" || user.role === "KITCHEN" || user.role === "CASHIER")
     },
     {
       title: "Table",
@@ -80,7 +80,7 @@ export default function Home() {
       color: "from-emerald-700 to-emerald-500",
       accent: "emerald",
       metrics: { label: "Món ăn có sẵn", value: "48 Món" },
-      visible: true
+      visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "CASHIER"
     }
   ].filter(app => app.visible);
 
