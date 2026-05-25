@@ -1,3 +1,5 @@
+"use client";
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -6,6 +8,7 @@ const tabs = [
   { name: 'Quản lý nguyên liệu', href: '/admin/inventory' },
   { name: 'Chấm công', href: '/admin/attendance' },
   { name: 'Lịch làm việc', href: '/admin/schedule' },
+  { name: 'Thiết bị tin cậy', href: '/admin/devices' },
 ];
 
 export default function AdminTabs() {
