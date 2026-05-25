@@ -334,21 +334,23 @@ export default function DevicesClient() {
                     </td>
                     <td className="px-5 py-4">
                       {device.token ? (
-                        <div className="flex items-center gap-1.5 font-mono bg-zinc-950/60 border border-zinc-900 rounded-xl px-2.5 py-1.5 w-fit group-hover:border-zinc-800 transition-colors">
-                          <span className="text-[10px] text-indigo-400 font-semibold max-w-[120px] truncate select-all">{device.token}</span>
+                        <div className="flex items-center gap-2 font-mono bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-1.5 w-fit group-hover:border-violet-500/40 hover:bg-zinc-900 transition-all shadow-inner">
+                          <span className="text-[11px] text-violet-300 font-bold select-all tracking-wider">
+                            {device.token}
+                          </span>
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(device.token);
                               alert(`Đã sao chép token cho thiết bị "${device.label}"!`);
                             }}
-                            className="text-zinc-500 hover:text-zinc-300 transition-colors ml-1 p-0.5"
-                            title="Copy Token"
+                            className="p-1 rounded-lg bg-zinc-950 text-zinc-400 hover:text-violet-400 hover:bg-violet-500/10 border border-zinc-800 hover:border-violet-500/30 transition-all ml-1.5"
+                            title="Sao chép Token"
                           >
                             <Copy className="h-3 w-3" />
                           </button>
                         </div>
                       ) : (
-                        <span className="text-zinc-600 font-light italic">—</span>
+                        <span className="text-zinc-500 font-light italic">Không có token</span>
                       )}
                     </td>
                     <td className="px-5 py-4 font-mono text-zinc-400">
