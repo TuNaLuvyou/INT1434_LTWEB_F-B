@@ -34,6 +34,11 @@ export function useMenuSoldOut<T extends MenuItemSoldOutState>(
     process.env.NEXT_PUBLIC_API_URL ||
     'http://127.0.0.1:5000';
 
+  const callbackRef = useRef(options.onItemSoldOut);
+  useEffect(() => {
+    callbackRef.current = options.onItemSoldOut;
+  }, [options.onItemSoldOut]);
+
   useEffect(() => {
     const socket = io(socketUrl, {
       transports: ['websocket'],
@@ -75,6 +80,9 @@ export function useMenuSoldOut<T extends MenuItemSoldOutState>(
     socket.on('menu:soldout', ({ menuItemId, isSoldOut }: SoldOutEvent) => {
       console.log(`[useMenuSoldOut] Nhận event "menu:soldout": item ${menuItemId} → isSoldOut=${isSoldOut}`);
       setItems((prev) => prev.map((item) => item.id === menuItemId ? { ...item, isSoldOut } : item));
+      if (callbackRef.current) {
+        callbackRef.current({ menuItemId, isSoldOut });
+      }
     });
 
     socket.connect();

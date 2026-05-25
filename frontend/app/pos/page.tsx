@@ -231,14 +231,23 @@ export default function POSPage() {
       );
     };
 
+    const handleMenuSoldoutNotify = (payload: any) => {
+      if (payload.isSoldOut) {
+        // TODO: Implement đầy đủ UI notification banner trong commit 3
+        alert(`⚠️ CHÚ Ý: Món "${payload.menuItemName}" vừa được Bếp báo HẾT MÓN. Vui lòng kiểm tra và xử lý các order đang pending chứa món này!`);
+      }
+    };
+
     cashierSocket.on('cashier:new-order', handleSessionUpdate);
     cashierSocket.on('table:session-updated', handleSessionUpdate);
     cashierSocket.on('table:status-changed', handleTableStatusChanged);
+    cashierSocket.on('menu:soldout-notify', handleMenuSoldoutNotify);
 
     return () => {
       cashierSocket.off('cashier:new-order', handleSessionUpdate);
       cashierSocket.off('table:session-updated', handleSessionUpdate);
       cashierSocket.off('table:status-changed', handleTableStatusChanged);
+      cashierSocket.off('menu:soldout-notify', handleMenuSoldoutNotify);
     };
   }, [cashierSocket, isCashierConnected, sessionId]);
 

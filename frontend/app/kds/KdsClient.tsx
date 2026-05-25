@@ -95,11 +95,13 @@ export default function KdsClient({ initialTickets }: KdsClientProps) {
         const itemCreatedAt = new Date(payload.createdAt).getTime();
         return {
           orderItemId: item.orderItemId,
+          menuItemId: item.menuItemId,
           menuItemName: item.menuItemName,
           menuItemImage: null, // Socket payload doesn't send image
           qty: item.qty,
           note: item.note || '',
           status: item.status,
+          isSoldOut: item.isSoldOut || false,
           waitMinutes: Math.floor((now - itemCreatedAt) / 60000),
           createdAt: payload.createdAt
         };
@@ -129,6 +131,22 @@ export default function KdsClient({ initialTickets }: KdsClientProps) {
     };
 
     const handleItemUpdated = (payload: any) => {
+      // Nếu là sự kiện hết món realtime sync giữa các màn KDS
+      if (payload.type === 'soldout') {
+        setTickets(prev => {
+          return prev.map(ticket => {
+            const updatedItems = ticket.items.map(item => {
+              if (item.menuItemId === payload.menuItemId) {
+                return { ...item, isSoldOut: payload.isSoldOut };
+              }
+              return item;
+            });
+            return { ...ticket, items: updatedItems };
+          });
+        });
+        return;
+      }
+
       setTickets(prev => {
         return prev.map(ticket => {
           const itemIndex = ticket.items.findIndex(i => i.orderItemId === payload.orderItemId);
