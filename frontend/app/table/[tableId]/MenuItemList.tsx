@@ -38,6 +38,8 @@ interface MenuItemListProps {
   categories: CategoryInfo[];
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmt = (price: string | number) =>
@@ -51,7 +53,16 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   const tableNumber = params?.tableId as string;
 
   // ── Realtime sold-out sync (Lắng nghe sự thay đổi hết món qua Socket.io) ──
-  const { items: rawItems, isConnected } = useMenuSoldOut(initialItems);
+  const { items: rawItems, isConnected } = useMenuSoldOut(initialItems, {
+    onItemSoldOut: (payload) => {
+      if (payload.isSoldOut) {
+        // Find the item name if possible, or just say 'Một món ăn'
+        const item = initialItems.find(i => i.id === payload.menuItemId);
+        const name = item ? item.name : 'Một món ăn';
+        showToast({ type: 'error', message: `Món "${name}" hiện đã hết.` });
+      }
+    }
+  });
   const items = rawItems as MenuItemForDisplay[];
 
   // ── Zustand Store State & Actions ──
@@ -81,6 +92,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loadingItemIds, setLoadingItemIds] = useState<Record<string, boolean>>({});
+  const [isSessionClosed, setIsSessionClosed] = useState(false);
 
   // ── Realtime cart synchronization ──
   const { registerActivity } = useCartSync(
@@ -88,7 +100,12 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
     sessionTableId,
     useCallback((message: string) => {
       showToast({ type: 'success', message });
-    }, [])
+    }, []),
+    useCallback(() => {
+      clearCart();
+      setLastOrder(null);
+      setIsSessionClosed(true);
+    }, [clearCart])
   );
 
   const handleUpdateQty = useCallback(async (itemId: string, qty: number) => {
@@ -114,7 +131,30 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   // ── Khởi tạo session tự động khi quét QR code / vào bàn ──
   useEffect(() => {
     if (tableNumber) {
-      initSession(tableNumber).catch((err) => {
+      initSession(tableNumber).then(async ({ sessionId }) => {
+        try {
+          const res = await fetch(`${API_URL}/api/sessions/${sessionId}`);
+          if (res.ok) {
+            const result = await res.json();
+            if (result.success && result.data && result.data.orderItems) {
+              const dbItems = result.data.orderItems;
+              if (dbItems.length > 0) {
+                const mapped = dbItems.map((oi: any) => ({
+                  menuItemId: oi.menuItemId,
+                  name: oi.menuItem?.name || oi.menuItemName || '',
+                  price: Number(oi.unitPrice),
+                  imageUrl: oi.menuItem?.imageUrl || null,
+                  qty: oi.qty,
+                  note: oi.note || '',
+                }));
+                setLastOrder(mapped);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[MenuItemList] Lấy chi tiết phiên bàn thất bại:', err);
+        }
+      }).catch((err) => {
         console.error('[MenuItemList] Khởi tạo session thất bại:', err);
         const msg = (err as Error)?.message || '';
         if (msg.includes('404') || msg.toLowerCase().includes('bàn không tồn tại')) {
@@ -123,6 +163,17 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
       });
     }
   }, [tableNumber, initSession, router]);
+
+  // ── Lắng nghe sự kiện phiên đã đóng ──
+  useEffect(() => {
+    const handleSessionClosed = () => {
+      setIsSessionClosed(true);
+    };
+    window.addEventListener('session-closed', handleSessionClosed);
+    return () => {
+      window.removeEventListener('session-closed', handleSessionClosed);
+    };
+  }, []);
 
   // Thao tác với DOM để phục vụ auto-scroll của CategoryFilter
   const handleCategoryChange = (id: string | null) => {
@@ -206,7 +257,19 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
       });
 
       if (result.success) {
-        setLastOrder(cartItems.map((c) => ({ ...c })));
+        const updatedLastOrder = [...(lastOrder || [])];
+        for (const cartItem of cartItems) {
+          const existing = updatedLastOrder.find((i) => i.menuItemId === cartItem.menuItemId);
+          if (existing) {
+            existing.qty += cartItem.qty;
+            if (cartItem.note) {
+              existing.note = existing.note ? `${existing.note}, ${cartItem.note}` : cartItem.note;
+            }
+          } else {
+            updatedLastOrder.push({ ...cartItem });
+          }
+        }
+        setLastOrder(updatedLastOrder);
         clearCart();
         setMobileCartOpen(true); // Tiếp tục mở để khách tiện quan sát các món đã gọi
         showToast({
@@ -214,7 +277,11 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
           message: '🍳 Gửi món lên hệ thống thành công! Nhà bếp đang xử lý.',
         });
       } else {
-        const errMsg = result.message || 'Có lỗi xảy ra khi gọi món.';
+        let errMsg = result.message || 'Có lỗi xảy ra khi gọi món.';
+        if (result.errors && (result.errors as any).itemErrors) {
+          const specificErrors = (result.errors as any).itemErrors.map((e: any) => e.message);
+          errMsg = `Không thể đặt các món: ${specificErrors.join(', ')}`;
+        }
         setSubmitError(errMsg);
         showToast({ type: 'error', message: errMsg });
       }
@@ -435,7 +502,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
           "
         >
           <Receipt className="w-4.5 h-4.5 text-orange-500 animate-pulse" />
-          <span className="font-bold text-xs">Đơn đã gửi</span>
+          <span className="font-bold text-xs">Đơn đã gửi ({lastOrder.reduce((sum, i) => sum + i.qty, 0)})</span>
         </button>
       )}
 
@@ -468,12 +535,12 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base sm:text-lg font-black text-gray-900">
-                  {cartItems.length > 0 ? 'Chi tiết đơn gọi món' : 'Đơn đã gửi bếp thành công'}
+                  {cartItems.length > 0 ? 'Chi tiết đơn gọi món' : 'Món đã gửi nhà bếp'}
                 </h3>
                 <p className="text-[10px] sm:text-xs text-gray-400 font-medium mt-0.5">
                   {cartItems.length > 0
                     ? `Bạn có ${totalItems} món ăn đang chờ gọi`
-                    : `Đã gửi bếp chế biến lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+                    : `Đang được chuẩn bị và phục vụ`
                   }
                 </p>
               </div>
@@ -504,21 +571,34 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             </div>
 
             {/* Nội dung danh sách món */}
-            <div className="flex-1 overflow-y-auto min-h-0 mb-5 scrollbar-hide">
-              {cartItems.length > 0 ? (
-                <CartItemList entries={cartItems} showActions={true} />
-              ) : lastOrder && lastOrder.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="bg-emerald-50 text-emerald-800 text-xs font-semibold p-3 rounded-xl border border-emerald-100 flex items-start gap-2">
-                    <span className="text-base">🍳</span>
+            <div className="flex-1 overflow-y-auto min-h-0 mb-5 scrollbar-hide space-y-6">
+              {cartItems.length > 0 && (
+                <div className="space-y-2.5">
+                  <div className="text-[11px] font-black text-gray-400 tracking-wider uppercase">
+                    Món đang chọn ({totalItems} món)
+                  </div>
+                  <CartItemList entries={cartItems} showActions={true} />
+                </div>
+              )}
+
+              {lastOrder && lastOrder.length > 0 && (
+                <div className="space-y-3 pt-1">
+                  <div className="text-[11px] font-black text-gray-400 tracking-wider uppercase flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Món đã gửi bếp ({lastOrder.reduce((sum, i) => sum + i.qty, 0)} món)
+                  </div>
+                  <div className="bg-emerald-50/50 text-emerald-800 text-[11px] font-medium p-3 rounded-xl border border-emerald-100/50 flex items-start gap-2">
+                    <span className="text-xs">🍳</span>
                     <div>
-                      <p className="font-bold">Nhà bếp đang chuẩn bị món ăn cho bạn!</p>
+                      <p className="font-bold">Nhà bếp đang chế biến các món này!</p>
                       <p className="font-normal opacity-90 mt-0.5">Món ăn sẽ sớm được phục vụ tại bàn của bạn.</p>
                     </div>
                   </div>
                   <CartItemList entries={lastOrder} showActions={false} />
                 </div>
-              ) : (
+              )}
+
+              {cartItems.length === 0 && (!lastOrder || lastOrder.length === 0) && (
                 <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
                   <ShoppingBag size={48} strokeWidth={1} className="text-gray-200" />
                   <p className="text-sm font-medium text-gray-400">Giỏ hàng trống</p>
@@ -624,6 +704,21 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
           >
             <X size={14} />
           </button>
+        </div>
+      )}
+      {/* Màn hình Cảm ơn & Thanh toán thành công (Bàn trống) */}
+      {isSessionClosed && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+          <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 mb-6 animate-bounce">
+            <CheckCircle size={40} />
+          </div>
+          <h2 className="text-xl font-black text-gray-900 mb-2">Thanh toán thành công!</h2>
+          <p className="text-sm text-gray-500 max-w-sm mb-8 leading-relaxed">
+            Hóa đơn cho bàn của bạn đã được thanh toán hoàn tất. Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ của RestoFlow!
+          </p>
+          <div className="text-xs text-gray-400 font-medium">
+            Chúc quý khách một ngày tốt lành và hẹn gặp lại!
+          </div>
         </div>
       )}
     </>

@@ -7,7 +7,8 @@ import { useCartStore } from '@/stores/cart.store';
 export function useCartSync(
   sessionId: string | null,
   tableId: string | null,
-  onToast?: (message: string) => void
+  onToast?: (message: string) => void,
+  onSessionClosed?: () => void
 ) {
   const syncCartFromServer = useCartStore((s) => s.syncCartFromServer);
   
@@ -38,12 +39,20 @@ export function useCartSync(
       }
     };
 
+    const handleSessionClosed = (event: { sessionId: string }) => {
+      if (event.sessionId === sessionId) {
+        onSessionClosed?.();
+      }
+    };
+
     socket.on('cart:updated', handleCartUpdated);
+    socket.on('session:closed', handleSessionClosed);
 
     return () => {
       socket.off('cart:updated', handleCartUpdated);
+      socket.off('session:closed', handleSessionClosed);
     };
-  }, [socket, isConnected, sessionId, tableId, syncCartFromServer, onToast]);
+  }, [socket, isConnected, sessionId, tableId, syncCartFromServer, onToast, onSessionClosed]);
 
   return {
     registerActivity: () => {
