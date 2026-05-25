@@ -33,6 +33,8 @@ model User {
   updatedAt    DateTime        @updatedAt
   devices      TrustedDevice[]
   shifts       Shift[]
+  attendances  Attendance[]
+  schedules    WorkSchedule[]
 }
 
 model TrustedDevice {
@@ -43,6 +45,7 @@ model TrustedDevice {
   user      User      @relation(fields: [userId], references: [id])
   lastUsed  DateTime?
   createdAt DateTime  @default(now())
+  attendances Attendance[]
 
   @@index([userId])
 }
@@ -76,6 +79,7 @@ model TableSession {
   status     SessionStatus
   version    Int           @default(0) // optimistic lock — dùng cho commit 4
   openedAt   DateTime      @default(now())
+  lockedAt   DateTime?
   closedAt   DateTime?
   orderItems OrderItem[]
   payment    Payment?
@@ -236,4 +240,39 @@ model Voucher {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   payments      Payment[]
+}
+
+model Attendance {
+  id          String    @id @default(cuid())
+  userId      String
+  deviceId    String
+  checkInAt   DateTime  @default(now())
+  checkOutAt  DateTime?
+  note        String?
+  isApproved  Boolean   @default(true)
+  approvedBy  String?
+  
+  user        User          @relation(fields: [userId], references: [id])
+  device      TrustedDevice @relation(fields: [deviceId], references: [id])
+
+  @@index([userId])
+  @@index([checkInAt])
+}
+
+model WorkSchedule {
+  id         String   @id @default(cuid())
+  userId     String
+  date       DateTime @db.Date
+  shiftStart String
+  shiftEnd   String
+  position   String
+  assignedBy String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+  @@index([date])
+  @@index([userId])
 }

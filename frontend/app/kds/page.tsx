@@ -11,14 +11,14 @@ import {
   Flame, 
   AlertTriangle, 
   Activity,
-  Layers,
   Archive,
   RotateCcw,
   X,
   Search,
   Loader2
 } from "lucide-react";
-import { io } from "socket.io-client";
+import { useSocket } from "@/hooks/useSocket";
+import { getAccessTokenFromCookie } from "@/lib/auth/client";
 
 interface KDSItem {
   name: string;
@@ -34,58 +34,6 @@ interface KDSOther {
   createdAt: Date;
   elapsedSeconds: number; // calculated simulated elapsed time
 }
-
-const INITIAL_ORDERS: KDSOther[] = [
-  {
-    id: "o1",
-    orderNo: "ORD-3829",
-    tableNo: "Bàn số 05",
-    items: [
-      { name: "Classic Beef Burger", quantity: 2 },
-      { name: "Fresh Strawberry Soda", quantity: 2 },
-      { name: "Molten Lava Chocolate Cake", quantity: 1 }
-    ],
-    status: "pending",
-    createdAt: new Date(Date.now() - 3 * 60 * 1000), // 3 mins ago
-    elapsedSeconds: 180
-  },
-  {
-    id: "o2",
-    orderNo: "ORD-8472",
-    tableNo: "Bàn số 12",
-    items: [
-      { name: "Smoked Bacon Pizza", quantity: 1 },
-      { name: "Matcha Latte Ice Blended", quantity: 1 }
-    ],
-    status: "preparing",
-    createdAt: new Date(Date.now() - 9 * 60 * 1000), // 9 mins ago
-    elapsedSeconds: 540
-  },
-  {
-    id: "o3",
-    orderNo: "ORD-1193",
-    tableNo: "Mang về #01",
-    items: [
-      { name: "Premium Crispy Chicken", quantity: 1 },
-      { name: "Iced Caramel Macchiato", quantity: 1 }
-    ],
-    status: "ready",
-    createdAt: new Date(Date.now() - 15 * 60 * 1000), // 15 mins ago
-    elapsedSeconds: 900
-  },
-  {
-    id: "o4",
-    orderNo: "ORD-5742",
-    tableNo: "Bàn số 08",
-    items: [
-      { name: "Fresh Caesar Salad", quantity: 1 },
-      { name: "Matcha Tiramisu Cup", quantity: 2 }
-    ],
-    status: "pending",
-    createdAt: new Date(Date.now() - 11 * 60 * 1000), // 11 mins ago (Urgent!)
-    elapsedSeconds: 660
-  }
-];
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -110,7 +58,8 @@ interface MenuItem {
 }
 
 export default function KDSPage() {
-  const [orders, setOrders] = useState<KDSOther[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<KDSOther[]>([]);
+  const [rawSessions, setRawSessions] = useState<any[]>([]);
 
   // State quản lý Báo hết món
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -127,8 +76,11 @@ export default function KDSPage() {
     setFetchError(null);
     try {
       const response = await fetch(`${API_URL}/api/menu`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const result = await response.json();
-      if (response.ok && result.success) {
+      if (result.success) {
         setCategories(result.data.categories || []);
         setMenuItems(result.data.items || []);
       } else {
@@ -142,14 +94,35 @@ export default function KDSPage() {
     }
   };
 
+  const fetchKdsOrders = async () => {
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      const response = await fetch(`${API_URL}/api/kds/orders`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken || ''}`,
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const result = await response.json();
+      if (result.success) {
+        setRawSessions(result.data || []);
+      }
+    } catch (err) {
+      console.error("[KDS] Lỗi tải đơn hàng:", err);
+    }
+  };
+
   const handleToggleSoldOut = async (itemId: string, currentSoldOut: boolean) => {
     setUpdatingItems(prev => ({ ...prev, [itemId]: true }));
     try {
+      const accessToken = getAccessTokenFromCookie();
       const response = await fetch(`${API_URL}/api/admin/menu-items/${itemId}/sold-out`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-mock-role": "KITCHEN",
+          "Authorization": `Bearer ${accessToken || ''}`,
         },
         body: JSON.stringify({ isSoldOut: !currentSoldOut }),
       });
@@ -170,21 +143,45 @@ export default function KDSPage() {
     }
   };
 
-  // Sync realtime qua socket
+  // Socket setup for Kitchen and Menu updates
+  const token = typeof window !== 'undefined' ? (getAccessTokenFromCookie() || undefined) : undefined;
+  
+  const { socket: kitchenSocket, isConnected: isKitchenConnected } = useSocket({
+    room: 'kitchen',
+    token,
+  });
+
+  const { socket: menuSocket, isConnected: isMenuConnected } = useSocket({
+    room: 'menu-updates',
+  });
+
+  const playBeep = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+      
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.2);
+    } catch (e) {
+      console.error('Audio api error', e);
+    }
+  };
+
+  // Listen to menu soldout
   useEffect(() => {
-    fetchMenuItems();
+    if (!menuSocket || !isMenuConnected) return;
 
-    const socket = io(API_URL, {
-      transports: ['websocket'],
-      reconnection: true,
-    });
-
-    socket.on('connect', () => {
-      console.log('[KDS Socket] Connected to Socket.io:', socket.id);
-      socket.emit('join:menu-updates');
-    });
-
-    socket.on('menu:soldout', ({ menuItemId, isSoldOut }: { menuItemId: string; isSoldOut: boolean }) => {
+    menuSocket.on('menu:soldout', ({ menuItemId, isSoldOut }: { menuItemId: string; isSoldOut: boolean }) => {
       console.log(`[KDS Socket] Nhận event "menu:soldout": item ${menuItemId} -> isSoldOut=${isSoldOut}`);
       setMenuItems(prev =>
         prev.map(item =>
@@ -194,12 +191,33 @@ export default function KDSPage() {
     });
 
     return () => {
-      if (socket.connected) {
-        socket.emit('leave:menu-updates');
-      }
-      socket.disconnect();
+      menuSocket.off('menu:soldout');
     };
+  }, [menuSocket, isMenuConnected]);
+
+  // Listen to new kitchen orders or ticket status updates
+  useEffect(() => {
+    fetchKdsOrders();
+    fetchMenuItems();
   }, []);
+
+  useEffect(() => {
+    if (!kitchenSocket || !isKitchenConnected) return;
+
+    const handleUpdate = () => {
+      console.log('[KDS Socket] Nhận được thay đổi đơn hàng từ socket, cập nhật...');
+      playBeep();
+      fetchKdsOrders();
+    };
+
+    kitchenSocket.on('kitchen:new-ticket', handleUpdate);
+    kitchenSocket.on('kitchen:item-updated', handleUpdate);
+
+    return () => {
+      kitchenSocket.off('kitchen:new-ticket', handleUpdate);
+      kitchenSocket.off('kitchen:item-updated', handleUpdate);
+    };
+  }, [kitchenSocket, isKitchenConnected]);
 
   // Filtered menu items
   const filteredItems = menuItems.filter(item => {
@@ -208,7 +226,53 @@ export default function KDSPage() {
     return matchesSearch && matchesCategory;
   });
 
-  // Simulate active timers updating every second
+  // Map rawSessions to orders (filtering out archived items)
+  useEffect(() => {
+    const archivedIdsStr = typeof window !== 'undefined' ? (localStorage.getItem("kds_archived_item_ids") || "[]") : "[]";
+    const archivedItemIds: string[] = JSON.parse(archivedIdsStr);
+
+    const mappedOrders: KDSOther[] = rawSessions.map(session => {
+      // Lọc các items chưa được lưu trữ
+      const activeItems = session.orderItems.filter((oi: any) => !archivedItemIds.includes(oi.id));
+      if (activeItems.length === 0) return null;
+
+      const items = activeItems.map((oi: any) => ({
+        name: oi.menuItem.name,
+        quantity: oi.qty
+      }));
+
+      // Xác định trạng thái chung của ticket dựa trên các items
+      let status: "pending" | "preparing" | "ready" = "pending";
+      const hasPending = activeItems.some((item: any) => item.status === "PENDING");
+      const hasPreparing = activeItems.some((item: any) => item.status === "PREPARING");
+      const allDone = activeItems.every((item: any) => item.status === "DONE" || item.status === "VOID");
+      
+      if (allDone) {
+        status = "ready";
+      } else if (hasPreparing) {
+        status = "preparing";
+      } else {
+        status = "pending";
+      }
+
+      const openedTime = new Date(session.openedAt).getTime();
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - openedTime) / 1000));
+
+      return {
+        id: session.id,
+        orderNo: `ORD-${session.id.substring(0, 4).toUpperCase()}`,
+        tableNo: session.table?.label || `Bàn ${session.table?.tableNumber || ""}`,
+        items,
+        status,
+        createdAt: new Date(session.openedAt),
+        elapsedSeconds
+      };
+    }).filter(Boolean) as KDSOther[];
+
+    setOrders(mappedOrders);
+  }, [rawSessions]);
+
+  // Timers updating every second
   useEffect(() => {
     const timer = setInterval(() => {
       setOrders(prev => 
@@ -221,28 +285,54 @@ export default function KDSPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const advanceStatus = (id: string, currentStatus: "pending" | "preparing" | "ready") => {
-    setOrders(prev => {
-      return prev.map(order => {
-        if (order.id === id) {
-          if (currentStatus === "pending") return { ...order, status: "preparing" };
-          if (currentStatus === "preparing") return { ...order, status: "ready" };
-        }
-        return order;
+  const advanceStatus = async (sessionId: string, currentStatus: "pending" | "preparing" | "ready") => {
+    if (currentStatus === "ready") return;
+    
+    const newStatus = currentStatus === "pending" ? "PREPARING" : "DONE";
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      const response = await fetch(`${API_URL}/api/kds/orders/${sessionId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken || ''}`,
+        },
+        body: JSON.stringify({ currentStatus, newStatus }),
       });
-    });
+      
+      const result = await response.json();
+      if (response.ok && result.success) {
+        fetchKdsOrders();
+      } else {
+        alert(result.message || "Không thể cập nhật trạng thái");
+      }
+    } catch (err: any) {
+      console.error("[KDS] Lỗi cập nhật trạng thái:", err);
+      alert("Đã xảy ra lỗi khi cập nhật trạng thái");
+    }
   };
 
-  const completeOrder = (id: string) => {
-    setOrders(prev => prev.filter(order => order.id !== id));
+  const completeOrder = (sessionId: string) => {
+    const session = rawSessions.find(s => s.id === sessionId);
+    if (session) {
+      const itemIdsToArchive = session.orderItems.map((oi: any) => oi.id);
+      const existingStr = typeof window !== 'undefined' ? (localStorage.getItem("kds_archived_item_ids") || "[]") : "[]";
+      const existingArchived = JSON.parse(existingStr);
+      const updatedArchived = [...existingArchived, ...itemIdsToArchive];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("kds_archived_item_ids", JSON.stringify(updatedArchived));
+      }
+      
+      // Update local state instantly
+      setOrders(prev => prev.filter(order => order.id !== sessionId));
+    }
   };
 
   const resetDemo = () => {
-    setOrders(INITIAL_ORDERS.map(o => ({
-      ...o,
-      createdAt: new Date(Date.now() - (o.id === "o1" ? 3 : o.id === "o2" ? 9 : o.id === "o3" ? 15 : 11) * 60 * 1000),
-      elapsedSeconds: (o.id === "o1" ? 180 : o.id === "o2" ? 540 : o.id === "o3" ? 900 : 660)
-    })));
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem("kds_archived_item_ids");
+    }
+    fetchKdsOrders();
   };
 
   const formatTimer = (seconds: number) => {
@@ -295,7 +385,7 @@ export default function KDSPage() {
               <RotateCcw className="h-3.5 w-3.5" />
               Reset Demo
             </button>
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-xs text-zinc-400 font-mono">BẾP CHÍNH</span>
           </div>
         </div>
