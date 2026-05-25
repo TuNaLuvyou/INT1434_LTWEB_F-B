@@ -41,7 +41,13 @@ export default function AdminAttendancePage() {
     setLoading(true);
     try {
       const data = await fetchAttendanceToday();
-      setTodayData(data?.data ?? []);
+      if (data?.data?.attendance) {
+        setTodayData([data.data.attendance]);
+      } else if (Array.isArray(data?.data)) {
+        setTodayData(data.data);
+      } else {
+        setTodayData([]);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -53,7 +59,13 @@ export default function AdminAttendancePage() {
     setLoading(true);
     try {
       const data = await fetchAttendanceHistory();
-      setHistoryData(data?.data ?? []);
+      if (Array.isArray(data?.data?.history)) {
+        setHistoryData(data.data.history);
+      } else if (Array.isArray(data?.data)) {
+        setHistoryData(data.data);
+      } else {
+        setHistoryData([]);
+      }
     } catch (err) {
       console.error(err);
     } finally {
