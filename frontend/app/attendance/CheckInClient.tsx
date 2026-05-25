@@ -292,13 +292,43 @@ export default function CheckInClient({ user }: { user: any }) {
 
         {/* Error Modal banner */}
         {errorModal && (
-          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-3 rounded-xl flex items-start gap-2.5 text-xs">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <strong className="font-bold">Lỗi thiết bị: </strong>
-              <span className="font-light">{errorModal}</span>
+          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-2xl flex flex-col gap-3 text-xs w-full max-w-md animate-in fade-in duration-200">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <strong className="font-bold">Lỗi thiết bị: </strong>
+                <span className="font-light">{errorModal}</span>
+              </div>
+              <button className="text-zinc-400 hover:text-white" onClick={() => setErrorModal(null)}>×</button>
             </div>
-            <button className="text-zinc-400 hover:text-white" onClick={() => setErrorModal(null)}>×</button>
+            
+            {/* Direct Token Paste Form for frictionless setup */}
+            <div className="border-t border-rose-500/10 pt-3 space-y-2">
+              <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Dán Token Thiết Bị Được Cấp Bởi Admin Vào Đây:</span>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="Dán token dạng: dev-..." 
+                  id="direct-device-token-input"
+                  className="flex-1 bg-zinc-950 border border-zinc-900 rounded-lg px-2.5 py-1 text-[10px] text-zinc-200 focus:outline-none focus:border-teal-500 font-mono"
+                />
+                <button
+                  onClick={() => {
+                    const inputEl = document.getElementById('direct-device-token-input') as HTMLInputElement;
+                    if (inputEl && inputEl.value.trim()) {
+                      localStorage.setItem('deviceToken', inputEl.value.trim());
+                      alert('Đã lưu Token thiết bị thành công! Vui lòng bấm Check-in lại.');
+                      setErrorModal(null);
+                    } else {
+                      alert('Vui lòng nhập Token thiết bị hợp lệ.');
+                    }
+                  }}
+                  className="px-3 py-1 bg-teal-600 hover:bg-teal-500 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all"
+                >
+                  Lưu Token
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
