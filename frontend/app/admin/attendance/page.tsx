@@ -116,18 +116,18 @@ export default function AdminAttendancePage() {
   // Filter logic
   const filteredToday = todayData.filter(rec => 
     rec.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    rec.device?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    rec.device?.label?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredHistory = historyData.filter(rec => 
     rec.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    rec.device?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    rec.device?.label?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const pendingApprovals = historyData.filter(rec => 
-    !rec.approved && 
+    !rec.isApproved && 
     (rec.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     rec.device?.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+     rec.device?.label?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -254,11 +254,11 @@ export default function AdminAttendancePage() {
                       <td className="px-5 py-3.5 font-semibold text-white">{rec.user?.name}</td>
                       <td className="px-5 py-3.5 text-zinc-400">{rec.user?.role}</td>
                       <td className="px-5 py-3.5 font-mono text-zinc-200">
-                        {new Date(rec.time).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        {new Date(rec.checkInAt).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </td>
-                      <td className="px-5 py-3.5 text-zinc-400">{rec.device?.name || "App Web"}</td>
+                      <td className="px-5 py-3.5 text-zinc-400">{rec.device?.label || "App Web"}</td>
                       <td className="px-5 py-3.5 text-center">
-                        {rec.approved ? (
+                        {rec.isApproved ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-[10px] text-emerald-400 font-bold">
                             <CheckCircle className="h-3 w-3" />
                             <span>Đã duyệt</span>
@@ -306,7 +306,7 @@ export default function AdminAttendancePage() {
                       </td>
                     </tr>
                   ) : filteredHistory.map(rec => {
-                    const dateObj = new Date(rec.time);
+                    const dateObj = new Date(rec.checkInAt);
                     return (
                       <tr key={rec.id} className="hover:bg-zinc-900/20 transition-all">
                         <td className="px-5 py-3.5 font-semibold text-white">{rec.user?.name}</td>
@@ -316,10 +316,10 @@ export default function AdminAttendancePage() {
                         <td className="px-5 py-3.5 font-mono text-zinc-200">
                           {dateObj.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}
                         </td>
-                        <td className="px-5 py-3.5 uppercase font-semibold text-zinc-300">{rec.type}</td>
-                        <td className="px-5 py-3.5 text-zinc-400">{rec.device?.name || "Web App"}</td>
+                        <td className="px-5 py-3.5 uppercase font-semibold text-zinc-300">{rec.type || "Check-in"}</td>
+                        <td className="px-5 py-3.5 text-zinc-400">{rec.device?.label || "Web App"}</td>
                         <td className="px-5 py-3.5 text-center">
-                          {rec.approved ? (
+                          {rec.isApproved ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-[10px] text-emerald-400 font-bold">
                               <span>Đã duyệt</span>
                             </span>
@@ -368,10 +368,10 @@ export default function AdminAttendancePage() {
                     <tr key={rec.id} className="hover:bg-zinc-900/20 transition-all">
                       <td className="px-5 py-3.5 font-semibold text-white">{rec.user?.name}</td>
                       <td className="px-5 py-3.5 font-mono text-zinc-200">
-                        {new Date(rec.time).toLocaleString("vi-VN")}
+                        {new Date(rec.checkInAt).toLocaleString("vi-VN")}
                       </td>
-                      <td className="px-5 py-3.5 uppercase font-semibold text-zinc-400">{rec.type}</td>
-                      <td className="px-5 py-3.5 text-zinc-400">{rec.device?.name || "Web App"}</td>
+                      <td className="px-5 py-3.5 uppercase font-semibold text-zinc-400">{rec.type || "Check-in"}</td>
+                      <td className="px-5 py-3.5 text-zinc-400">{rec.device?.label || "Web App"}</td>
                       <td className="px-5 py-3.5 text-center">
                         <button
                           onClick={() => handleApprove(rec.id)}
