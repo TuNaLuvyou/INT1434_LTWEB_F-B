@@ -302,6 +302,7 @@ export default function DevicesClient() {
                 <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
                   <th className="px-5 py-3">Thiết bị</th>
                   <th className="px-5 py-3">Người dùng sở hữu</th>
+                  <th className="px-5 py-3">Token (Để Copy)</th>
                   <th className="px-5 py-3">Hoạt động gần nhất</th>
                   <th className="px-5 py-3 text-right">Thao tác</th>
                 </tr>
@@ -331,6 +332,25 @@ export default function DevicesClient() {
                         </div>
                       </div>
                     </td>
+                    <td className="px-5 py-4">
+                      {device.token ? (
+                        <div className="flex items-center gap-1.5 font-mono bg-zinc-950/60 border border-zinc-900 rounded-xl px-2.5 py-1.5 w-fit group-hover:border-zinc-800 transition-colors">
+                          <span className="text-[10px] text-indigo-400 font-semibold max-w-[120px] truncate select-all">{device.token}</span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(device.token);
+                              alert(`Đã sao chép token cho thiết bị "${device.label}"!`);
+                            }}
+                            className="text-zinc-500 hover:text-zinc-300 transition-colors ml-1 p-0.5"
+                            title="Copy Token"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-zinc-600 font-light italic">—</span>
+                      )}
+                    </td>
                     <td className="px-5 py-4 font-mono text-zinc-400">
                       {device.lastUsed ? (
                         <div className="flex items-center gap-1.5">
@@ -354,7 +374,7 @@ export default function DevicesClient() {
                 ))}
                 {filteredDevices.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-zinc-600 font-light">
+                    <td colSpan={5} className="px-5 py-8 text-center text-zinc-600 font-light">
                       Chưa có thiết bị nào được thiết lập hoặc khớp với bộ lọc.
                     </td>
                   </tr>
