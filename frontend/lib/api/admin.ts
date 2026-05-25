@@ -47,7 +47,8 @@ export const fetchAttendanceHistory = async () => {
 export const approveAttendance = async (id: string) => {
   const res = await fetch(`${API}/api/attendance/${id}/approve`, {
     method: 'PATCH',
-    headers: getHeaders(),
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ isApproved: true }),
     credentials: 'include',
   });
   return res.json();

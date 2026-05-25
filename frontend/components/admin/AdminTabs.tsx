@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuthStore } from '@/stores/auth.store';
 
 const tabs = [
   { name: 'Dashboard', href: '/admin' },
@@ -9,13 +10,22 @@ const tabs = [
   { name: 'Chấm công', href: '/admin/attendance' },
   { name: 'Lịch làm việc', href: '/admin/schedule' },
   { name: 'Thiết bị tin cậy', href: '/admin/devices' },
+  { name: 'Duyệt Hồ Sơ', href: '/admin/profile-requests' },
+  { name: 'Phân Quyền', href: '/admin/roles', adminOnly: true },
 ];
 
 export default function AdminTabs() {
   const pathname = usePathname();
+  const { user } = useAuthStore();
+
+  const visibleTabs = tabs.filter(tab => {
+    if (tab.adminOnly && user?.role !== 'ADMIN') return false;
+    return true;
+  });
+
   return (
     <div className="flex items-center gap-1.5 border border-zinc-900 bg-zinc-950/60 rounded-xl p-1 w-fit overflow-x-auto select-none">
-      {tabs.map((tab) => {
+      {visibleTabs.map((tab) => {
         const isActive = pathname === tab.href;
         return (
           <Link
