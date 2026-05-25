@@ -20,6 +20,7 @@ enum Role {
   MANAGER
   STAFF
   KITCHEN
+  CASHIER
 }
 
 model User {
