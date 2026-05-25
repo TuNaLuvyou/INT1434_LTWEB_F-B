@@ -80,7 +80,7 @@ export async function middleware(request: NextRequest) {
     // jose throw JWTExpired khi token hết hạn
     // jose throw JWTInvalid khi signature sai
     if (error instanceof Error) {
-      if (error.name === 'JWTExpired' || error.code === 'ERR_JWT_EXPIRED') {
+      if (error.name === 'JWTExpired' || (error as any).code === 'ERR_JWT_EXPIRED') {
         loginUrl.searchParams.set('reason', 'expired');
         return NextResponse.redirect(loginUrl);
       }
