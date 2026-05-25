@@ -158,7 +158,7 @@ export default function Home() {
         </div>
 
         {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+        <div className={`grid gap-6 lg:gap-8 ${apps.length === 1 ? 'grid-cols-1 max-w-xl mx-auto w-full' : 'grid-cols-1 md:grid-cols-2'}`}>
           {apps.map((app) => {
             const IconComponent = app.icon;
             return (
