@@ -29,6 +29,11 @@ export default function CheckInClient({ user }: { user: any }) {
   const [currentTime, setCurrentTime] = useState<string>('');
   const [currentDate, setCurrentDate] = useState<string>('');
   
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' });
+  const [myProfileRequests, setMyProfileRequests] = useState<any[]>([]);
+
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -88,15 +93,33 @@ export default function CheckInClient({ user }: { user: any }) {
     }
   }, [API_URL, user.userId]);
 
+  const fetchMyRequests = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/attendance/my-profile-requests`, {
+        headers: getHeaders(),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMyProfileRequests(data.data || []);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [API_URL]);
+
   useEffect(() => {
     if (activeSubTab === 'checkin') {
       fetchToday();
     } else if (activeSubTab === 'schedule') {
       fetchSchedules();
-    } else {
-      setIsLoading(false);
+    } else if (activeSubTab === 'profile') {
+      fetchMyRequests();
     }
-  }, [activeSubTab, fetchToday, fetchSchedules]);
+  }, [activeSubTab, fetchToday, fetchSchedules, fetchMyRequests]);
 
   const handleCheckIn = async () => {
     // Generate mock/local device token if none exists to allow testing
@@ -165,6 +188,35 @@ export default function CheckInClient({ user }: { user: any }) {
       alert('Lỗi kết nối');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSubmitProfileRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingRequest(true);
+    try {
+      const res = await fetch(`${API_URL}/api/attendance/profile-requests`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          pendingName: editForm.name,
+          pendingEmail: editForm.email,
+          pendingPhone: editForm.phone
+        }),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        alert('Gửi yêu cầu thay đổi thông tin thành công! Vui lòng chờ Admin/Manager phê duyệt.');
+        setIsEditing(false);
+        fetchMyRequests();
+      } else {
+        const data = await res.json();
+        alert(data.message || 'Lỗi khi gửi yêu cầu');
+      }
+    } catch (error) {
+      alert('Lỗi kết nối');
+    } finally {
+      setIsSubmittingRequest(false);
     }
   };
 
@@ -367,68 +419,168 @@ export default function CheckInClient({ user }: { user: any }) {
 
         {/* Tab Content 3: PERSONAL PROFILE */}
         {activeSubTab === 'profile' && (
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-6">
-            <div>
-              <h3 className="text-sm font-bold text-white">Hồ sơ Nhân viên</h3>
-              <p className="text-[10px] text-zinc-400 font-light mt-0.5">Thông tin tài khoản và hợp đồng lao động tại RestoFlow.</p>
+          <div className="space-y-6">
+            
+            {/* PENDING REQUEST BANNER */}
+            {myProfileRequests.find(r => r.status === 'PENDING') && (
+              <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 p-4 rounded-2xl text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-1">
+                  <strong className="font-bold">Yêu cầu chỉnh sửa đang chờ duyệt</strong>
+                  <p className="text-[10px] text-zinc-400 font-light leading-relaxed">
+                    Bạn đã gửi một yêu cầu thay đổi thông tin cá nhân. Vui lòng chờ Admin hoặc Manager phê duyệt để cập nhật hiển thị chính thức.
+                  </p>
+                  <div className="text-[9px] font-mono bg-zinc-950/40 p-2 rounded border border-zinc-900 mt-2 space-y-0.5">
+                    <div>Tên mới gửi: {myProfileRequests.find(r => r.status === 'PENDING')?.pendingName}</div>
+                    <div>Email mới gửi: {myProfileRequests.find(r => r.status === 'PENDING')?.pendingEmail}</div>
+                    <div>SĐT mới gửi: {myProfileRequests.find(r => r.status === 'PENDING')?.pendingPhone}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-bold text-white">Hồ sơ Nhân viên</h3>
+                  <p className="text-[10px] text-zinc-400 font-light mt-0.5">Thông tin tài khoản và hợp đồng lao động tại RestoFlow.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditForm({
+                      name: user.name,
+                      email: user.email || '',
+                      phone: myProfileRequests.find(r => r.status === 'APPROVED')?.pendingPhone || '098 765 4321'
+                    });
+                    setIsEditing(true);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl border border-zinc-800 bg-zinc-950 text-[10px] font-bold text-zinc-300 hover:text-white hover:bg-zinc-900 transition-all uppercase tracking-wider"
+                >
+                  Chỉnh sửa hồ sơ
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Họ và Tên</span>
+                  <div className="text-xs font-semibold text-white flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 text-teal-400" />
+                    {user.name}
+                  </div>
+                </div>
+
+                <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Email Đăng ký</span>
+                  <div className="text-xs font-semibold text-white flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-teal-400" />
+                    {user.email || `${user.userId}@restoflow.demo`}
+                  </div>
+                </div>
+
+                <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Vai trò hệ thống</span>
+                  <div className="text-xs font-semibold text-white flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-teal-400" />
+                    {user.role === 'STAFF' ? 'Nhân viên (Staff)' : user.role}
+                  </div>
+                </div>
+
+                <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Trạng thái</span>
+                  <div className="text-xs font-semibold text-emerald-400 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                    Đang hoạt động (Active)
+                  </div>
+                </div>
+
+                <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Số điện thoại liên hệ</span>
+                  <div className="text-xs font-semibold text-white flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-teal-400" />
+                    {myProfileRequests.find(r => r.status === 'APPROVED')?.pendingPhone || '098 765 4321'}
+                  </div>
+                </div>
+
+                <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Ngày bắt đầu làm việc</span>
+                  <div className="text-xs font-semibold text-white flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-teal-400" />
+                    15 Tháng 02, 2026
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-900 bg-zinc-950/60 p-4 space-y-1.5">
+                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Quy trình chỉnh sửa hồ sơ</span>
+                <p className="text-[10px] text-zinc-500 leading-relaxed font-light">
+                  Mọi yêu cầu thay đổi Họ tên, Email, Số điện thoại của bạn sau khi gửi đi sẽ được chuyển trực tiếp tới hệ thống xét duyệt của **Admin hoặc Manager** để xác minh trước khi áp dụng chính thức vào cơ sở dữ liệu.
+                </p>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
-                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Họ và Tên</span>
-                <div className="text-xs font-semibold text-white flex items-center gap-2">
-                  <UserCheck className="h-4 w-4 text-teal-400" />
-                  {user.name}
+            {/* EDIT PROFILE MODAL */}
+            {isEditing && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 w-full max-w-md space-y-6 shadow-2xl relative">
+                  <div>
+                    <h3 className="text-base font-bold text-white">Chỉnh sửa thông tin</h3>
+                    <p className="text-xs text-zinc-400 font-light mt-1">Gửi yêu cầu xét duyệt thay đổi hồ sơ cá nhân.</p>
+                  </div>
+
+                  <form onSubmit={handleSubmitProfileRequest} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Họ và Tên</label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={editForm.name} 
+                        onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                        className="w-full bg-zinc-950 border border-zinc-900 rounded-xl p-3 text-xs text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-teal-500 transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Email liên lạc</label>
+                      <input 
+                        type="email" 
+                        required 
+                        value={editForm.email} 
+                        onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                        className="w-full bg-zinc-950 border border-zinc-900 rounded-xl p-3 text-xs text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-teal-500 transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Số điện thoại</label>
+                      <input 
+                        type="text" 
+                        required 
+                        value={editForm.phone} 
+                        onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                        className="w-full bg-zinc-950 border border-zinc-900 rounded-xl p-3 text-xs text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-teal-500 transition-all"
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(false)}
+                        className="flex-1 bg-zinc-950 border border-zinc-900 hover:bg-zinc-900 text-zinc-400 hover:text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all"
+                      >
+                        Hủy bỏ
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmittingRequest}
+                        className="flex-1 bg-gradient-to-tr from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(20,184,166,0.25)] flex items-center justify-center"
+                      >
+                        {isSubmittingRequest ? 'Đang gửi...' : 'Gửi yêu cầu'}
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
-
-              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
-                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Email Đăng ký</span>
-                <div className="text-xs font-semibold text-white flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-teal-400" />
-                  {user.email || `${user.userId}@restoflow.demo`}
-                </div>
-              </div>
-
-              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
-                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Vai trò hệ thống</span>
-                <div className="text-xs font-semibold text-white flex items-center gap-2">
-                  <Briefcase className="h-4 w-4 text-teal-400" />
-                  {user.role === 'STAFF' ? 'Nhân viên (Staff)' : user.role}
-                </div>
-              </div>
-
-              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
-                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Trạng thái</span>
-                <div className="text-xs font-semibold text-emerald-400 flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                  Đang hoạt động (Active)
-                </div>
-              </div>
-
-              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
-                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Số điện thoại liên hệ</span>
-                <div className="text-xs font-semibold text-white flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-teal-400" />
-                  098 765 4321
-                </div>
-              </div>
-
-              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
-                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Ngày bắt đầu làm việc</span>
-                <div className="text-xs font-semibold text-white flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-teal-400" />
-                  15 Tháng 02, 2026
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-zinc-900 bg-zinc-950/60 p-4 space-y-1.5">
-              <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Ghi chú bộ phận</span>
-              <p className="text-[10px] text-zinc-400 leading-relaxed font-light">
-                Tài khoản nhân viên được cấp quyền truy cập hệ thống chấm công tự động trên thiết bị xác thực tin cậy tại cơ sở. Mọi thông tin thay đổi hồ sơ vui lòng liên hệ bộ phận nhân sự (HRM) để được cập nhật.
-              </p>
-            </div>
+            )}
           </div>
         )}
       </main>
