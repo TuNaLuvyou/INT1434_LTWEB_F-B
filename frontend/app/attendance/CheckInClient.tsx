@@ -533,7 +533,7 @@ export default function CheckInClient({ user }: { user: any }) {
                       <input 
                         type="text" 
                         required 
-                        value={editForm.name} 
+                        value={editForm.name || ''} 
                         onChange={e => setEditForm({ ...editForm, name: e.target.value })}
                         className="w-full bg-zinc-950 border border-zinc-900 rounded-xl p-3 text-xs text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-teal-500 transition-all"
                       />
@@ -544,7 +544,7 @@ export default function CheckInClient({ user }: { user: any }) {
                       <input 
                         type="email" 
                         required 
-                        value={editForm.email} 
+                        value={editForm.email || ''} 
                         onChange={e => setEditForm({ ...editForm, email: e.target.value })}
                         className="w-full bg-zinc-950 border border-zinc-900 rounded-xl p-3 text-xs text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-teal-500 transition-all"
                       />
@@ -555,7 +555,7 @@ export default function CheckInClient({ user }: { user: any }) {
                       <input 
                         type="text" 
                         required 
-                        value={editForm.phone} 
+                        value={editForm.phone || ''} 
                         onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
                         className="w-full bg-zinc-950 border border-zinc-900 rounded-xl p-3 text-xs text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-teal-500 transition-all"
                       />
