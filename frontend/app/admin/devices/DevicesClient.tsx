@@ -15,6 +15,8 @@ import {
   Search 
 } from 'lucide-react';
 
+import { getAccessTokenFromCookie } from '@/lib/auth/client';
+
 export default function DevicesClient() {
   const [devices, setDevices] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -26,9 +28,20 @@ export default function DevicesClient() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+  const getHeaders = (extraHeaders = {}) => {
+    const token = getAccessTokenFromCookie();
+    return {
+      ...extraHeaders,
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    };
+  };
+
   const fetchDevices = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/devices`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/api/devices`, { 
+        headers: getHeaders(),
+        credentials: 'include' 
+      });
       const data = await res.json();
       if (res.ok) setDevices(data.data);
     } catch (error) {
@@ -40,7 +53,10 @@ export default function DevicesClient() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/devices/users`, { credentials: 'include' });
+      const res = await fetch(`${API_URL}/api/devices/users`, { 
+        headers: getHeaders(),
+        credentials: 'include' 
+      });
       const data = await res.json();
       if (res.ok) {
         setUsers(data.data);
@@ -67,7 +83,7 @@ export default function DevicesClient() {
     try {
       const res = await fetch(`${API_URL}/api/devices/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(formData),
         credentials: 'include'
       });
@@ -90,6 +106,7 @@ export default function DevicesClient() {
     try {
       const res = await fetch(`${API_URL}/api/devices/${id}`, {
         method: 'DELETE',
+        headers: getHeaders(),
         credentials: 'include'
       });
       if (res.ok) {
