@@ -4,6 +4,7 @@ import {
   checkOut, 
   getToday, 
   getHistory, 
+  getMyHistory,
   approve, 
   manualCheckIn, 
   getReport,
@@ -20,6 +21,7 @@ const router = Router();
 router.post('/checkin', authMiddleware, requireDeviceToken, checkIn);
 router.post('/checkout', authMiddleware, requireDeviceToken, checkOut);
 router.get('/today', authMiddleware, getToday);
+router.get('/my-history', authMiddleware, getMyHistory);
 router.get('/history', authMiddleware, requireRole(['ADMIN', 'MANAGER']), getHistory);
 
 router.patch('/:id/approve', authMiddleware, requireRole(['ADMIN', 'MANAGER']), approve);

@@ -64,13 +64,19 @@ export const checkOut = async (req: Request, res: Response): Promise<void> => {
 export const getToday = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
+    const role = req.user?.role;
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
       return;
     }
 
-    const attendance = await attendanceService.getTodayAttendance(userId);
-    res.status(200).json({ success: true, data: { attendance } });
+    if (role === 'ADMIN' || role === 'MANAGER') {
+      const attendances = await attendanceService.getAllTodayAttendance();
+      res.status(200).json({ success: true, data: attendances });
+    } else {
+      const attendance = await attendanceService.getTodayAttendance(userId);
+      res.status(200).json({ success: true, data: { attendance } });
+    }
   } catch (error) {
     console.error('getToday error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
@@ -88,6 +94,22 @@ export const getHistory = async (req: Request, res: Response): Promise<void> => 
     res.status(200).json({ success: true, data: { history } });
   } catch (error) {
     console.error('getHistory error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
+  }
+};
+
+export const getMyHistory = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const history = await attendanceService.getHistory(userId);
+    res.status(200).json({ success: true, data: { history } });
+  } catch (error) {
+    console.error('getMyHistory error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
   }
 };

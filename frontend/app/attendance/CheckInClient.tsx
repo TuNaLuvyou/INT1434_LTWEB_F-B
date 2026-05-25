@@ -23,6 +23,7 @@ import { getAccessTokenFromCookie } from '@/lib/auth/client';
 export default function CheckInClient({ user }: { user: any }) {
   const [activeSubTab, setActiveSubTab] = useState<'checkin' | 'schedule' | 'profile'>('checkin');
   const [attendance, setAttendance] = useState<any>(null);
+  const [myAttendanceHistory, setMyAttendanceHistory] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorModal, setErrorModal] = useState<string | null>(null);
@@ -56,6 +57,21 @@ export default function CheckInClient({ user }: { user: any }) {
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     };
   };
+
+  const fetchMyHistory = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/attendance/my-history`, {
+        headers: getHeaders(),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMyAttendanceHistory(data?.data?.history || []);
+      }
+    } catch (error) {
+      console.error("Error fetching my attendance history:", error);
+    }
+  }, [API_URL]);
 
   const fetchToday = useCallback(async () => {
     setIsLoading(true);
@@ -114,12 +130,13 @@ export default function CheckInClient({ user }: { user: any }) {
   useEffect(() => {
     if (activeSubTab === 'checkin') {
       fetchToday();
+      fetchMyHistory();
     } else if (activeSubTab === 'schedule') {
       fetchSchedules();
     } else if (activeSubTab === 'profile') {
       fetchMyRequests();
     }
-  }, [activeSubTab, fetchToday, fetchSchedules, fetchMyRequests]);
+  }, [activeSubTab, fetchToday, fetchMyHistory, fetchSchedules, fetchMyRequests]);
 
   const handleCheckIn = async () => {
     // Generate mock/local device token if none exists to allow testing
@@ -144,6 +161,7 @@ export default function CheckInClient({ user }: { user: any }) {
       if (res.ok) {
         setAttendance(data.data.attendance);
         alert(`Check-in thành công lúc ${new Date(data.data.attendance.checkInAt).toLocaleTimeString()}`);
+        fetchMyHistory();
         router.refresh();
       } else {
         if (data.code === 'INVALID_DEVICE' || data.code === 'NO_DEVICE_TOKEN') {
@@ -181,6 +199,7 @@ export default function CheckInClient({ user }: { user: any }) {
       if (res.ok) {
         setAttendance(data.data.attendance);
         alert(`Check-out thành công! Tổng thời gian làm: ${data.data.attendance.duration}`);
+        fetchMyHistory();
       } else {
         alert(data.message || 'Lỗi check-out');
       }
@@ -235,7 +254,14 @@ export default function CheckInClient({ user }: { user: any }) {
             </div>
           </div>
 
-          <button onClick={activeSubTab === 'checkin' ? fetchToday : activeSubTab === 'schedule' ? fetchSchedules : () => {}} className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
+          <button onClick={() => {
+            if (activeSubTab === 'checkin') {
+              fetchToday();
+              fetchMyHistory();
+            } else if (activeSubTab === 'schedule') {
+              fetchSchedules();
+            }
+          }} className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
@@ -334,7 +360,8 @@ export default function CheckInClient({ user }: { user: any }) {
 
         {/* Tab Content 1: TIME CLOCK */}
         {activeSubTab === 'checkin' && (
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-8 flex flex-col items-center text-center space-y-6">
+          <div className="space-y-6">
+            <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-8 flex flex-col items-center text-center space-y-6">
             
             {/* Digital Clock display */}
             <div className="space-y-1">
@@ -379,7 +406,7 @@ export default function CheckInClient({ user }: { user: any }) {
             ) : (
               <div className="w-full space-y-4">
                 <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-900 text-xs space-y-2">
-                  <div className="text-emerald-400 font-bold">Đã hoàn thành ca làm hôm nay!</div>
+                  <div className="text-emerald-400 font-bold">Đã hoàn thành ca làm gần nhất hôm nay!</div>
                   <div className="text-[10px] text-zinc-500 font-light font-mono space-y-0.5">
                     <div>Check-in: {new Date(attendance.checkInAt).toLocaleTimeString("vi-VN")}</div>
                     <div>Check-out: {new Date(attendance.checkOutAt).toLocaleTimeString("vi-VN")}</div>
@@ -387,13 +414,73 @@ export default function CheckInClient({ user }: { user: any }) {
                 </div>
                 {attendance.duration && (
                   <div className="py-2.5 rounded-xl bg-teal-500/5 border border-teal-500/10 text-teal-400 font-semibold text-xs">
-                    Tổng thời gian trực: {attendance.duration}
+                    Tổng thời gian làm việc: {attendance.duration}
                   </div>
                 )}
+                <button 
+                  onClick={handleCheckIn}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold text-sm tracking-wider uppercase transition-all shadow-[0_0_20px_rgba(20,184,166,0.25)] hover:shadow-[0_0_25px_rgba(20,184,166,0.4)]"
+                >
+                  Bắt Đầu Ca Làm Mới (Check-in lại)
+                </button>
               </div>
             )}
           </div>
-        )}
+
+          {/* Lịch Sử Chấm Công Của Tôi */}
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-4 w-full">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Lịch Sử Chấm Công Của Tôi</h3>
+              <span className="text-[10px] text-zinc-500 font-light font-mono">Tất cả ca làm</span>
+            </div>
+            
+            <div className="overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-900 text-[9px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
+                    <th className="px-4 py-2.5">Ngày</th>
+                    <th className="px-4 py-2.5">Check-in</th>
+                    <th className="px-4 py-2.5">Check-out</th>
+                    <th className="px-4 py-2.5 text-center">Trạng Thái</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-900 text-xs">
+                  {myAttendanceHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-6 text-center text-zinc-600 font-light">
+                        Chưa có lịch sử chấm công nào được ghi nhận.
+                      </td>
+                    </tr>
+                  ) : myAttendanceHistory.map(h => (
+                    <tr key={h.id} className="hover:bg-zinc-900/20 transition-all">
+                      <td className="px-4 py-3 font-mono text-zinc-300">
+                        {new Date(h.checkInAt).toLocaleDateString("vi-VN")}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-emerald-400 font-semibold">
+                        {new Date(h.checkInAt).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-amber-500 font-semibold">
+                        {h.checkOutAt ? new Date(h.checkOutAt).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' }) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {h.isApproved ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-bold text-emerald-400">
+                            Đã duyệt
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[8px] font-bold text-amber-400">
+                            Chờ duyệt
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
         {/* Tab Content 2: MY SCHEDULE */}
         {activeSubTab === 'schedule' && (
