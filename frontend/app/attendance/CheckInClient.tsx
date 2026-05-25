@@ -13,12 +13,15 @@ import {
   MapPin, 
   AlertCircle,
   FileText,
-  LayoutDashboard
+  LayoutDashboard,
+  Mail,
+  Phone,
+  ShieldCheck
 } from 'lucide-react';
 import { getAccessTokenFromCookie } from '@/lib/auth/client';
 
 export default function CheckInClient({ user }: { user: any }) {
-  const [activeSubTab, setActiveSubTab] = useState<'checkin' | 'schedule'>('checkin');
+  const [activeSubTab, setActiveSubTab] = useState<'checkin' | 'schedule' | 'profile'>('checkin');
   const [attendance, setAttendance] = useState<any>(null);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,8 +91,10 @@ export default function CheckInClient({ user }: { user: any }) {
   useEffect(() => {
     if (activeSubTab === 'checkin') {
       fetchToday();
-    } else {
+    } else if (activeSubTab === 'schedule') {
       fetchSchedules();
+    } else {
+      setIsLoading(false);
     }
   }, [activeSubTab, fetchToday, fetchSchedules]);
 
@@ -178,7 +183,7 @@ export default function CheckInClient({ user }: { user: any }) {
             </div>
           </div>
 
-          <button onClick={activeSubTab === 'checkin' ? fetchToday : fetchSchedules} className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
+          <button onClick={activeSubTab === 'checkin' ? fetchToday : activeSubTab === 'schedule' ? fetchSchedules : () => {}} className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
@@ -191,8 +196,8 @@ export default function CheckInClient({ user }: { user: any }) {
           <div className="absolute top-[-20%] right-[-20%] w-[50%] h-[50%] rounded-full bg-teal-900/10 blur-[80px] pointer-events-none" />
           <div>
             <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider">Tài khoản</span>
-            <h2 className="text-lg font-bold text-white mt-0.5">{user.userId}</h2>
-            <p className="text-xs text-zinc-400 font-light mt-0.5">Mã số nhân viên đã xác thực hệ thống.</p>
+            <h2 className="text-lg font-bold text-white mt-0.5">{user.name}</h2>
+            <p className="text-xs text-zinc-400 font-light mt-0.5">Mã số: {user.userId}</p>
           </div>
           <div className="h-12 w-12 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
             <UserCheck className="h-5 w-5" />
@@ -200,7 +205,7 @@ export default function CheckInClient({ user }: { user: any }) {
         </div>
 
         {/* Tab Selector */}
-        <div className="flex gap-2 border border-zinc-900 bg-zinc-950/60 rounded-xl p-1 w-full max-w-xs">
+        <div className="flex gap-2 border border-zinc-900 bg-zinc-950/60 rounded-xl p-1 w-full max-w-md">
           <button
             onClick={() => setActiveSubTab('checkin')}
             className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-all duration-200 ${
@@ -220,6 +225,16 @@ export default function CheckInClient({ user }: { user: any }) {
             }`}
           >
             Lịch Làm Việc
+          </button>
+          <button
+            onClick={() => setActiveSubTab('profile')}
+            className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-all duration-200 ${
+              activeSubTab === 'profile' 
+                ? "bg-teal-600 text-white shadow-[0_0_10px_rgba(13,148,136,0.25)]" 
+                : "text-zinc-500 hover:text-white hover:bg-zinc-900"
+            }`}
+          >
+            Thông Tin Cá Nhân
           </button>
         </div>
 
@@ -346,6 +361,73 @@ export default function CheckInClient({ user }: { user: any }) {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Content 3: PERSONAL PROFILE */}
+        {activeSubTab === 'profile' && (
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-6">
+            <div>
+              <h3 className="text-sm font-bold text-white">Hồ sơ Nhân viên</h3>
+              <p className="text-[10px] text-zinc-400 font-light mt-0.5">Thông tin tài khoản và hợp đồng lao động tại RestoFlow.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Họ và Tên</span>
+                <div className="text-xs font-semibold text-white flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-teal-400" />
+                  {user.name}
+                </div>
+              </div>
+
+              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Email Đăng ký</span>
+                <div className="text-xs font-semibold text-white flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-teal-400" />
+                  {user.email || `${user.userId}@restoflow.demo`}
+                </div>
+              </div>
+
+              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Vai trò hệ thống</span>
+                <div className="text-xs font-semibold text-white flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-teal-400" />
+                  {user.role === 'STAFF' ? 'Nhân viên (Staff)' : user.role}
+                </div>
+              </div>
+
+              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Trạng thái</span>
+                <div className="text-xs font-semibold text-emerald-400 flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                  Đang hoạt động (Active)
+                </div>
+              </div>
+
+              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Số điện thoại liên hệ</span>
+                <div className="text-xs font-semibold text-white flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-teal-400" />
+                  098 765 4321
+                </div>
+              </div>
+
+              <div className="bg-zinc-950/60 border border-zinc-900 rounded-2xl p-4 space-y-1.5">
+                <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Ngày bắt đầu làm việc</span>
+                <div className="text-xs font-semibold text-white flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-teal-400" />
+                  15 Tháng 02, 2026
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-zinc-900 bg-zinc-950/60 p-4 space-y-1.5">
+              <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Ghi chú bộ phận</span>
+              <p className="text-[10px] text-zinc-400 leading-relaxed font-light">
+                Tài khoản nhân viên được cấp quyền truy cập hệ thống chấm công tự động trên thiết bị xác thực tin cậy tại cơ sở. Mọi thông tin thay đổi hồ sơ vui lòng liên hệ bộ phận nhân sự (HRM) để được cập nhật.
+              </p>
             </div>
           </div>
         )}
