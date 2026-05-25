@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/cashier',
+        destination: '/pos/cashier',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
