@@ -13,6 +13,7 @@ import {
   Clock, 
   User
 } from "lucide-react";
+import { getAccessTokenFromCookie } from "@/lib/auth/client";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,16 +21,19 @@ import AdminTabs from "@/components/admin/AdminTabs";
 import { fetchSchedules, createSchedule, updateSchedule, deleteSchedule } from "@/lib/api/admin";
 
 const scheduleSchema = z.object({
-  employeeId: z.string().min(1, "ID nhân viên không được để trống"),
+  userId: z.string().min(1, "Vui lòng chọn nhân viên"),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày không đúng định dạng YYYY-MM-DD"),
-  startTime: z.string().min(1, "Giờ bắt đầu không được để trống"),
-  endTime: z.string().min(1, "Giờ kết thúc không được để trống"),
+  shiftStart: z.string().min(1, "Giờ bắt đầu không được để trống"),
+  shiftEnd: z.string().min(1, "Giờ kết thúc không được để trống"),
+  position: z.string().default("Staff"),
+  note: z.string().optional()
 });
 
 type ScheduleForm = z.infer<typeof scheduleSchema>;
 
 export default function AdminSchedulePage() {
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [staffUsers, setStaffUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -59,9 +63,31 @@ export default function AdminSchedulePage() {
     }
   }, []);
 
+  const fetchStaffUsers = useCallback(async () => {
+    try {
+      const token = getAccessTokenFromCookie();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/devices/users`, {
+        headers,
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.data)) {
+        const staff = data.data.filter((u: any) => u.role === 'STAFF');
+        setStaffUsers(staff);
+      }
+    } catch (error) {
+      console.error("Error fetching staff users:", error);
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    fetchStaffUsers();
+  }, [loadData, fetchStaffUsers]);
 
   const onSubmit = async (values: any) => {
     try {
@@ -80,10 +106,12 @@ export default function AdminSchedulePage() {
   const openEdit = (item: any) => {
     setEditItem(item);
     reset({
-      employeeId: item.employeeId,
-      date: item.date,
-      startTime: item.startTime,
-      endTime: item.endTime,
+      userId: item.userId,
+      date: item.date ? item.date.split("T")[0] : "",
+      shiftStart: item.shiftStart,
+      shiftEnd: item.shiftEnd,
+      position: item.position || "Staff",
+      note: item.note || ""
     });
     setModalOpen(true);
   };
@@ -91,10 +119,12 @@ export default function AdminSchedulePage() {
   const closeModal = () => {
     setEditItem(null);
     reset({
-      employeeId: "",
+      userId: "",
       date: "",
-      startTime: "",
-      endTime: "",
+      shiftStart: "",
+      shiftEnd: "",
+      position: "Staff",
+      note: ""
     });
     setModalOpen(false);
   };
@@ -111,7 +141,7 @@ export default function AdminSchedulePage() {
 
   const filteredSchedules = schedules.filter(sch => 
     sch.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    sch.employeeId?.toLowerCase().includes(searchQuery.toLowerCase())
+    sch.userId?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -129,7 +159,7 @@ export default function AdminSchedulePage() {
             </Link>
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-lg text-white">Quản Lý Lịch Làm Việc</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">Lịch trực</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">Lịch làm</span>
             </div>
           </div>
 
@@ -157,8 +187,8 @@ export default function AdminSchedulePage() {
         <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-6">
           <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-white">Lịch Trực Ca Nhân Viên</h2>
-              <p className="text-xs text-zinc-400 font-light mt-0.5">Lên kế hoạch ca trực, giờ bắt đầu và giờ kết thúc của toàn bộ nhân viên.</p>
+              <h2 className="text-base font-bold text-white">Lịch Làm Việc Nhân Viên</h2>
+              <p className="text-xs text-zinc-400 font-light mt-0.5">Lên kế hoạch ca làm, giờ bắt đầu và giờ kết thúc của toàn bộ nhân viên.</p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto items-center">
@@ -180,7 +210,7 @@ export default function AdminSchedulePage() {
                 className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] shrink-0"
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span>Thêm Lịch Trực</span>
+                <span>Thêm Lịch</span>
               </button>
             </div>
           </div>
@@ -191,7 +221,7 @@ export default function AdminSchedulePage() {
               <thead>
                 <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
                   <th className="px-5 py-3">Nhân Viên</th>
-                  <th className="px-5 py-3">Ngày Trực</th>
+                  <th className="px-5 py-3">Ngày Làm</th>
                   <th className="px-5 py-3">Giờ Bắt Đầu</th>
                   <th className="px-5 py-3">Giờ Kết Thúc</th>
                   <th className="px-5 py-3 text-center">Hành Động</th>
@@ -208,13 +238,13 @@ export default function AdminSchedulePage() {
                   <tr key={sch.id} className="hover:bg-zinc-900/20 transition-all">
                     <td className="px-5 py-3.5">
                       <div className="font-semibold text-white">{sch.user?.name || "Chưa gán"}</div>
-                      <div className="text-[10px] text-zinc-500 font-light mt-0.5">{sch.employeeId}</div>
+                      <div className="text-[10px] text-zinc-500 font-light mt-0.5">ID: {sch.userId?.substring(0,8)}...</div>
                     </td>
                     <td className="px-5 py-3.5 font-mono text-zinc-200">
                       {new Date(sch.date).toLocaleDateString("vi-VN")}
                     </td>
-                    <td className="px-5 py-3.5 font-mono text-zinc-300">{sch.startTime}</td>
-                    <td className="px-5 py-3.5 font-mono text-zinc-300">{sch.endTime}</td>
+                    <td className="px-5 py-3.5 font-mono text-zinc-300">{sch.shiftStart}</td>
+                    <td className="px-5 py-3.5 font-mono text-zinc-300">{sch.shiftEnd}</td>
                     <td className="px-5 py-3.5 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button 
@@ -256,25 +286,33 @@ export default function AdminSchedulePage() {
             <div className="absolute top-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-violet-900/10 blur-[60px] pointer-events-none" />
             
             <h2 className="text-sm font-bold uppercase tracking-wider text-white mb-4">
-              {editItem ? "Chỉnh Sửa Ca Trực" : "Thêm Lịch Trực Mới"}
+              {editItem ? "Chỉnh Sửa Lịch Làm Việc" : "Thêm Lịch Mới"}
             </h2>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 relative z-10">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">ID Nhân Viên</label>
-                <input
-                  type="text"
-                  placeholder="Nhập ID nhân viên..."
-                  {...register("employeeId")}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-all"
-                />
-                {errors.employeeId?.message && (
-                  <p className="text-rose-500 text-[10px] mt-1">{String(errors.employeeId.message)}</p>
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Nhân Viên (Staff)</label>
+                <select
+                  {...register("userId")}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all cursor-pointer [color-scheme:dark]"
+                >
+                  <option value="" disabled>Chọn nhân viên...</option>
+                  {staffUsers.map(u => (
+                    <option key={u.id} value={u.id} className="bg-zinc-950 text-white">
+                      {u.name} ({u.email})
+                    </option>
+                  ))}
+                  {staffUsers.length === 0 && (
+                    <option value="" disabled className="text-zinc-500">Không có nhân sự Staff nào</option>
+                  )}
+                </select>
+                {errors.userId?.message && (
+                  <p className="text-rose-500 text-[10px] mt-1">{String(errors.userId.message)}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Ngày Trực</label>
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Ngày Làm</label>
                 <input
                   type="date"
                   {...register("date")}
@@ -290,22 +328,22 @@ export default function AdminSchedulePage() {
                   <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Bắt Đầu</label>
                   <input
                     type="time"
-                    {...register("startTime")}
+                    {...register("shiftStart")}
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark]"
                   />
-                  {errors.startTime?.message && (
-                    <p className="text-rose-500 text-[10px] mt-1">{String(errors.startTime.message)}</p>
+                  {errors.shiftStart?.message && (
+                    <p className="text-rose-500 text-[10px] mt-1">{String(errors.shiftStart.message)}</p>
                   )}
                 </div>
                 <div className="flex-1">
                   <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Kết Thúc</label>
                   <input
                     type="time"
-                    {...register("endTime")}
+                    {...register("shiftEnd")}
                     className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark]"
                   />
-                  {errors.endTime?.message && (
-                    <p className="text-rose-500 text-[10px] mt-1">{String(errors.endTime.message)}</p>
+                  {errors.shiftEnd?.message && (
+                    <p className="text-rose-500 text-[10px] mt-1">{String(errors.shiftEnd.message)}</p>
                   )}
                 </div>
               </div>
