@@ -53,7 +53,16 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   const tableNumber = params?.tableId as string;
 
   // ── Realtime sold-out sync (Lắng nghe sự thay đổi hết món qua Socket.io) ──
-  const { items: rawItems, isConnected } = useMenuSoldOut(initialItems);
+  const { items: rawItems, isConnected } = useMenuSoldOut(initialItems, {
+    onItemSoldOut: (payload) => {
+      if (payload.isSoldOut) {
+        // Find the item name if possible, or just say 'Một món ăn'
+        const item = initialItems.find(i => i.id === payload.menuItemId);
+        const name = item ? item.name : 'Một món ăn';
+        showToast({ type: 'error', message: `Món "${name}" hiện đã hết.` });
+      }
+    }
+  });
   const items = rawItems as MenuItemForDisplay[];
 
   // ── Zustand Store State & Actions ──
@@ -268,7 +277,11 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
           message: '🍳 Gửi món lên hệ thống thành công! Nhà bếp đang xử lý.',
         });
       } else {
-        const errMsg = result.message || 'Có lỗi xảy ra khi gọi món.';
+        let errMsg = result.message || 'Có lỗi xảy ra khi gọi món.';
+        if (result.errors && (result.errors as any).itemErrors) {
+          const specificErrors = (result.errors as any).itemErrors.map((e: any) => e.message);
+          errMsg = `Không thể đặt các món: ${specificErrors.join(', ')}`;
+        }
         setSubmitError(errMsg);
         showToast({ type: 'error', message: errMsg });
       }
