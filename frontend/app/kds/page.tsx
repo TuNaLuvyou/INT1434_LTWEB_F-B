@@ -11,7 +11,6 @@ import {
   Flame, 
   AlertTriangle, 
   Activity,
-  Layers,
   Archive,
   RotateCcw,
   X,
@@ -35,58 +34,6 @@ interface KDSOther {
   createdAt: Date;
   elapsedSeconds: number; // calculated simulated elapsed time
 }
-
-const INITIAL_ORDERS: KDSOther[] = [
-  {
-    id: "o1",
-    orderNo: "ORD-3829",
-    tableNo: "Bàn số 05",
-    items: [
-      { name: "Classic Beef Burger", quantity: 2 },
-      { name: "Fresh Strawberry Soda", quantity: 2 },
-      { name: "Molten Lava Chocolate Cake", quantity: 1 }
-    ],
-    status: "pending",
-    createdAt: new Date(Date.now() - 3 * 60 * 1000), // 3 mins ago
-    elapsedSeconds: 180
-  },
-  {
-    id: "o2",
-    orderNo: "ORD-8472",
-    tableNo: "Bàn số 12",
-    items: [
-      { name: "Smoked Bacon Pizza", quantity: 1 },
-      { name: "Matcha Latte Ice Blended", quantity: 1 }
-    ],
-    status: "preparing",
-    createdAt: new Date(Date.now() - 9 * 60 * 1000), // 9 mins ago
-    elapsedSeconds: 540
-  },
-  {
-    id: "o3",
-    orderNo: "ORD-1193",
-    tableNo: "Mang về #01",
-    items: [
-      { name: "Premium Crispy Chicken", quantity: 1 },
-      { name: "Iced Caramel Macchiato", quantity: 1 }
-    ],
-    status: "ready",
-    createdAt: new Date(Date.now() - 15 * 60 * 1000), // 15 mins ago
-    elapsedSeconds: 900
-  },
-  {
-    id: "o4",
-    orderNo: "ORD-5742",
-    tableNo: "Bàn số 08",
-    items: [
-      { name: "Fresh Caesar Salad", quantity: 1 },
-      { name: "Matcha Tiramisu Cup", quantity: 2 }
-    ],
-    status: "pending",
-    createdAt: new Date(Date.now() - 11 * 60 * 1000), // 11 mins ago (Urgent!)
-    elapsedSeconds: 660
-  }
-];
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -129,8 +76,11 @@ export default function KDSPage() {
     setFetchError(null);
     try {
       const response = await fetch(`${API_URL}/api/menu`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const result = await response.json();
-      if (response.ok && result.success) {
+      if (result.success) {
         setCategories(result.data.categories || []);
         setMenuItems(result.data.items || []);
       } else {
@@ -152,8 +102,11 @@ export default function KDSPage() {
           'Authorization': `Bearer ${accessToken || ''}`,
         }
       });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const result = await response.json();
-      if (response.ok && result.success) {
+      if (result.success) {
         setRawSessions(result.data || []);
       }
     } catch (err) {
@@ -202,6 +155,28 @@ export default function KDSPage() {
     room: 'menu-updates',
   });
 
+  const playBeep = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+      
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.2);
+    } catch (e) {
+      console.error('Audio api error', e);
+    }
+  };
+
   // Listen to menu soldout
   useEffect(() => {
     if (!menuSocket || !isMenuConnected) return;
@@ -231,6 +206,7 @@ export default function KDSPage() {
 
     const handleUpdate = () => {
       console.log('[KDS Socket] Nhận được thay đổi đơn hàng từ socket, cập nhật...');
+      playBeep();
       fetchKdsOrders();
     };
 
@@ -409,7 +385,7 @@ export default function KDSPage() {
               <RotateCcw className="h-3.5 w-3.5" />
               Reset Demo
             </button>
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-xs text-zinc-400 font-mono">BẾP CHÍNH</span>
           </div>
         </div>
