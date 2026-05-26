@@ -1,5 +1,80 @@
 import prisma from '../config/prisma';
 
+// ── Inventory Reverse (Void) ──────────────────────────────────────
+
+/**
+ * Hoàn trả tồn kho nguyên liệu khi một OrderItem bị void.
+ *
+ * Luồng:
+ *  1. Tìm OrderItem + menuItem.bom (danh sách nguyên liệu + định mức)
+ *  2. Tính lượng hoàn trả: bom.quantity × orderItem.qty
+ *  3. Cộng ngược tồn kho cho từng nguyên liệu trong BOM
+ *  4. Ghi InventoryLog với reason='VOID_REVERSE' và orderId=orderItemId
+ *  5. Thực hiện trong transaction để đảm bảo atomicity
+ *
+ * @returns danh sách { ingredientId, name, delta, newStock } đã hoàn trả
+ */
+export const reverseStockByOrderItem = async (
+  orderItemId: string,
+  reversedBy?: string
+): Promise<Array<{ ingredientId: string; name: string; delta: number; newStock: number }>> => {
+  // Lấy OrderItem + BOM của menuItem
+  const orderItem = await prisma.orderItem.findUnique({
+    where: { id: orderItemId },
+    include: {
+      menuItem: {
+        include: {
+          bom: {
+            include: { ingredient: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!orderItem) throw Object.assign(new Error('OrderItem không tồn tại'), { code: 'NOT_FOUND' });
+  if (orderItem.status !== 'VOID') throw Object.assign(new Error('Chỉ có thể hoàn kho cho item đã VOID'), { code: 'INVALID_STATUS' });
+
+  const bom = orderItem.menuItem.bom;
+  if (bom.length === 0) return []; // Không có BOM → không cần hoàn kho
+
+  const results: Array<{ ingredientId: string; name: string; delta: number; newStock: number }> = [];
+
+  // Thực hiện trong 1 transaction
+  await prisma.$transaction(async (tx) => {
+    for (const entry of bom) {
+      const delta = Number(entry.quantity) * orderItem.qty; // lượng hoàn trả (dương)
+      const newStock = Number(entry.ingredient.stock) + delta;
+
+      // Cộng ngược tồn kho
+      await tx.ingredient.update({
+        where: { id: entry.ingredientId },
+        data: { stock: newStock },
+      });
+
+      // Ghi log
+      await tx.inventoryLog.create({
+        data: {
+          ingredientId: entry.ingredientId,
+          delta,
+          reason: `VOID_REVERSE: OrderItem ${orderItemId}`,
+          orderId: orderItemId,
+          createdBy: reversedBy ?? null,
+        },
+      });
+
+      results.push({
+        ingredientId: entry.ingredientId,
+        name: entry.ingredient.name,
+        delta,
+        newStock,
+      });
+    }
+  });
+
+  return results;
+};
+
 // ── Ingredient CRUD ──────────────────────────────────────────────
 
 export const getAll = async (lowStock?: boolean) => {

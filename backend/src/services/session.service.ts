@@ -238,9 +238,7 @@ export async function addToCart(
       throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
     }
 
-    if (session.lockedAt) {
-      throw new AppError(423, 'SESSION_LOCKED', 'Order đang được chuẩn bị bởi nhà hàng — không thể thêm món.', { isLocked: true });
-    }
+    // Removed locked check so customers can continuously place additional orders.
 
     // STEP 2: Verify menuItem isActive và không sold out
     const menuItem = await tx.menuItem.findUnique({
@@ -255,7 +253,13 @@ export async function addToCart(
 
     // STEP 3: LWW CONFLICT CHECK
     const existing = await tx.orderItem.findUnique({
-      where: { sessionId_menuItemId: { sessionId, menuItemId } },
+      where: {
+        sessionId_menuItemId_status: {
+          sessionId,
+          menuItemId,
+          status: 'CART',
+        },
+      },
     });
 
     if (existing) {
@@ -264,7 +268,7 @@ export async function addToCart(
       if (dbTimestamp > clientTimestamp) {
         // Lấy toàn bộ cart hiện tại để sync về client
         const currentCart = await tx.orderItem.findMany({
-          where: { sessionId },
+          where: { sessionId, status: 'CART' },
           include: {
             menuItem: {
               select: {
@@ -284,11 +288,17 @@ export async function addToCart(
     if (qty <= 0) {
       // qty <= 0 nghĩa là xóa item
       await tx.orderItem.deleteMany({
-        where: { sessionId, menuItemId },
+        where: { sessionId, menuItemId, status: 'CART' },
       });
     } else {
       await tx.orderItem.upsert({
-        where: { sessionId_menuItemId: { sessionId, menuItemId } },
+        where: {
+          sessionId_menuItemId_status: {
+            sessionId,
+            menuItemId,
+            status: 'CART',
+          },
+        },
         update: {
           qty,
           note: note ?? '',
@@ -299,14 +309,14 @@ export async function addToCart(
           qty,
           note: note ?? '',
           unitPrice: menuItem.price,
-          status: 'PENDING',
+          status: 'CART',
         },
       });
     }
 
     // STEP 5: Lấy cart mới nhất sau khi upsert
     const updatedCart = await tx.orderItem.findMany({
-      where: { sessionId },
+      where: { sessionId, status: 'CART' },
       include: {
         menuItem: {
           select: {
@@ -341,20 +351,24 @@ export async function deleteCartItem(
       throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
     }
 
-    if (session.lockedAt) {
-      throw new AppError(423, 'SESSION_LOCKED', 'Order đang được chuẩn bị bởi nhà hàng — không thể xóa món.', { isLocked: true });
-    }
+    // Removed locked check so customers can continuously place additional orders.
 
     // STEP 2: LWW CONFLICT CHECK
     const existing = await tx.orderItem.findUnique({
-      where: { sessionId_menuItemId: { sessionId, menuItemId } },
+      where: {
+        sessionId_menuItemId_status: {
+          sessionId,
+          menuItemId,
+          status: 'CART',
+        },
+      },
     });
 
     if (existing) {
       const dbTimestamp = existing.updatedAt.getTime();
       if (dbTimestamp > clientTimestamp) {
         const currentCart = await tx.orderItem.findMany({
-          where: { sessionId },
+          where: { sessionId, status: 'CART' },
           include: {
             menuItem: {
               select: {
@@ -370,14 +384,20 @@ export async function deleteCartItem(
       }
 
       // Xóa item
-      await tx.orderItem.deleteMany({
-        where: { sessionId, menuItemId },
+      await tx.orderItem.delete({
+        where: {
+          sessionId_menuItemId_status: {
+            sessionId,
+            menuItemId,
+            status: 'CART',
+          },
+        },
       });
     }
 
     // Lấy cart mới nhất sau khi xóa
     const updatedCart = await tx.orderItem.findMany({
-      where: { sessionId },
+      where: { sessionId, status: 'CART' },
       include: {
         menuItem: {
           select: {

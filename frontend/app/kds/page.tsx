@@ -21,8 +21,10 @@ import { useSocket } from "@/hooks/useSocket";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
 
 interface KDSItem {
+  id: string;
   name: string;
   quantity: number;
+  status: string;
 }
 
 interface KDSOther {
@@ -33,6 +35,21 @@ interface KDSOther {
   status: "pending" | "preparing" | "ready";
   createdAt: Date;
   elapsedSeconds: number; // calculated simulated elapsed time
+}
+
+interface ArchivedKdsItem {
+  id: string;
+  name: string;
+  quantity: number;
+  status: string;
+}
+
+interface ArchivedKdsOrder {
+  id: string;
+  orderNo: string;
+  tableNo: string;
+  archivedAt: string;
+  items: ArchivedKdsItem[];
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -59,7 +76,10 @@ interface MenuItem {
 
 export default function KDSPage() {
   const [orders, setOrders] = useState<KDSOther[]>([]);
+  const [isVoidingId, setIsVoidingId] = useState<string | null>(null);
   const [rawSessions, setRawSessions] = useState<any[]>([]);
+  const [archivedOrders, setArchivedOrders] = useState<ArchivedKdsOrder[]>([]);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
   // State quản lý Báo hết món
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -202,6 +222,17 @@ export default function KDSPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("kds_archived_orders") || "[]";
+    try {
+      const parsed = JSON.parse(stored) as ArchivedKdsOrder[];
+      setArchivedOrders(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setArchivedOrders([]);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!kitchenSocket || !isKitchenConnected) return;
 
     const handleUpdate = () => {
@@ -237,8 +268,10 @@ export default function KDSPage() {
       if (activeItems.length === 0) return null;
 
       const items = activeItems.map((oi: any) => ({
+        id: oi.id,
         name: oi.menuItem.name,
-        quantity: oi.qty
+        quantity: oi.qty,
+        status: oi.status
       }));
 
       // Xác định trạng thái chung của ticket dựa trên các items
@@ -312,19 +345,92 @@ export default function KDSPage() {
     }
   };
 
+  const handleVoidKdsItem = async (sessionId: string, orderItemId: string, name: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn hủy món "${name}" do hết món không?`)) return;
+    setIsVoidingId(orderItemId);
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      const response = await fetch(`${API_URL}/api/kds/sessions/${sessionId}/items/${orderItemId}/void`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${accessToken || ''}`,
+        },
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setRawSessions((prev) => {
+          const nextSessions = prev.map((session) => {
+            if (session.id !== sessionId) return session;
+            const nextItems = session.orderItems.map((item: any) =>
+              item.id === orderItemId ? { ...item, status: "VOID" } : item
+            );
+            return { ...session, orderItems: nextItems };
+          });
+
+          const updatedSession = nextSessions.find((session) => session.id === sessionId);
+          if (updatedSession) {
+            const allVoided = updatedSession.orderItems.every((item: any) => item.status === "VOID");
+            if (allVoided) {
+              archiveSession(updatedSession);
+              return nextSessions.filter((session) => session.id !== sessionId);
+            }
+          }
+
+          return nextSessions;
+        });
+
+        fetchKdsOrders();
+      } else {
+        alert(result.message || "Không thể hủy món");
+      }
+    } catch (err: any) {
+      console.error("[KDS] Lỗi hủy món:", err);
+      alert("Đã xảy ra lỗi khi hủy món");
+    } finally {
+      setIsVoidingId(null);
+    }
+  };
+
+  const persistArchivedOrders = (next: ArchivedKdsOrder[]) => {
+    setArchivedOrders(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("kds_archived_orders", JSON.stringify(next));
+    }
+  };
+
+  const archiveSession = (session: any) => {
+    const itemIdsToArchive = session.orderItems.map((oi: any) => oi.id);
+    const existingStr = typeof window !== 'undefined' ? (localStorage.getItem("kds_archived_item_ids") || "[]") : "[]";
+    const existingArchived = JSON.parse(existingStr);
+    const updatedArchived = [...existingArchived, ...itemIdsToArchive];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("kds_archived_item_ids", JSON.stringify(updatedArchived));
+    }
+
+    const archiveEntry: ArchivedKdsOrder = {
+      id: session.id,
+      orderNo: `ORD-${session.id.substring(0, 4).toUpperCase()}`,
+      tableNo: session.table?.label || `Bàn ${session.table?.tableNumber || ""}`,
+      archivedAt: new Date().toISOString(),
+      items: session.orderItems.map((oi: any) => ({
+        id: oi.id,
+        name: oi.menuItem.name,
+        quantity: oi.qty,
+        status: oi.status,
+      })),
+    };
+
+    const nextArchived = [archiveEntry, ...archivedOrders];
+    persistArchivedOrders(nextArchived);
+
+    // Update local state instantly
+    setOrders(prev => prev.filter(order => order.id !== session.id));
+  };
+
   const completeOrder = (sessionId: string) => {
     const session = rawSessions.find(s => s.id === sessionId);
     if (session) {
-      const itemIdsToArchive = session.orderItems.map((oi: any) => oi.id);
-      const existingStr = typeof window !== 'undefined' ? (localStorage.getItem("kds_archived_item_ids") || "[]") : "[]";
-      const existingArchived = JSON.parse(existingStr);
-      const updatedArchived = [...existingArchived, ...itemIdsToArchive];
-      if (typeof window !== 'undefined') {
-        localStorage.setItem("kds_archived_item_ids", JSON.stringify(updatedArchived));
-      }
-      
-      // Update local state instantly
-      setOrders(prev => prev.filter(order => order.id !== sessionId));
+      archiveSession(session);
     }
   };
 
@@ -377,6 +483,13 @@ export default function KDSPage() {
             >
               <ChefHat className="h-3.5 w-3.5 animate-pulse" />
               Báo Hết Món
+            </button>
+            <button
+              onClick={() => setIsArchiveOpen(true)}
+              className="text-xs bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-zinc-300 font-medium transition-colors"
+            >
+              <Archive className="h-3.5 w-3.5" />
+              Lưu trữ
             </button>
             <button 
               onClick={resetDemo}
@@ -451,9 +564,21 @@ export default function KDSPage() {
 
                   <ul className="space-y-2 mb-4">
                     {order.items.map((item, idx) => (
-                      <li key={idx} className="flex justify-between items-center text-xs">
-                        <span className="text-zinc-400 font-light">{item.name}</span>
-                        <span className="font-mono font-bold text-white bg-zinc-800 border border-zinc-800 px-1.5 py-0.5 rounded">
+                      <li key={idx} className="flex justify-between items-center text-xs group/item">
+                        <span className="text-zinc-400 font-light flex items-center gap-2">
+                          {item.name}
+                          {(item.status === 'PENDING' || item.status === 'PREPARING') && (
+                            <button
+                              onClick={() => handleVoidKdsItem(order.id, item.id, item.name)}
+                              disabled={isVoidingId === item.id}
+                              className="text-[10px] text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all duration-200"
+                              title="Báo hết món & Huỷ"
+                            >
+                              {isVoidingId === item.id ? "Đang huỷ..." : "Hết món"}
+                            </button>
+                          )}
+                        </span>
+                        <span className="font-mono font-bold text-white bg-zinc-800 border border-zinc-800 px-1.5 py-0.5 rounded shrink-0">
                           x{item.quantity}
                         </span>
                       </li>
@@ -512,9 +637,21 @@ export default function KDSPage() {
 
                   <ul className="space-y-2 mb-4">
                     {order.items.map((item, idx) => (
-                      <li key={idx} className="flex justify-between items-center text-xs">
-                        <span className="text-zinc-300 font-medium">{item.name}</span>
-                        <span className="font-mono font-bold text-white bg-orange-950/20 border border-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded">
+                      <li key={idx} className="flex justify-between items-center text-xs group/item">
+                        <span className="text-zinc-300 font-medium flex items-center gap-2">
+                          {item.name}
+                          {(item.status === 'PENDING' || item.status === 'PREPARING') && (
+                            <button
+                              onClick={() => handleVoidKdsItem(order.id, item.id, item.name)}
+                              disabled={isVoidingId === item.id}
+                              className="text-[10px] text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all duration-200"
+                              title="Báo hết món & Huỷ"
+                            >
+                              {isVoidingId === item.id ? "Đang huỷ..." : "Hết món"}
+                            </button>
+                          )}
+                        </span>
+                        <span className="font-mono font-bold text-white bg-orange-950/20 border border-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded shrink-0">
                           x{item.quantity}
                         </span>
                       </li>
@@ -787,6 +924,85 @@ export default function KDSPage() {
                 <span className="text-[9px] text-zinc-500 font-medium">
                   * Trạng thái hết món sẽ tự động gửi đi realtime qua WebSocket.
                 </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sliding Drawer Lưu trữ */}
+        <div
+          className={`fixed inset-0 z-50 overflow-hidden transition-all duration-300 ${
+            isArchiveOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <div
+            onClick={() => setIsArchiveOpen(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300"
+          />
+
+          <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
+            <div
+              className={`w-screen max-w-lg transform transition-transform duration-300 ease-out bg-zinc-950 border-l border-zinc-900 flex flex-col shadow-2xl relative ${
+                isArchiveOpen ? "translate-x-0" : "translate-x-full"
+              }`}
+            >
+              <div className="px-6 py-5 border-b border-zinc-900 bg-zinc-900/20 flex items-center justify-between shrink-0 relative z-10">
+                <div>
+                  <h3 className="text-base font-black text-white">Lưu trữ đơn bếp</h3>
+                  <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">
+                    {archivedOrders.length} đơn đã hoàn tất
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsArchiveOpen(false)}
+                  className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer transition-colors"
+                >
+                  <X className="h-4.5 w-4.5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-5 space-y-3 relative z-10">
+                {archivedOrders.length === 0 ? (
+                  <div className="text-center text-zinc-500 text-xs italic py-10">
+                    Chưa có đơn lưu trữ.
+                  </div>
+                ) : (
+                  archivedOrders.map((order) => {
+                    const doneCount = order.items.filter(item => item.status === "DONE").length;
+                    const voidCount = order.items.filter(item => item.status === "VOID").length;
+                    const isCancelled = voidCount === order.items.length;
+                    return (
+                      <div key={order.id} className="rounded-2xl border border-zinc-900 bg-zinc-900/30 px-4 py-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-bold text-zinc-100">{order.orderNo}</div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold ${isCancelled ? "text-rose-400" : "text-emerald-400"}`}>
+                              {isCancelled ? "CANCELLED" : "DONE"}
+                            </span>
+                            <span className="text-[10px] text-zinc-500 font-mono">
+                              {new Date(order.archivedAt).toLocaleString("vi-VN")}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-zinc-400 mt-1">{order.tableNo}</div>
+                        <div className="mt-2 flex items-center gap-3 text-[10px] text-zinc-400">
+                          <span>Hoàn tất: {doneCount}</span>
+                          <span className={voidCount > 0 ? "text-rose-400" : ""}>Huỷ: {voidCount}</span>
+                        </div>
+                        <div className="mt-3 space-y-1">
+                          {order.items.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between text-[11px]">
+                              <span className={`text-zinc-400 ${item.status === "VOID" ? "line-through" : ""}`}>
+                                {item.name}
+                              </span>
+                              <span className="text-zinc-500 font-mono">x{item.quantity}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>

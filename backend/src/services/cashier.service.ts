@@ -51,7 +51,8 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
         where: { status: 'OPEN' },
         include: {
           orderItems: {
-            select: { status: true },
+            where: { status: { not: 'CART' } },
+            select: { status: true, createdAt: true },
           },
         },
       },
@@ -75,13 +76,24 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
     let preparingCount = 0;
     let doneCount = 0;
 
+    const lockedAtTime = activeSession.lockedAt ? new Date(activeSession.lockedAt).getTime() : null;
+
     for (const item of activeSession.orderItems) {
-      if (item.status === 'PENDING') pendingCount += 1;
+      if (item.status === 'PENDING') {
+        const itemTime = new Date(item.createdAt).getTime();
+        // Nếu món PENDING được tạo trước/bằng lúc khóa bàn -> Bếp đang làm (PREPARING)
+        // Nếu món PENDING được tạo sau lúc khóa bàn -> Đây là đợt đặt thêm mới, chờ duyệt (PENDING)
+        if (lockedAtTime !== null && itemTime <= lockedAtTime) {
+          preparingCount += 1;
+        } else {
+          pendingCount += 1;
+        }
+      }
       if (item.status === 'PREPARING') preparingCount += 1;
       if (item.status === 'DONE') doneCount += 1;
     }
 
-    const isLocked = Boolean((activeSession as { lockedAt?: Date | null }).lockedAt);
+    const isLockedSession = Boolean((activeSession as { lockedAt?: Date | null }).lockedAt);
 
     return {
       tableId: table.id,
@@ -94,7 +106,7 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
         pendingCount,
         preparingCount,
         doneCount,
-        isLocked,
+        isLocked: isLockedSession,
       },
     };
   });
@@ -106,6 +118,7 @@ export async function getCashierSessionItems(sessionId: string): Promise<Cashier
     include: {
       table: true,
       orderItems: {
+        where: { status: { not: 'CART' } },
         orderBy: { createdAt: 'asc' },
         include: {
           menuItem: {
@@ -127,20 +140,33 @@ export async function getCashierSessionItems(sessionId: string): Promise<Cashier
   }
 
   const groups: CashierSessionItemsResponse['groups'] = {
+    CART: [],
     PENDING: [],
     PREPARING: [],
     DONE: [],
     VOID: [],
   };
 
+  const lockedAtTime = session.lockedAt ? new Date(session.lockedAt).getTime() : null;
+
   for (const item of session.orderItems) {
-    groups[item.status].push({
+    let displayStatus = item.status;
+    if (item.status === 'PENDING') {
+      const itemTime = new Date(item.createdAt).getTime();
+      // Nếu món PENDING được tạo trước/bằng lúc khóa bàn -> Bếp đang làm (PREPARING)
+      // Nếu món PENDING được tạo sau lúc khóa bàn -> Đợt đặt mới chưa duyệt, giữ nguyên PENDING
+      if (lockedAtTime !== null && itemTime <= lockedAtTime) {
+        displayStatus = 'PREPARING';
+      }
+    }
+
+    groups[displayStatus].push({
       id: item.id,
       sessionId: item.sessionId,
       menuItemId: item.menuItemId,
       qty: item.qty,
       note: item.note,
-      status: item.status,
+      status: displayStatus,
       unitPrice: item.unitPrice,
       menuItem: {
         name: item.menuItem.name,
@@ -183,14 +209,21 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
     throw new AppError(400, 'SESSION_CLOSED', 'Phiên làm việc đã đóng.');
   }
 
-  if (session.lockedAt) {
-    throw new AppError(409, 'ALREADY_APPROVED', 'Đơn hàng đã được duyệt trước đó.');
-  }
+  // Đã bỏ check lockedAt ném lỗi ALREADY_APPROVED để cho phép duyệt các đợt gọi thêm mới.
+  const lockedAtTime = session.lockedAt ? new Date(session.lockedAt).getTime() : null;
 
-  // Lọc các món PENDING
-  const pendingItems = session.orderItems.filter(item => item.status === 'PENDING');
+  // Lọc các món PENDING chưa duyệt (có createdAt sau thời điểm lockedAt trước đó)
+  const pendingItems = session.orderItems.filter(item => {
+    if (item.status !== 'PENDING') return false;
+    const itemTime = new Date(item.createdAt).getTime();
+    if (lockedAtTime !== null && itemTime <= lockedAtTime) {
+      return false; // Món đợt cũ đã duyệt
+    }
+    return true; // Món đợt mới chưa duyệt
+  });
+
   if (pendingItems.length === 0) {
-    throw new AppError(400, 'NO_PENDING_ITEMS', 'Không có món ăn nào đang chờ duyệt.');
+    throw new AppError(400, 'NO_PENDING_ITEMS', 'Không có món ăn mới nào đang chờ duyệt.');
   }
 
   const now = new Date();
@@ -202,18 +235,6 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
       where: { id: sessionId },
       data: {
         lockedAt: now,
-      },
-    });
-
-    // Chuyển PENDING sang PREPARING
-    await tx.orderItem.updateMany({
-      where: {
-        sessionId,
-        status: 'PENDING',
-      },
-      data: {
-        status: 'PREPARING',
-        updatedAt: now,
       },
     });
 
@@ -250,7 +271,7 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
       menuItemName: item.menuItem.name,
       qty: item.qty,
       note: item.note || undefined,
-      status: 'PREPARING',
+      status: 'PENDING', // Gửi PENDING để bếp thấy trong cột "HÀNG CHỜ"
     })),
     createdAt: now.toISOString(),
   });

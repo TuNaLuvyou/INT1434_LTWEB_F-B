@@ -88,12 +88,7 @@ export async function submitOrder(
       };
     }
 
-    if (session.lockedAt) {
-      return {
-        success: false,
-        message: 'Order đang được chuẩn bị bởi nhà hàng — không thể thêm món mới.',
-      };
-    }
+    // Removed lockedAt check to allow continuous custom ordering.
 
     // ── Step 3: Verify tableId khớp với session.tableId ────────────────────
     if (session.tableId !== tableId) {
@@ -157,10 +152,6 @@ export async function submitOrder(
     // Server Action luôn lấy unitPrice từ DB — đây là source of truth.
 
     // ── Step 6: Prisma createMany OrderItem ────────────────────────────────
-    // Lưu ý schema có @@unique([sessionId, menuItemId]):
-    // Nếu khách đã đặt món này trong session → conflict.
-    // Dùng upsert pattern thay vì createMany để handle trường hợp reorder.
-
     const createdIds: string[] = [];
 
     // Dùng transaction để đảm bảo tất cả items được tạo atomically
@@ -169,39 +160,73 @@ export async function submitOrder(
         const menuItem = menuItemMap.get(item.menuItemId)!;
         const unitPrice = Number(menuItem.price);
 
-        // Kiểm tra xem đã có OrderItem này trong session chưa
-        const existing = await tx.orderItem.findUnique({
+        // 1. Tìm item CART tương ứng trong DB
+        const cartItem = await tx.orderItem.findUnique({
           where: {
-            sessionId_menuItemId: {
+            sessionId_menuItemId_status: {
               sessionId,
               menuItemId: item.menuItemId,
+              status: 'CART',
             },
           },
         });
 
-        if (existing) {
-          // Đã có: cộng dồn qty thay vì tạo mới (khách gọi thêm lần 2)
-          const updated = await tx.orderItem.update({
-            where: { id: existing.id },
-            data: {
-              qty: existing.qty + item.qty,
-              note: item.note ?? existing.note,
-            },
-          });
-          createdIds.push(updated.id);
-        } else {
-          // Chưa có: tạo mới với status PENDING
-          const created = await tx.orderItem.create({
-            data: {
+        // 2. Tìm xem đã có item PENDING tương ứng trong DB chưa
+        const existingPending = await tx.orderItem.findUnique({
+          where: {
+            sessionId_menuItemId_status: {
               sessionId,
               menuItemId: item.menuItemId,
-              qty: item.qty,
-              note: item.note ?? null,
-              unitPrice,
               status: 'PENDING',
             },
+          },
+        });
+
+        const qtyToSubmit = cartItem ? cartItem.qty : item.qty;
+        const noteToSubmit = cartItem ? cartItem.note : item.note;
+
+        if (existingPending) {
+          // Đã có PENDING: cộng dồn qty từ CART vào PENDING và xóa CART item
+          const updated = await tx.orderItem.update({
+            where: { id: existingPending.id },
+            data: {
+              qty: existingPending.qty + qtyToSubmit,
+              note: noteToSubmit ? (existingPending.note ? `${existingPending.note}, ${noteToSubmit}` : noteToSubmit) : existingPending.note,
+            },
           });
-          createdIds.push(created.id);
+          
+          if (cartItem) {
+            await tx.orderItem.delete({
+              where: { id: cartItem.id },
+            });
+          }
+          createdIds.push(updated.id);
+        } else {
+          // Chưa có PENDING:
+          if (cartItem) {
+            // Chuyển status dòng CART thành PENDING
+            const updated = await tx.orderItem.update({
+              where: { id: cartItem.id },
+              data: {
+                status: 'PENDING',
+                note: noteToSubmit ?? cartItem.note,
+              },
+            });
+            createdIds.push(updated.id);
+          } else {
+            // Fallback: Tạo mới với status PENDING
+            const created = await tx.orderItem.create({
+              data: {
+                sessionId,
+                menuItemId: item.menuItemId,
+                qty: qtyToSubmit,
+                note: noteToSubmit ?? null,
+                unitPrice,
+                status: 'PENDING',
+              },
+            });
+            createdIds.push(created.id);
+          }
         }
       }
     });
