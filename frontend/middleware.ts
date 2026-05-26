@@ -11,14 +11,16 @@ import { AccessTokenPayload } from '@/types/jwt.types';
 
 // 1. ROUTE PERMISSION MAP
 const ROUTE_PERMISSIONS: Record<string, string[]> = {
-  '/pos': ['ADMIN', 'MANAGER', 'STAFF'],
+  '/pos': ['ADMIN', 'MANAGER', 'CASHIER'],
   '/kds': ['ADMIN', 'MANAGER', 'KITCHEN'],
+  '/attendance': ['ADMIN', 'MANAGER', 'STAFF', 'CASHIER', 'KITCHEN'],
   '/admin/settings': ['ADMIN'], // Must be evaluated before /admin
   '/admin': ['ADMIN', 'MANAGER'],
+  '/table': ['ADMIN', 'MANAGER', 'CASHIER'],
 };
 
 // 2. PUBLIC ROUTES
-const PUBLIC_ROUTES = ['/login', '/table', '/expired'];
+const PUBLIC_ROUTES = ['/login', '/expired'];
 
 // 3. MIDDLEWARE LOGIC
 export async function middleware(request: NextRequest) {
@@ -43,7 +45,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // Step B: Skip middleware cho public routes
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
+  // Chỉ các trang /table/[id] (ví dụ: /table/1) là public cho thực khách.
+  // Bản thân trang /table hoặc /table/ (danh sách bàn nội bộ) bắt buộc phải đăng nhập.
+  const isPublicTableRoute = pathname.startsWith('/table/') && pathname.slice(7).trim().length > 0;
+
+  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route)) || isPublicTableRoute) {
     return NextResponse.next();
   }
 
@@ -80,7 +86,7 @@ export async function middleware(request: NextRequest) {
     // jose throw JWTExpired khi token hết hạn
     // jose throw JWTInvalid khi signature sai
     if (error instanceof Error) {
-      if (error.name === 'JWTExpired' || error.code === 'ERR_JWT_EXPIRED') {
+      if (error.name === 'JWTExpired' || (error as any).code === 'ERR_JWT_EXPIRED') {
         loginUrl.searchParams.set('reason', 'expired');
         return NextResponse.redirect(loginUrl);
       }

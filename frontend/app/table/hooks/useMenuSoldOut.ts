@@ -14,6 +14,7 @@ interface SoldOutEvent {
 
 interface UseMenuSoldOutOptions {
   socketUrl?: string;
+  onItemSoldOut?: (payload: SoldOutEvent) => void;
 }
 
 interface UseMenuSoldOutReturn<T extends MenuItemSoldOutState> {

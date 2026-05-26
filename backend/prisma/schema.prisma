@@ -114,6 +114,7 @@ model MenuItem {
 }
 
 enum OrderItemStatus {
+  CART
   PENDING
   PREPARING
   DONE
@@ -133,7 +134,7 @@ model OrderItem {
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 
-  @@unique([sessionId, menuItemId])
+  @@unique([sessionId, menuItemId, status])
   @@index([sessionId])
   @@index([menuItemId])
 }
