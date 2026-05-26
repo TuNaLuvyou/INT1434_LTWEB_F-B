@@ -64,7 +64,7 @@ export default function Home() {
     },
     {
       title: "Cổng Nhân Viên",
-      description: "Giao diện dành riêng cho nhân viên. Thực hiện chấm công hàng ngày (Check-in) và theo dõi lịch trực cá nhân.",
+      description: "Giao diện dành riêng cho nhân viên. Thực hiện chấm công hàng ngày (Check-in/Check-out) và theo dõi lịch trực cá nhân.",
       href: "/attendance",
       icon: UserCheck,
       color: "from-teal-600 to-emerald-500",
@@ -160,7 +160,7 @@ export default function Home() {
         </div>
 
         {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+        <div className={`grid gap-6 lg:gap-8 ${visibleApps.length === 1 ? 'grid-cols-1 max-w-xl mx-auto w-full' : 'grid-cols-1 md:grid-cols-2'}`}>
           {visibleApps.map((app) => {
             const IconComponent = app.icon;
             return (
