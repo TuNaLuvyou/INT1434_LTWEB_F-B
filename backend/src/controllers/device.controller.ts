@@ -7,12 +7,33 @@ const registerDeviceSchema = z.object({
   label: z.string().min(1, 'Vui lòng nhập tên thiết bị'),
 });
 
+import prisma from '../config/prisma';
+
+export const getDeviceUsers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        role: 'STAFF'
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+      orderBy: { name: 'asc' }
+    });
+    res.status(200).json({ success: true, data: users });
+  } catch (error) {
+    console.error('getDeviceUsers error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
+  }
+};
+
 export const getDevices = async (req: Request, res: Response): Promise<void> => {
   try {
     const devices = await deviceService.getAllDevices();
-    // Ẩn token khi trả về danh sách, chỉ trả về các trường khác
-    const safeDevices = devices.map(({ token, ...rest }) => rest);
-    res.status(200).json({ success: true, data: safeDevices });
+    res.status(200).json({ success: true, data: devices });
   } catch (error) {
     console.error('getDevices error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });

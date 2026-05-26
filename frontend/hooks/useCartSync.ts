@@ -8,8 +8,8 @@ export function useCartSync(
   sessionId: string | null,
   tableId: string | null,
   onToast?: (message: string) => void,
-  onSessionClosed?: () => void,
-  onOrderStatusChanged?: (event: { orderItemId: string; status: any; updatedAt: string }) => void
+  onSessionClosed?: (event: { sessionId: string; status?: string }) => void,
+  onOrderStatusChanged?: (event: { orderItemId: string; status: any; menuItemName?: string; updatedAt: string }) => void
 ) {
   const syncCartFromServer = useCartStore((s) => s.syncCartFromServer);
   
@@ -46,14 +46,18 @@ export function useCartSync(
       }
     };
 
-    const handleSessionClosed = (event: { sessionId: string }) => {
+    const handleSessionClosed = (event: { sessionId: string; status?: string }) => {
       if (event.sessionId === sessionId) {
-        onSessionClosed?.();
+        onSessionClosed?.(event);
       }
     };
 
-    const handleOrderStatusChanged = (event: { orderItemId: string; sessionId: string; status: any; updatedAt: string }) => {
+    const handleOrderStatusChanged = (event: { orderItemId: string; sessionId: string; status: any; menuItemName?: string; updatedAt: string }) => {
       if (event.sessionId === sessionId) {
+        // Thông báo toast cho khách khi món bị void bởi nhà hàng
+        if (event.status === 'VOID' && event.menuItemName) {
+          onToast?.(`❌ Món "${event.menuItemName}" đã bị huỷ do hết món.`);
+        }
         onOrderStatusChanged?.(event);
       }
     };

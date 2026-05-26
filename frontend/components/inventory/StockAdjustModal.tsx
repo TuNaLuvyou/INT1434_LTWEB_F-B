@@ -20,14 +20,14 @@ interface Props {
 }
 
 export default function StockAdjustModal({ ingredient, onClose, onSaved }: Props) {
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<any>({
     resolver: zodResolver(schema),
     defaultValues: { delta: 0, reason: 'MANUAL_IMPORT' },
   });
 
   const reason = watch('reason');
 
-  const onSubmit = async (values: FormData) => {
+  const onSubmit = async (values: any) => {
     if (values.reason === 'MANUAL_IMPORT' && values.delta <= 0) {
       alert('MANUAL_IMPORT yêu cầu số lượng > 0');
       return;
@@ -83,7 +83,7 @@ export default function StockAdjustModal({ ingredient, onClose, onSaved }: Props
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder={reason === 'MANUAL_IMPORT' ? 'Nhập số lượng nhập...' : 'VD: -50 hoặc +100'}
             />
-            {errors.delta && <p className="text-red-500 text-xs mt-1">{errors.delta.message}</p>}
+            {errors.delta?.message && <p className="text-red-500 text-xs mt-1">{String(errors.delta.message)}</p>}
           </div>
 
           <div>

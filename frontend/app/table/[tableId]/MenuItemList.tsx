@@ -71,7 +71,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   const sessionTableId = useCartStore((s) => s.tableId);
   const isSubmitting = useCartStore((s) => s.isSubmitting);
   const submitError = useCartStore((s) => s.submitError);
-  const isLocked = useCartStore((s) => s.isLocked);
+  const isLocked = false; // Bỏ khóa bàn: luôn false để cho phép khách hàng gọi thêm món liên tục.
 
   const initSession = useCartStore((s) => s.initSession);
   const addItem = useCartStore((s) => s.addItem);
@@ -89,11 +89,13 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   // ── UI state ──
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
-  const [lastOrder, setLastOrder] = useState<CartItem[] | null>(null);
+  type CartItemEntry = CartItem & { status?: string };
+  const [lastOrder, setLastOrder] = useState<CartItemEntry[] | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loadingItemIds, setLoadingItemIds] = useState<Record<string, boolean>>({});
   const [isSessionClosed, setIsSessionClosed] = useState(false);
+  const [sessionClosedStatus, setSessionClosedStatus] = useState<'PAID' | 'CANCELLED' | 'UNKNOWN' | null>(null);
   const [dbOrderItems, setDbOrderItems] = useState<any[]>([]);
 
   const fetchSessionDetails = useCallback(async (sid: string) => {
@@ -105,14 +107,16 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
           const dbItems = result.data.orderItems || [];
           setDbOrderItems(dbItems);
           
-          if (dbItems.length > 0) {
-            const mapped = dbItems.map((oi: any) => ({
+          const placedItems = dbItems.filter((oi: any) => oi.status !== 'CART');
+          if (placedItems.length > 0) {
+            const mapped = placedItems.map((oi: any) => ({
               menuItemId: oi.menuItemId,
               name: oi.menuItem?.name || oi.menuItemName || '',
               price: Number(oi.unitPrice),
               imageUrl: oi.menuItem?.imageUrl || null,
               qty: oi.qty,
               note: oi.note || '',
+              status: oi.status,
             }));
             setLastOrder(mapped);
           } else {
@@ -135,11 +139,16 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
         fetchSessionDetails(sessionId);
       }
     }, [sessionId, fetchSessionDetails]),
-    useCallback(() => {
+    useCallback((event: { sessionId: string; status?: string }) => {
+      if (event?.status === 'CANCELLED') {
+        showToast({ type: 'error', message: 'Đơn đã bị huỷ do hết món. Bạn có thể gọi món mới.' });
+        return;
+      }
       clearCart();
       setLastOrder(null);
       setDbOrderItems([]);
       setIsSessionClosed(true);
+      setSessionClosedStatus((event?.status as any) || 'UNKNOWN');
     }, [clearCart]),
     useCallback((event: any) => {
       if (sessionId) {
@@ -185,8 +194,14 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
 
   // ── Lắng nghe sự kiện phiên đã đóng ──
   useEffect(() => {
-    const handleSessionClosed = () => {
+    const handleSessionClosed = (event: Event) => {
+      const detail = (event as CustomEvent<{ status?: string }>).detail;
+      if (detail?.status === 'CANCELLED') {
+        showToast({ type: 'error', message: 'Đơn đã bị huỷ do hết món. Bạn có thể gọi món mới.' });
+        return;
+      }
       setIsSessionClosed(true);
+      setSessionClosedStatus((detail?.status as any) || 'UNKNOWN');
     };
     window.addEventListener('session-closed', handleSessionClosed);
     return () => {
@@ -319,7 +334,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   };
 
   // ── Giao diện danh sách món ăn trong Giỏ hàng ──
-  const CartItemList = ({ entries, showActions = true }: { entries: CartItem[]; showActions?: boolean }) => (
+  const CartItemList = ({ entries, showActions = true }: { entries: CartItemEntry[]; showActions?: boolean }) => (
     <div className="space-y-3 overflow-y-auto flex-1 pr-1 scrollbar-hide py-1">
       {entries.map((item) => (
         <div
@@ -381,8 +396,31 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                 </button>
               </div>
             ) : (
-              <div className="text-xs font-black text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full tabular-nums shrink-0">
-                Số lượng: {item.qty}
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <div className="text-xs font-black text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full tabular-nums">
+                  Số lượng: {item.qty}
+                </div>
+                {item.status && (
+                  <span
+                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                      item.status === 'VOID'
+                        ? 'bg-red-50 text-red-600 border-red-100'
+                        : item.status === 'DONE'
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                        : item.status === 'PREPARING'
+                        ? 'bg-amber-50 text-amber-600 border-amber-100'
+                        : 'bg-orange-50 text-orange-600 border-orange-100'
+                    }`}
+                  >
+                    {item.status === 'VOID'
+                      ? 'Đã huỷ do hết món'
+                      : item.status === 'DONE'
+                      ? 'Đã phục vụ'
+                      : item.status === 'PREPARING'
+                      ? 'Đang nấu'
+                      : 'Chờ duyệt'}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -496,7 +534,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
               PENDING: { text: 'Chờ duyệt', style: 'bg-orange-50 text-orange-600 border-orange-100' },
               PREPARING: { text: 'Đang nấu', style: 'bg-amber-50 text-amber-600 border-amber-100 animate-pulse' },
               DONE: { text: 'Đã phục vụ', style: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-              VOID: { text: 'Đã hủy', style: 'bg-red-50 text-red-600 border-red-100' }
+              VOID: { text: 'Đã huỷ do hết món', style: 'bg-red-50 text-red-600 border-red-100' }
             };
             const label = statusLabels[oi.status] || { text: oi.status, style: 'bg-gray-50 text-gray-600' };
 
@@ -891,13 +929,37 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
           <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 mb-6 animate-bounce">
             <CheckCircle size={40} />
           </div>
-          <h2 className="text-xl font-black text-gray-900 mb-2">Thanh toán thành công!</h2>
-          <p className="text-sm text-gray-500 max-w-sm mb-8 leading-relaxed">
-            Hóa đơn cho bàn của bạn đã được thanh toán hoàn tất. Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ của RestoFlow!
-          </p>
-          <div className="text-xs text-gray-400 font-medium">
-            Chúc quý khách một ngày tốt lành và hẹn gặp lại!
-          </div>
+          {sessionClosedStatus === 'PAID' ? (
+            <>
+              <h2 className="text-xl font-black text-gray-900 mb-2">Thanh toán thành công!</h2>
+              <p className="text-sm text-gray-500 max-w-sm mb-8 leading-relaxed">
+                Hóa đơn cho bàn của bạn đã được thanh toán hoàn tất. Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ của RestoFlow!
+              </p>
+              <div className="text-xs text-gray-400 font-medium">
+                Chúc quý khách một ngày tốt lành và hẹn gặp lại!
+              </div>
+            </>
+          ) : sessionClosedStatus === 'CANCELLED' ? (
+            <>
+              <h2 className="text-xl font-black text-gray-900 mb-2">Đơn đã bị huỷ</h2>
+              <p className="text-sm text-gray-500 max-w-sm mb-8 leading-relaxed">
+                Đơn của bàn bạn đã bị huỷ do hết món. Vui lòng liên hệ nhân viên để được hỗ trợ thêm.
+              </p>
+              <div className="text-xs text-gray-400 font-medium">
+                RestoFlow luôn sẵn sàng phục vụ quý khách.
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl font-black text-gray-900 mb-2">Phiên đặt món đã kết thúc</h2>
+              <p className="text-sm text-gray-500 max-w-sm mb-8 leading-relaxed">
+                Phiên đặt món của bàn bạn đã đóng. Vui lòng liên hệ nhân viên nếu cần hỗ trợ thêm.
+              </p>
+              <div className="text-xs text-gray-400 font-medium">
+                Cảm ơn quý khách đã sử dụng dịch vụ.
+              </div>
+            </>
+          )}
         </div>
       )}
     </>

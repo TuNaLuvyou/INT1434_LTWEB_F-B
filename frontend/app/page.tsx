@@ -14,6 +14,7 @@ import {
   Layers,
   Utensils,
   Table,
+  UserCheck,
   LogOut
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth.store";
@@ -38,7 +39,8 @@ export default function Home() {
       icon: Store,
       color: "from-blue-600 to-cyan-500",
       accent: "blue",
-      metrics: { label: "Hiệu năng", value: "99.9% Uptime" }
+      metrics: { label: "Hiệu năng", value: "99.9% Uptime" },
+      visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "CASHIER"
     },
     {
       title: "Kitchen Display (KDS)",
@@ -47,7 +49,8 @@ export default function Home() {
       icon: ChefHat,
       color: "from-amber-500 to-orange-600",
       accent: "orange",
-      metrics: { label: "Đang xử lý", value: "12 Đơn hàng" }
+      metrics: { label: "Đang xử lý", value: "12 Đơn hàng" },
+      visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "KITCHEN"
     },
     {
       title: "Admin Analytics",
@@ -56,7 +59,18 @@ export default function Home() {
       icon: BarChart3,
       color: "from-violet-600 to-purple-500",
       accent: "violet",
-      metrics: { label: "Doanh thu hôm nay", value: "+24.5%" }
+      metrics: { label: "Doanh thu hôm nay", value: "+24.5%" },
+      visible: !user || user.role === "ADMIN" || user.role === "MANAGER"
+    },
+    {
+      title: "Cổng Nhân Viên",
+      description: "Giao diện dành riêng cho nhân viên. Thực hiện chấm công hàng ngày (Check-in) và theo dõi lịch trực cá nhân.",
+      href: "/attendance",
+      icon: UserCheck,
+      color: "from-teal-600 to-emerald-500",
+      accent: "teal",
+      metrics: { label: "Trạng thái", value: "Sẵn sàng" },
+      visible: !!user && user.role === "STAFF"
     },
     {
       title: "Table",
@@ -65,9 +79,12 @@ export default function Home() {
       icon: Table,
       color: "from-emerald-700 to-emerald-500",
       accent: "emerald",
-      metrics: { label: "Món ăn có sẵn", value: "48 Món" }
+      metrics: { label: "Món ăn có sẵn", value: "48 Món" },
+      visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "CASHIER"
     }
   ];
+
+  const visibleApps = apps.filter((app) => app.visible !== false);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col selection:bg-indigo-500 selection:text-white overflow-hidden relative">
@@ -144,7 +161,7 @@ export default function Home() {
 
         {/* Dashboard Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-          {apps.map((app) => {
+          {visibleApps.map((app) => {
             const IconComponent = app.icon;
             return (
               <Link 

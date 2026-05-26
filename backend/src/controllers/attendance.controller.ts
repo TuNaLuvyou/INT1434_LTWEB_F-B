@@ -64,13 +64,19 @@ export const checkOut = async (req: Request, res: Response): Promise<void> => {
 export const getToday = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
+    const role = req.user?.role;
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
       return;
     }
 
-    const attendance = await attendanceService.getTodayAttendance(userId);
-    res.status(200).json({ success: true, data: { attendance } });
+    if (role === 'ADMIN' || role === 'MANAGER') {
+      const attendances = await attendanceService.getAllTodayAttendance();
+      res.status(200).json({ success: true, data: attendances });
+    } else {
+      const attendance = await attendanceService.getTodayAttendance(userId);
+      res.status(200).json({ success: true, data: { attendance } });
+    }
   } catch (error) {
     console.error('getToday error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
@@ -88,6 +94,22 @@ export const getHistory = async (req: Request, res: Response): Promise<void> => 
     res.status(200).json({ success: true, data: { history } });
   } catch (error) {
     console.error('getHistory error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
+  }
+};
+
+export const getMyHistory = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const history = await attendanceService.getHistory(userId);
+    res.status(200).json({ success: true, data: { history } });
+  } catch (error) {
+    console.error('getMyHistory error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
   }
 };
@@ -214,6 +236,146 @@ export const getReport = async (req: Request, res: Response): Promise<void> => {
     res.status(200).json({ success: true, data: { report: reportArray } });
   } catch (error) {
     console.error('getReport error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
+  }
+};
+
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+
+interface ProfileRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  currentName: string;
+  currentEmail: string;
+  pendingName: string;
+  pendingEmail: string;
+  pendingPhone: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  createdAt: string;
+}
+
+const reqFilePath = path.join(__dirname, '../../profile_requests.json');
+
+const readRequests = (): ProfileRequest[] => {
+  try {
+    if (fs.existsSync(reqFilePath)) {
+      return JSON.parse(fs.readFileSync(reqFilePath, 'utf8'));
+    }
+  } catch (error) {
+    console.error('readRequests error:', error);
+  }
+  return [];
+};
+
+const writeRequests = (requests: ProfileRequest[]) => {
+  try {
+    fs.writeFileSync(reqFilePath, JSON.stringify(requests, null, 2), 'utf8');
+  } catch (error) {
+    console.error('writeRequests error:', error);
+  }
+};
+
+export const submitProfileRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+    const { pendingName, pendingEmail, pendingPhone } = req.body;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+    const requests = readRequests();
+    const newReq: ProfileRequest = {
+      id: crypto.randomUUID(),
+      userId,
+      userName: user.name,
+      currentName: user.name,
+      currentEmail: user.email,
+      pendingName,
+      pendingEmail,
+      pendingPhone,
+      status: 'PENDING',
+      createdAt: new Date().toISOString()
+    };
+    // Reject other pending requests for this user
+    const updated = requests.map(r => r.userId === userId && r.status === 'PENDING' ? { ...r, status: 'REJECTED' as const } : r);
+    updated.push(newReq);
+    writeRequests(updated);
+    res.status(201).json({ success: true, data: newReq });
+  } catch (error) {
+    console.error('submitProfileRequest error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const getProfileRequests = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const requests = readRequests();
+    res.status(200).json({ success: true, data: requests });
+  } catch (error) {
+    console.error('getProfileRequests error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const approveProfileRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const requests = readRequests();
+    const reqIndex = requests.findIndex(r => r.id === id);
+    if (reqIndex === -1) {
+      res.status(404).json({ success: false, message: 'Yêu cầu không tồn tại' });
+      return;
+    }
+    const request = requests[reqIndex];
+    if (request.status !== 'PENDING') {
+      res.status(400).json({ success: false, message: 'Yêu cầu đã được xử lý' });
+      return;
+    }
+
+    // Update the actual user model in PostgreSQL!
+    await prisma.user.update({
+      where: { id: request.userId },
+      data: {
+        name: request.pendingName,
+        email: request.pendingEmail
+      }
+    });
+
+    requests[reqIndex].status = 'APPROVED';
+    writeRequests(requests);
+    res.status(200).json({ success: true, message: 'Đã duyệt yêu cầu thay đổi thông tin' });
+  } catch (error) {
+    console.error('approveProfileRequest error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
+  }
+};
+
+export const rejectProfileRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const requests = readRequests();
+    const reqIndex = requests.findIndex(r => r.id === id);
+    if (reqIndex === -1) {
+      res.status(404).json({ success: false, message: 'Yêu cầu không tồn tại' });
+      return;
+    }
+    if (requests[reqIndex].status !== 'PENDING') {
+      res.status(400).json({ success: false, message: 'Yêu cầu đã được xử lý' });
+      return;
+    }
+    requests[reqIndex].status = 'REJECTED';
+    writeRequests(requests);
+    res.status(200).json({ success: true, message: 'Đã từ chối yêu cầu thay đổi thông tin' });
+  } catch (error) {
+    console.error('rejectProfileRequest error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
   }
 };
