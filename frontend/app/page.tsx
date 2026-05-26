@@ -82,7 +82,7 @@ export default function Home() {
       metrics: { label: "Món ăn có sẵn", value: "48 Món" },
       visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "CASHIER"
     }
-  ];
+  ].filter(app => app.visible);
 
   const visibleApps = apps.filter((app) => app.visible !== false);
 
