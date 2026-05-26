@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { 
   Plus, 
   Search, 
@@ -17,7 +18,15 @@ import {
   X
 } from "lucide-react";
 import Image from "next/image";
-import MenuItemForm from "@/components/MenuItemForm";
+
+const MenuItemForm = dynamic(() => import("@/components/MenuItemForm"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-12 text-sm font-semibold text-zinc-400">
+      Đang tải form...
+    </div>
+  ),
+});
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 

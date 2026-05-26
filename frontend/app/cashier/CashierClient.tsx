@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Bell, CheckCircle2, ChevronDown, ChevronUp, Clock, Dot, Loader2 } from "lucide-react";
+import { Archive, Bell, CheckCircle2, ChevronDown, ChevronUp, Clock, Dot, Loader2 } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
 import type { CashierNewOrderPayload } from "@/types/socket";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-type Role = "ADMIN" | "MANAGER" | "STAFF";
+type Role = "ADMIN" | "MANAGER" | "STAFF" | "CASHIER";
 
 export interface CashierOverviewTable {
   tableId: string;
@@ -61,6 +61,24 @@ interface Notification {
   tableNumber?: number;
   createdAt: Date;
   isRead: boolean;
+}
+
+interface ArchivedCashierItem {
+  id: string;
+  name: string;
+  qty: number;
+  status: OrderItemStatus;
+  unitPrice: number;
+}
+
+interface ArchivedCashierSession {
+  id: string;
+  tableNumber: number;
+  tableLabel: string;
+  total: number;
+  status: "PAID" | "CANCELLED";
+  closedAt: string;
+  items: ArchivedCashierItem[];
 }
 
 interface CashierClientProps {
@@ -139,6 +157,9 @@ export default function CashierClient({
 }: CashierClientProps) {
   const [tables, setTables] = useState<CashierOverviewTable[]>(initialTables);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(initialSelectedSessionId);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(
+    initialTables.find((table) => table.session?.sessionId === initialSelectedSessionId)?.tableId || null
+  );
   const [sessionItems, setSessionItems] = useState<SessionItemsResponse | null>(initialSessionItems);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(true);
@@ -148,6 +169,9 @@ export default function CashierClient({
   const [isApproving, setIsApproving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [localErrorMsg, setLocalErrorMsg] = useState<string | null>(errorMsg);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [archivedSessions, setArchivedSessions] = useState<ArchivedCashierSession[]>([]);
+  const [isPaying, setIsPaying] = useState(false);
 
   const token = typeof window !== "undefined" ? getAccessTokenFromCookie() || undefined : undefined;
   const { socket, isConnected } = useSocket({ room: "cashier", token });
@@ -157,9 +181,20 @@ export default function CashierClient({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem("cashier_archived_sessions") || "[]";
+    try {
+      const parsed = JSON.parse(stored) as ArchivedCashierSession[];
+      setArchivedSessions(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setArchivedSessions([]);
+    }
+  }, []);
+
   const selectedTable = useMemo(() => {
-    return tables.find((table) => table.session?.sessionId === selectedSessionId) || null;
-  }, [tables, selectedSessionId]);
+    return tables.find((table) => table.tableId === selectedTableId) || null;
+  }, [tables, selectedTableId]);
 
   const fetchSessionItems = useCallback(async (sessionId: string) => {
     setIsLoadingItems(true);
@@ -186,6 +221,23 @@ export default function CashierClient({
 
   const handleSelectSession = useCallback(
     (sessionId: string | null) => {
+      setSelectedSessionId(sessionId);
+      if (!sessionId) {
+        setSessionItems(null);
+        return;
+      }
+
+      const table = tables.find((item) => item.session?.sessionId === sessionId);
+      setSelectedTableId(table?.tableId || null);
+      fetchSessionItems(sessionId);
+    },
+    [fetchSessionItems, tables]
+  );
+
+  const handleSelectTable = useCallback(
+    (table: CashierOverviewTable) => {
+      setSelectedTableId(table.tableId);
+      const sessionId = table.session?.sessionId || null;
       setSelectedSessionId(sessionId);
       if (!sessionId) {
         setSessionItems(null);
@@ -239,6 +291,155 @@ export default function CashierClient({
       setLocalErrorMsg("Lỗi kết nối server.");
     } finally {
       setIsApproving(false);
+    }
+  };
+
+  const [isVoiding, setIsVoiding] = useState<string | null>(null);
+
+  const handleVoidItem = async (orderItemId: string) => {
+    if (!selectedSessionId) return;
+    if (!confirm("Bạn có chắc chắn muốn huỷ món ăn này không? Hệ thống sẽ hoàn lại tồn kho nguyên liệu tương ứng.")) return;
+    
+    setIsVoiding(orderItemId);
+    setSuccessMsg(null);
+    setLocalErrorMsg(null);
+    
+    try {
+      const response = await fetch(`${API_URL}/api/cashier/sessions/${selectedSessionId}/items/${orderItemId}/void`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token || ""}`,
+        },
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setSuccessMsg(`✓ Đã huỷ món "${result.data?.menuItemName || 'thành công'}" và hoàn trả nguyên liệu.`);
+        setTimeout(() => setSuccessMsg(null), 5000);
+        
+        // Refresh local items state
+        const itemsResponse = await fetch(`${API_URL}/api/cashier/sessions/${selectedSessionId}/items`, {
+          headers: {
+            Authorization: `Bearer ${token || ""}`,
+          },
+        });
+
+        if (itemsResponse.ok) {
+          const itemsResult = await itemsResponse.json();
+          if (itemsResult.success) {
+            const nextSessionItems = itemsResult.data as SessionItemsResponse;
+            setSessionItems(nextSessionItems);
+
+            const allItems = Object.values(nextSessionItems.groups || {}).flat();
+            const allVoided = allItems.length > 0 && allItems.every((item) => item.status === "VOID");
+
+            if (allVoided && !archivedSessions.find((session) => session.id === selectedSessionId)) {
+              const archiveEntry: ArchivedCashierSession = {
+                id: selectedSessionId,
+                tableNumber: nextSessionItems.tableNumber,
+                tableLabel: nextSessionItems.tableLabel,
+                total: 0,
+                status: "CANCELLED",
+                closedAt: new Date().toISOString(),
+                items: allItems.map((item) => ({
+                  id: item.id,
+                  name: item.menuItem.name,
+                  qty: item.qty,
+                  status: item.status,
+                  unitPrice: Number(item.unitPrice),
+                })),
+              };
+
+              const nextArchived = [archiveEntry, ...archivedSessions];
+              persistArchivedSessions(nextArchived);
+              setSuccessMsg("✓ Tất cả món đã huỷ. Đã lưu vào lịch sử.");
+              setTimeout(() => setSuccessMsg(null), 5000);
+            }
+          }
+        }
+      } else {
+        setLocalErrorMsg(result.message || "Huỷ món thất bại.");
+      }
+    } catch (error: any) {
+      console.error("Lỗi khi huỷ món:", error);
+      setLocalErrorMsg("Lỗi kết nối server.");
+    } finally {
+      setIsVoiding(null);
+    }
+  };
+
+  const persistArchivedSessions = (next: ArchivedCashierSession[]) => {
+    setArchivedSessions(next);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cashier_archived_sessions", JSON.stringify(next));
+    }
+  };
+
+  const handlePaySession = async () => {
+    if (!selectedSessionId || !selectedTable) return;
+    setIsPaying(true);
+    setSuccessMsg(null);
+    setLocalErrorMsg(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/sessions/${selectedSessionId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token || ""}`,
+        },
+        body: JSON.stringify({ status: "PAID" }),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        setLocalErrorMsg(result.message || "Thanh toán thất bại.");
+        return;
+      }
+
+      const allItems = Object.values(groupedItems).flat().map((item) => ({
+        id: item.id,
+        name: item.menuItem.name,
+        qty: item.qty,
+        status: item.status,
+        unitPrice: Number(item.unitPrice),
+      }));
+
+      const archiveEntry: ArchivedCashierSession = {
+        id: selectedSessionId,
+        tableNumber: selectedTable.tableNumber,
+        tableLabel: selectedTable.tableLabel,
+        total: subtotal,
+        status: "PAID",
+        closedAt: new Date().toISOString(),
+        items: allItems,
+      };
+
+      const nextArchived = [archiveEntry, ...archivedSessions];
+      persistArchivedSessions(nextArchived);
+
+      setTables((prev) =>
+        prev.map((table) => {
+          if (table.tableId !== selectedTable.tableId) return table;
+          return {
+            ...table,
+            tableStatus: "AVAILABLE",
+            session: null,
+          };
+        })
+      );
+
+      const nextTable = tables.find((table) => !table.session) || null;
+      setSelectedTableId(nextTable?.tableId || null);
+      setSelectedSessionId(null);
+      setSessionItems(null);
+      setActiveTab("tables");
+      setSuccessMsg("✓ Thanh toán thành công và đã lưu vào lịch sử.");
+      setTimeout(() => setSuccessMsg(null), 5000);
+    } catch (error: any) {
+      console.error("Lỗi khi thanh toán:", error);
+      setLocalErrorMsg("Lỗi kết nối server.");
+    } finally {
+      setIsPaying(false);
     }
   };
 
@@ -329,25 +530,23 @@ export default function CashierClient({
     };
 
     const handleCartUpdated = (payload: { sessionId: string; tableId: string; isLocked?: boolean }) => {
-      if (payload.isLocked) {
-        setTables((prev) =>
-          prev.map((table) => {
-            if (table.tableId !== payload.tableId) return table;
-            return {
-              ...table,
-              session: table.session
-                ? {
-                    ...table.session,
-                    isLocked: true,
-                    pendingCount: 0,
-                  }
-                : null,
-            };
-          })
-        );
-        if (payload.sessionId === selectedSessionId) {
-          fetchSessionItems(payload.sessionId);
-        }
+      setTables((prev) =>
+        prev.map((table) => {
+          if (table.tableId !== payload.tableId) return table;
+          return {
+            ...table,
+            session: table.session
+              ? {
+                  ...table.session,
+                  isLocked: payload.isLocked !== undefined ? !!payload.isLocked : table.session.isLocked,
+                  pendingCount: payload.isLocked ? 0 : table.session.pendingCount,
+                }
+              : null,
+          };
+        })
+      );
+      if (payload.sessionId === selectedSessionId) {
+        fetchSessionItems(payload.sessionId);
       }
     };
 
@@ -453,6 +652,25 @@ export default function CashierClient({
                         📝 Ghi chú: {item.note}
                       </div>
                     )}
+                    {(status === "PENDING" || status === "PREPARING") && (
+                      <div className="mt-2.5 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleVoidItem(item.id)}
+                          disabled={isVoiding === item.id}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/40 rounded-lg transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                        >
+                          {isVoiding === item.id ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Đang huỷ...
+                            </>
+                          ) : (
+                            "❌ Huỷ món"
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
@@ -532,6 +750,71 @@ export default function CashierClient({
         </div>
       )}
 
+      {isArchiveOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-3xl mx-4 rounded-3xl border border-zinc-900 bg-zinc-950 shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-900">
+              <div>
+                <div className="text-sm font-bold text-white">Lịch sử thanh toán</div>
+                <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                  {archivedSessions.length} phiên đã lưu
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsArchiveOpen(false)}
+                className="text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900/60 text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto px-6 py-5 space-y-3">
+              {archivedSessions.length === 0 ? (
+                <div className="text-xs text-zinc-500 italic text-center py-10">
+                  Chưa có phiên nào được lưu.
+                </div>
+              ) : (
+                archivedSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="rounded-2xl border border-zinc-900 bg-zinc-900/30 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-bold text-zinc-100">
+                        Bàn {session.tableNumber} <span className="text-zinc-500">({session.tableLabel})</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-zinc-500">
+                        {new Date(session.closedAt).toLocaleString("vi-VN")}
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">
+                        Tổng: {currencyFormatter.format(session.total)}
+                      </div>
+                      <div
+                        className={`text-[10px] font-bold ${
+                          session.status === "CANCELLED" ? "text-rose-400" : "text-emerald-400"
+                        }`}
+                      >
+                        {session.status}
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-1">
+                      {session.items.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between text-[11px]">
+                          <span className="text-zinc-400">{item.name}</span>
+                          <span className="text-zinc-500 font-mono">x{item.qty}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left Column (Tables & Notifications) */}
         <div className={`space-y-6 ${activeTab === "tables" ? "block" : "hidden"} lg:block`}>
@@ -542,9 +825,19 @@ export default function CashierClient({
                 <div className="text-lg font-bold text-white tracking-tight">Quầy Thu Ngân</div>
                 <div className="text-[10px] text-zinc-500 font-mono mt-0.5">Mã NV: {user.userId}</div>
               </div>
-              <div className="hidden lg:flex items-center gap-1.5 text-xs text-zinc-400 font-mono px-3 py-1.5 bg-zinc-950/60 border border-zinc-900/80 rounded-xl">
-                <Clock className="h-3.5 w-3.5 text-zinc-500" />
-                {formatShortTime(now)}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsArchiveOpen(true)}
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950/60 text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors"
+                  title="Lưu trữ"
+                >
+                  <Archive className="h-4 w-4" />
+                </button>
+                <div className="hidden lg:flex items-center gap-1.5 text-xs text-zinc-400 font-mono px-3 py-1.5 bg-zinc-950/60 border border-zinc-900/80 rounded-xl">
+                  <Clock className="h-3.5 w-3.5 text-zinc-500" />
+                  {formatShortTime(now)}
+                </div>
               </div>
             </div>
           </div>
@@ -614,7 +907,7 @@ export default function CashierClient({
                 const isAllDone = pendingCount === 0 && preparingCount === 0 && doneCount > 0;
                 const isPending = pendingCount > 0;
                 const isServing = preparingCount > 0 || doneCount > 0;
-                const isSelected = table.session?.sessionId === selectedSessionId;
+                const isSelected = table.tableId === selectedTableId;
 
                 let statusLabel = "Trống";
                 let statusClass = "bg-zinc-950 text-zinc-500 border border-zinc-900";
@@ -635,7 +928,7 @@ export default function CashierClient({
                     key={table.tableId}
                     type="button"
                     onClick={() => {
-                      handleSelectSession(table.session?.sessionId || null);
+                      handleSelectTable(table);
                       setActiveTab("details");
                     }}
                     className={`w-full rounded-2xl border px-4 py-3.5 text-left transition-all duration-300 hover:scale-[0.99] ${
@@ -723,8 +1016,9 @@ export default function CashierClient({
                   </div>
                   <button
                     type="button"
+                    onClick={handlePaySession}
                     className="w-full rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-3.5 font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.2)] hover:shadow-[0_0_25px_rgba(99,102,241,0.4)] disabled:from-zinc-900 disabled:to-zinc-900 disabled:text-zinc-600 disabled:border-zinc-800 disabled:shadow-none cursor-pointer flex items-center justify-center gap-2"
-                    disabled={!selectedTable.session?.isLocked || hasPendingOrPreparing}
+                    disabled={!selectedTable.session?.isLocked || hasPendingOrPreparing || isPaying}
                     title={
                       !selectedTable.session?.isLocked
                         ? "Cần duyệt đơn hàng trước khi thanh toán"
@@ -733,7 +1027,7 @@ export default function CashierClient({
                         : ""
                     }
                   >
-                    <span>💳 THANH TOÁN HÓA ĐƠN</span>
+                    <span>{isPaying ? "ĐANG THANH TOÁN..." : "💳 THANH TOÁN HÓA ĐƠN"}</span>
                   </button>
                 </div>
               </>

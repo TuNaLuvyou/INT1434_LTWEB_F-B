@@ -5,6 +5,7 @@ export async function getActiveKdsTickets() {
   return await prisma.tableSession.findMany({
     where: {
       status: 'OPEN',
+      lockedAt: { not: null }, // Phải duyệt bên cashier rồi mới hiện
       orderItems: {
         some: {
           status: { in: [OrderItemStatus.PENDING, OrderItemStatus.PREPARING] }
