@@ -41,7 +41,7 @@ export const reverseStock = async (req: Request, res: Response): Promise<void> =
     const authReq = req as AuthenticatedRequest;
     const reversedBy = authReq.user?.userId;
 
-    const reversed = await svc.reverseStockByOrderItem(orderItemId, reversedBy);
+    const reversed = await svc.reverseInventory(orderItemId, reversedBy);
 
     res.json({
       success: true,
@@ -54,6 +54,8 @@ export const reverseStock = async (req: Request, res: Response): Promise<void> =
     } else if (e?.code === 'NOT_FOUND') {
       res.status(404).json({ success: false, message: e.message });
     } else if (e?.code === 'INVALID_STATUS') {
+      res.status(409).json({ success: false, message: e.message });
+    } else if (e?.code === 'ALREADY_REVERSED') {
       res.status(409).json({ success: false, message: e.message });
     } else {
       res.status(500).json({ success: false, message: 'Lỗi server' });
