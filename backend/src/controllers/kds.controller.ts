@@ -116,7 +116,7 @@ export async function getKdsOrders(req: Request, res: Response): Promise<void> {
   try {
     const sessions = await prisma.tableSession.findMany({
       where: {
-        status: 'OPEN',
+        status: { in: ['OPEN', 'PAID'] },
         lockedAt: { not: null }, // Phải duyệt bên cashier rồi mới hiện
         orderItems: {
           some: {
