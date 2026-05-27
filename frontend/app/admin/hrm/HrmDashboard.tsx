@@ -182,7 +182,9 @@ function AttendanceTab() {
                   <td className="px-4 py-3 text-center">
                     {a.isApproved 
                       ? <span className="inline-flex bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold">Đã Duyệt</span>
-                      : <span className="inline-flex bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-bold">Từ Chối</span>
+                      : a.approvedBy 
+                        ? <span className="inline-flex bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-bold">Từ Chối</span>
+                        : <span className="inline-flex bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full font-bold">Chờ Duyệt</span>
                     }
                   </td>
                   <td className="px-4 py-3 text-right">

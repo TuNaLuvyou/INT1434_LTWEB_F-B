@@ -252,7 +252,7 @@ model Attendance {
   checkInAt   DateTime  @default(now())
   checkOutAt  DateTime?
   note        String?
-  isApproved  Boolean   @default(true)
+  isApproved  Boolean   @default(false)
   approvedBy  String?
   
   user        User          @relation(fields: [userId], references: [id])
