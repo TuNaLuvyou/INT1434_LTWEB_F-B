@@ -11,6 +11,7 @@ const tabs = [
   { name: 'Lịch làm việc', href: '/admin/schedule' },
   { name: 'Thiết bị tin cậy', href: '/admin/devices' },
   { name: 'Duyệt Hồ Sơ', href: '/admin/profile-requests' },
+  { name: 'Khuyến mãi (Voucher)', href: '/admin/vouchers' },
   { name: 'Phân Quyền', href: '/admin/roles', adminOnly: true },
 ];
 
