@@ -59,6 +59,22 @@ export default function POSPage() {
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
   const [checkoutOrderNo, setCheckoutOrderNo] = useState("");
 
+  // Payment Modal state
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherData, setVoucherData] = useState<{
+    id: string;
+    code: string;
+    discountType: "PERCENT" | "FIXED";
+    discountValue: number;
+    discountAmount: number;
+  } | null>(null);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "TRANSFER" | null>(null);
+  const [availableVouchers, setAvailableVouchers] = useState<any[]>([]);
+  const [showVoucherDropdown, setShowVoucherDropdown] = useState(false);
+
   // Live POS States
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -346,34 +362,112 @@ export default function POSPage() {
   const getTax = () => getSubtotal() * 0.1;
   const getTotal = () => getSubtotal() + getTax();
 
-  const handleCheckout = async () => {
-    if (cart.length === 0 || !sessionId) return;
-    setActionLoading(true);
+  const fetchAvailableVouchers = async () => {
     try {
       const accessToken = getAccessTokenFromCookie();
-      const response = await fetch(`${API_URL}/api/sessions/${sessionId}/status`, {
-        method: "PATCH",
+      const res = await fetch(`${API_URL}/api/vouchers`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken || ''}`,
+        }
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        const now = new Date();
+        const activeVouchers = (result.data || []).filter((v: any) => {
+          const isExpired = v.expiredAt ? now > new Date(v.expiredAt) : false;
+          const isExhausted = v.maxUsage !== null && v.usedCount >= v.maxUsage;
+          return v.isActive && !isExpired && !isExhausted;
+        });
+        setAvailableVouchers(activeVouchers);
+      }
+    } catch (err) {
+      console.error("[POS] Lỗi tải danh sách voucher:", err);
+    }
+  };
+
+  const handleCheckout = () => {
+    if (cart.length === 0 || !sessionId) return;
+    setVoucherCode("");
+    setVoucherData(null);
+    setVoucherError(null);
+    setPaymentMethod(null);
+    setIsPaymentModalOpen(true);
+    fetchAvailableVouchers();
+  };
+
+  const handleValidateVoucher = async (codeOverride?: string) => {
+    const codeToValidate = codeOverride || voucherCode;
+    if (!codeToValidate.trim()) return;
+    setIsValidatingVoucher(true);
+    setVoucherError(null);
+    setVoucherData(null);
+
+    const baseAmount = getTotal();
+
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      const params = new URLSearchParams({
+        code: codeToValidate.trim().toUpperCase(),
+        subtotal: String(baseAmount),
+      });
+      const res = await fetch(`${API_URL}/api/payment/validate-voucher?${params}`, {
+        headers: { Authorization: `Bearer ${accessToken || ""}` },
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setVoucherData(result.data);
+      } else {
+        setVoucherError(result.message || "Mã voucher không hợp lệ.");
+      }
+    } catch {
+      setVoucherError("Lỗi kết nối server khi kiểm tra voucher.");
+    } finally {
+      setIsValidatingVoucher(false);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (cart.length === 0 || !sessionId || !paymentMethod) return;
+    setActionLoading(true);
+
+    const baseAmount = getTotal();
+    const discountAmount = voucherData?.discountAmount ?? 0;
+    const finalTotal = Math.max(0, baseAmount - discountAmount);
+
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      const res = await fetch(`${API_URL}/api/payment/sessions/${sessionId}/pay`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken || ''}`,
+          Authorization: `Bearer ${accessToken || ""}`,
         },
-        body: JSON.stringify({ status: 'PAID', keepOccupied: true }),
+        body: JSON.stringify({
+          method: paymentMethod,
+          voucherId: voucherData?.id,
+          subtotal: baseAmount,
+          discountAmount,
+          total: finalTotal,
+          keepOccupied: true, // POS ALWAYS keeps the table occupied!
+        }),
       });
-      
-      const result = await response.json();
-      if (response.ok && result.success) {
+      const result = await res.json();
+
+      if (res.ok && result.success) {
         setCheckoutOrderNo(`ORD-${sessionId.substring(0, 4).toUpperCase()}`);
         setShowCheckoutSuccess(true);
         // Clean session
         setSessionId("");
         setSelectedTableId("");
         setCart([]);
+        setIsPaymentModalOpen(false);
         fetchData(); // reload tables
       } else {
         alert(result.message || "Không thể thực hiện thanh toán");
       }
     } catch (err) {
       console.error("[POS] Lỗi thanh toán:", err);
+      alert("Lỗi kết nối server.");
     } finally {
       setActionLoading(false);
     }
@@ -712,6 +806,229 @@ export default function POSPage() {
           </div>
         </aside>
       </div>
+
+      {/* Payment Modal */}
+      {isPaymentModalOpen && sessionId && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-900">
+              <div>
+                <div className="text-sm font-bold text-white tracking-tight">💳 Thanh Toán Hóa Đơn (POS)</div>
+                <div className="text-[11px] text-zinc-500 mt-0.5">
+                  Bàn: {tables.find(t => t.id === selectedTableId)?.label || "Bàn Phục Vụ"}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="h-8 w-8 flex items-center justify-center rounded-xl border border-zinc-800 text-zinc-500 hover:text-white hover:bg-zinc-900 transition-all text-lg"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-6 py-5 space-y-5 flex-1">
+              {/* Danh sach mon an */}
+              <div>
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-3">Chi tiết hóa đơn</div>
+                <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                  {cart.map((cartItem) => (
+                    <div key={cartItem.item.id} className="flex items-center justify-between text-xs">
+                      <span className="text-zinc-300 font-medium truncate flex-1 pr-3">{cartItem.item.name}</span>
+                      <span className="text-zinc-500 shrink-0">x{cartItem.quantity}</span>
+                      <span className="text-zinc-200 font-mono ml-4 shrink-0">
+                        {formatCurrency(cartItem.item.price * cartItem.quantity)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-zinc-900 text-xs text-zinc-400">
+                  <div className="flex justify-between">
+                    <span>Tạm tính</span>
+                    <span className="font-mono text-zinc-300">{formatCurrency(getSubtotal())}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Thuế VAT (10%)</span>
+                    <span className="font-mono text-zinc-300">{formatCurrency(getTax())}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-zinc-200 mt-1">
+                    <span>Tổng cộng</span>
+                    <span className="font-mono text-white text-sm">{formatCurrency(getTotal())}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Voucher */}
+              <div className="space-y-2 relative">
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Mã giảm giá</div>
+                <div className="flex gap-2 relative">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={voucherCode}
+                      onChange={(e) => {
+                        setVoucherCode(e.target.value.toUpperCase());
+                        setVoucherData(null);
+                        setVoucherError(null);
+                        setShowVoucherDropdown(true);
+                      }}
+                      onFocus={() => setShowVoucherDropdown(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleValidateVoucher();
+                          setShowVoucherDropdown(false);
+                        }
+                      }}
+                      placeholder="Nhập hoặc chọn voucher..."
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-3 pr-8 py-2 text-xs text-zinc-100 placeholder-zinc-650 focus:outline-none focus:border-blue-500 transition-all font-mono uppercase"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowVoucherDropdown(!showVoucherDropdown)}
+                      className="absolute right-2.5 top-2.5 text-[9px] text-zinc-500 hover:text-white transition-colors"
+                    >
+                      ▼
+                    </button>
+
+                    {/* Filtered Dropdown */}
+                    {showVoucherDropdown && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowVoucherDropdown(false)} />
+                        <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl z-50 divide-y divide-zinc-800">
+                          {availableVouchers.filter(v => v.code.toLowerCase().includes(voucherCode.toLowerCase())).length === 0 ? (
+                            <div className="p-3 text-xs text-zinc-550 text-center">Không tìm thấy voucher</div>
+                          ) : (
+                            availableVouchers
+                              .filter(v => v.code.toLowerCase().includes(voucherCode.toLowerCase()))
+                              .map((v) => (
+                                <button
+                                  key={v.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setVoucherCode(v.code);
+                                    handleValidateVoucher(v.code);
+                                    setShowVoucherDropdown(false);
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-zinc-850 transition-colors flex items-center justify-between text-xs"
+                                >
+                                  <div>
+                                    <span className="font-bold text-white font-mono">{v.code}</span>
+                                    <span className="text-[10px] text-zinc-400 block">
+                                      {v.discountType === "PERCENT" ? `Giảm ${v.discountValue}%` : `Giảm ${formatCurrency(Number(v.discountValue))}`}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] text-zinc-500">
+                                    Hạn: {v.expiredAt ? new Date(v.expiredAt).toLocaleDateString("vi-VN") : "∞"}
+                                  </span>
+                                </button>
+                              ))
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleValidateVoucher()}
+                    disabled={!voucherCode.trim() || isValidatingVoucher}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-[11px] font-bold uppercase tracking-wider transition-all shrink-0"
+                  >
+                    {isValidatingVoucher ? "..." : "Áp dụng"}
+                  </button>
+                </div>
+
+                {voucherData && (
+                  <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2.5">
+                    <div>
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">✓ {voucherData.code}</span>
+                      <div className="text-[11px] text-emerald-300 mt-0.5">
+                        Giảm {voucherData.discountType === "PERCENT" ? `${voucherData.discountValue}%` : formatCurrency(voucherData.discountValue)}
+                      </div>
+                    </div>
+                    <div className="text-sm font-bold text-emerald-400 font-mono">
+                      -{formatCurrency(voucherData.discountAmount)}
+                    </div>
+                  </div>
+                )}
+
+                {voucherError && (
+                  <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 px-3 py-2.5 text-[11px] text-rose-400">
+                    ✗ {voucherError}
+                  </div>
+                )}
+              </div>
+
+              {/* Tong sau giam gia */}
+              <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800 px-4 py-3.5 flex items-center justify-between">
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Tổng thanh toán</span>
+                <span className="text-lg font-black text-blue-400 font-mono">
+                  {formatCurrency(Math.max(0, getTotal() - (voucherData?.discountAmount ?? 0)))}
+                </span>
+              </div>
+
+              {/* Phuong thuc thanh toan */}
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Phương thức thanh toán</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("CASH")}
+                    className={`rounded-2xl border py-3.5 flex flex-col items-center gap-1.5 transition-all duration-200 ${paymentMethod === "CASH"
+                        ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
+                        : "border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                      }`}
+                  >
+                    <span className="text-2xl">💵</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Tiền mặt</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("TRANSFER")}
+                    className={`rounded-2xl border py-3.5 flex flex-col items-center gap-1.5 transition-all duration-200 ${paymentMethod === "TRANSFER"
+                        ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
+                        : "border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                      }`}
+                  >
+                    <span className="text-2xl">📲</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Chuyển khoản</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div className="px-6 py-4 border-t border-zinc-900 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(false)}
+                disabled={actionLoading}
+                className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 py-3 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPayment}
+                disabled={!paymentMethod || actionLoading}
+                className="flex-[2] rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-3 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(99,102,241,0.25)] disabled:from-zinc-850 disabled:to-zinc-850 disabled:text-zinc-500 disabled:shadow-none flex items-center justify-center gap-2"
+              >
+                {actionLoading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : !paymentMethod ? (
+                  "Chọn phương thức"
+                ) : (
+                  `✓ Xác nhận thanh toán`
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Checkout Success Modal */}
       {showCheckoutSuccess && (
