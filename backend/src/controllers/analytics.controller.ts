@@ -32,3 +32,27 @@ export const getRevenue = async (req: Request, res: Response): Promise<void> => 
     }
   }
 };
+
+/**
+ * GET /api/analytics/peak-hours?from=...&to=...
+ */
+export const getPeakHours = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { from, to } = revenueQuerySchema.parse(req.query);
+    
+    if (new Date(from) > new Date(to)) {
+      res.status(400).json({ success: false, message: '"from" không thể lớn hơn "to"' });
+      return;
+    }
+
+    const data = await svc.getPeakHours(from, to);
+    res.json({ success: true, data });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) {
+      res.status(400).json({ success: false, errors: e.issues });
+    } else {
+      console.error('[AnalyticsController] getPeakHours error:', e);
+      res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+  }
+};
