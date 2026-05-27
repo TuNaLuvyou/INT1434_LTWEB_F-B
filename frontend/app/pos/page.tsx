@@ -137,7 +137,7 @@ export default function POSPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ tableId }),
+        body: JSON.stringify({ tableId, source: 'POS' }),
       });
       const result = await response.json();
       if (response.ok && result.success) {
@@ -357,7 +357,7 @@ export default function POSPage() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${accessToken || ''}`,
         },
-        body: JSON.stringify({ status: 'PAID' }),
+        body: JSON.stringify({ status: 'PAID', keepOccupied: true }),
       });
       
       const result = await response.json();

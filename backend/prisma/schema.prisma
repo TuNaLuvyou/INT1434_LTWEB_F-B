@@ -74,16 +74,17 @@ enum SessionStatus {
 }
 
 model TableSession {
-  id         String        @id @default(uuid())
-  tableId    String
-  table      Table         @relation(fields: [tableId], references: [id])
-  status     SessionStatus
-  version    Int           @default(0) // optimistic lock — dùng cho commit 4
-  openedAt   DateTime      @default(now())
-  lockedAt   DateTime?
-  closedAt   DateTime?
-  orderItems OrderItem[]
-  payment    Payment?
+  id            String        @id @default(uuid())
+  tableId       String
+  table         Table         @relation(fields: [tableId], references: [id])
+  status        SessionStatus
+  version       Int           @default(0) // optimistic lock — dùng cho commit 4
+  openedAt      DateTime      @default(now())
+  lockedAt      DateTime?
+  closedAt      DateTime?
+  createdViaPos Boolean       @default(false)
+  orderItems    OrderItem[]
+  payment       Payment?
 
   @@index([tableId])
 }
