@@ -1,30 +1,36 @@
 import { Router } from 'express';
 import {
   getIngredients, createIngredient, updateIngredient,
-  deleteIngredient, adjustStock, getLogs,
+  deleteIngredient, adjustStock, getLogs, reverseStock,
   getBom, addBomEntry, updateBomEntry, deleteBomEntry,
 } from '../controllers/ingredient.controller';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 
-const router = Router();
-
-// Tất cả routes đều cần đăng nhập + quyền ADMIN/MANAGER
-router.use(authMiddleware, requireRole(['ADMIN', 'MANAGER']));
+// ── adminRouter: ADMIN / MANAGER only ────────────────────────────
+const adminRouter = Router();
+adminRouter.use(authMiddleware, requireRole(['ADMIN', 'MANAGER']));
 
 // ── Ingredients ──────────────────────────────────────────────────
-router.get('/',           getIngredients);
-router.post('/',          createIngredient);
-router.put('/:id',        updateIngredient);
-router.delete('/:id',     deleteIngredient);
-router.patch('/:id/stock', adjustStock);
+adminRouter.get('/',           getIngredients);
+adminRouter.post('/',          createIngredient);
+adminRouter.put('/:id',        updateIngredient);
+adminRouter.delete('/:id',     deleteIngredient);
+adminRouter.patch('/:id/stock', adjustStock);
 
 // ── Inventory Logs ───────────────────────────────────────────────
-router.get('/logs',       getLogs);
+adminRouter.get('/logs',       getLogs);
 
 // ── BOM (sub-resource của MenuItem) ──────────────────────────────
-router.get('/menu-items/:menuItemId/bom',                      getBom);
-router.post('/menu-items/:menuItemId/bom',                     addBomEntry);
-router.put('/menu-items/:menuItemId/bom/:ingredientId',        updateBomEntry);
-router.delete('/menu-items/:menuItemId/bom/:ingredientId',     deleteBomEntry);
+adminRouter.get('/menu-items/:menuItemId/bom',                      getBom);
+adminRouter.post('/menu-items/:menuItemId/bom',                     addBomEntry);
+adminRouter.put('/menu-items/:menuItemId/bom/:ingredientId',        updateBomEntry);
+adminRouter.delete('/menu-items/:menuItemId/bom/:ingredientId',     deleteBomEntry);
 
-export default router;
+// ── reverseRouter: ADMIN / MANAGER / CASHIER ─────────────────────
+// POST /api/inventory/reverse — Hoàn kho khi void OrderItem
+const reverseRouter = Router();
+reverseRouter.use(authMiddleware, requireRole(['ADMIN', 'MANAGER', 'CASHIER']));
+reverseRouter.post('/reverse', reverseStock);
+
+export { reverseRouter };
+export default adminRouter;

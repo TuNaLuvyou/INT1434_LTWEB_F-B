@@ -1,6 +1,6 @@
 import prisma from '../config/prisma';
 import { SessionStatus } from '@prisma/client';
-import { emitTableStatusChanged, emitSessionClosed } from '../socket/emit.helpers';
+import { emitTableStatusChanged, emitSessionClosed, emitKitchenNewTicket } from '../socket/emit.helpers';
 import { AppError } from '../utils/app-error';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ const orderItemsInclude = {
  * - Nếu đã có session OPEN → trả về session hiện tại (isNew: false)
  * - Nếu chưa có → tạo mới trong transaction, emit socket event (isNew: true)
  */
-export async function joinOrCreateSession(tableId: string): Promise<{
+export async function joinOrCreateSession(tableId: string, createdViaPos?: boolean): Promise<{
   session: SessionWithItems;
   isNew: boolean;
 }> {
@@ -87,6 +87,24 @@ export async function joinOrCreateSession(tableId: string): Promise<{
   });
 
   if (existingSession) {
+    // Nếu phiên này được tạo từ POS (createdViaPos là true), nhưng request này không từ POS (không gửi createdViaPos)
+    // thì chặn khách lại và hiển thị thông báo
+    if (existingSession.createdViaPos && !createdViaPos) {
+      const err = new Error('Bàn này hiện tại đã có người đặt. Vui lòng liên hệ tại quầy.') as any;
+      err.statusCode = 409;
+      throw err;
+    }
+
+    // Nếu request từ POS và phiên hiện tại chưa đánh dấu createdViaPos, cập nhật lại nó
+    if (createdViaPos && !existingSession.createdViaPos) {
+      const updated = await prisma.tableSession.update({
+        where: { id: existingSession.id },
+        data: { createdViaPos: true },
+        include: orderItemsInclude,
+      });
+      return { session: updated as unknown as SessionWithItems, isNew: false };
+    }
+
     // 3a. Session đã tồn tại — đảm bảo trạng thái bàn là OCCUPIED
     if (table.status !== 'OCCUPIED') {
       await prisma.table.update({
@@ -104,6 +122,7 @@ export async function joinOrCreateSession(tableId: string): Promise<{
         tableId: actualTableId,
         status: 'OPEN',
         version: 0,
+        createdViaPos: !!createdViaPos,
       },
       include: orderItemsInclude,
     }),
@@ -165,12 +184,20 @@ export async function getActiveSessionByTableId(tableId: string): Promise<Sessio
  */
 export async function updateSessionStatus(
   sessionId: string,
-  newStatus: 'PAID' | 'CANCELLED'
+  newStatus: 'PAID' | 'CANCELLED',
+  keepOccupied?: boolean
 ): Promise<SessionWithItems> {
   // 1. Tìm session
   const session = await prisma.tableSession.findUnique({
     where: { id: sessionId },
-    include: { table: true },
+    include: {
+      table: true,
+      orderItems: {
+        include: {
+          menuItem: true
+        }
+      }
+    },
   });
 
   if (!session) {
@@ -186,34 +213,117 @@ export async function updateSessionStatus(
     throw err;
   }
 
-  // 3. Update session + table trong transaction
-  const [updatedSession] = await prisma.$transaction([
-    prisma.tableSession.update({
-      where: { id: sessionId },
-      data: {
-        status: newStatus as SessionStatus,
-        closedAt: new Date(),
-      },
-      include: orderItemsInclude,
-    }),
-    prisma.table.update({
-      where: { id: session.tableId },
-      data: { status: 'AVAILABLE' },
-    }),
-  ]);
+  const now = new Date();
+  let updatedSession: any;
 
-  // 4. Emit socket events bằng emit helpers mới
-  emitTableStatusChanged({
-    tableId: session.tableId,
-    status: 'AVAILABLE',
-  });
+  if (newStatus === 'PAID') {
+    // Lấy các món CART và PENDING chưa gửi bếp
+    const cartItems = session.orderItems.filter(item => item.status === 'CART');
+    const pendingItems = session.orderItems.filter(item => item.status === 'PENDING');
 
-  emitSessionClosed(session.tableId, {
-    sessionId,
-    tableId: session.tableId,
-    status: newStatus,
-    closedAt: new Date().toISOString(),
-  });
+    // Các món cần gửi bếp (nếu session chưa locked thì gửi cả pending, nếu locked rồi thì chỉ gửi cart)
+    const itemsToSendToKitchen = [
+      ...cartItems,
+      ...(!session.lockedAt ? pendingItems : [])
+    ];
+
+    // Trạng thái bàn đích: Nếu keepOccupied là true (POS order) thì giữ OCCUPIED, ngược lại AVAILABLE
+    const targetTableStatus = keepOccupied ? 'OCCUPIED' : 'AVAILABLE';
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Chuyển tất cả CART thành PENDING
+      if (cartItems.length > 0) {
+        await tx.orderItem.updateMany({
+          where: {
+            sessionId,
+            status: 'CART'
+          },
+          data: {
+            status: 'PENDING'
+          }
+        });
+      }
+
+      // 2. Cập nhật TableSession thành PAID, closedAt, và lockedAt (nếu chưa locked)
+      updatedSession = await tx.tableSession.update({
+        where: { id: sessionId },
+        data: {
+          status: 'PAID',
+          closedAt: now,
+          lockedAt: session.lockedAt || now,
+        },
+        include: orderItemsInclude,
+      });
+
+      // 3. Cập nhật trạng thái bàn
+      await tx.table.update({
+        where: { id: session.tableId },
+        data: { status: targetTableStatus },
+      });
+    });
+
+    // Emit socket events cho floor-plan
+    emitTableStatusChanged({
+      tableId: session.tableId,
+      status: targetTableStatus,
+    });
+
+    // Emit socket session closed
+    emitSessionClosed(session.tableId, {
+      sessionId,
+      tableId: session.tableId,
+      status: 'PAID',
+      closedAt: now.toISOString(),
+    });
+
+    // 4. Nếu có món cần gửi bếp, emit thông báo tới bếp
+    if (itemsToSendToKitchen.length > 0) {
+      emitKitchenNewTicket({
+        sessionId,
+        tableId: session.tableId,
+        tableNumber: session.table.tableNumber,
+        items: itemsToSendToKitchen.map(item => ({
+          orderItemId: item.id,
+          menuItemId: item.menuItemId,
+          menuItemName: item.menuItem.name,
+          qty: item.qty,
+          note: item.note || undefined,
+          status: 'PENDING',
+        })),
+        createdAt: now.toISOString(),
+      });
+    }
+  } else {
+    // newStatus === 'CANCELLED'
+    const [cancelledSession] = await prisma.$transaction([
+      prisma.tableSession.update({
+        where: { id: sessionId },
+        data: {
+          status: 'CANCELLED',
+          closedAt: now,
+        },
+        include: orderItemsInclude,
+      }),
+      prisma.table.update({
+        where: { id: session.tableId },
+        data: { status: 'AVAILABLE' },
+      }),
+    ]);
+
+    updatedSession = cancelledSession;
+
+    emitTableStatusChanged({
+      tableId: session.tableId,
+      status: 'AVAILABLE',
+    });
+
+    emitSessionClosed(session.tableId, {
+      sessionId,
+      tableId: session.tableId,
+      status: 'CANCELLED',
+      closedAt: now.toISOString(),
+    });
+  }
 
   return updatedSession as unknown as SessionWithItems;
 }
@@ -238,6 +348,8 @@ export async function addToCart(
       throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
     }
 
+    // Removed locked check so customers can continuously place additional orders.
+
     // STEP 2: Verify menuItem isActive và không sold out
     const menuItem = await tx.menuItem.findUnique({
       where: { id: menuItemId },
@@ -251,7 +363,13 @@ export async function addToCart(
 
     // STEP 3: LWW CONFLICT CHECK
     const existing = await tx.orderItem.findUnique({
-      where: { sessionId_menuItemId: { sessionId, menuItemId } },
+      where: {
+        sessionId_menuItemId_status: {
+          sessionId,
+          menuItemId,
+          status: 'CART',
+        },
+      },
     });
 
     if (existing) {
@@ -260,7 +378,7 @@ export async function addToCart(
       if (dbTimestamp > clientTimestamp) {
         // Lấy toàn bộ cart hiện tại để sync về client
         const currentCart = await tx.orderItem.findMany({
-          where: { sessionId },
+          where: { sessionId, status: 'CART' },
           include: {
             menuItem: {
               select: {
@@ -280,11 +398,17 @@ export async function addToCart(
     if (qty <= 0) {
       // qty <= 0 nghĩa là xóa item
       await tx.orderItem.deleteMany({
-        where: { sessionId, menuItemId },
+        where: { sessionId, menuItemId, status: 'CART' },
       });
     } else {
       await tx.orderItem.upsert({
-        where: { sessionId_menuItemId: { sessionId, menuItemId } },
+        where: {
+          sessionId_menuItemId_status: {
+            sessionId,
+            menuItemId,
+            status: 'CART',
+          },
+        },
         update: {
           qty,
           note: note ?? '',
@@ -295,14 +419,14 @@ export async function addToCart(
           qty,
           note: note ?? '',
           unitPrice: menuItem.price,
-          status: 'PENDING',
+          status: 'CART',
         },
       });
     }
 
     // STEP 5: Lấy cart mới nhất sau khi upsert
     const updatedCart = await tx.orderItem.findMany({
-      where: { sessionId },
+      where: { sessionId, status: 'CART' },
       include: {
         menuItem: {
           select: {
@@ -337,16 +461,24 @@ export async function deleteCartItem(
       throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
     }
 
+    // Removed locked check so customers can continuously place additional orders.
+
     // STEP 2: LWW CONFLICT CHECK
     const existing = await tx.orderItem.findUnique({
-      where: { sessionId_menuItemId: { sessionId, menuItemId } },
+      where: {
+        sessionId_menuItemId_status: {
+          sessionId,
+          menuItemId,
+          status: 'CART',
+        },
+      },
     });
 
     if (existing) {
       const dbTimestamp = existing.updatedAt.getTime();
       if (dbTimestamp > clientTimestamp) {
         const currentCart = await tx.orderItem.findMany({
-          where: { sessionId },
+          where: { sessionId, status: 'CART' },
           include: {
             menuItem: {
               select: {
@@ -362,14 +494,20 @@ export async function deleteCartItem(
       }
 
       // Xóa item
-      await tx.orderItem.deleteMany({
-        where: { sessionId, menuItemId },
+      await tx.orderItem.delete({
+        where: {
+          sessionId_menuItemId_status: {
+            sessionId,
+            menuItemId,
+            status: 'CART',
+          },
+        },
       });
     }
 
     // Lấy cart mới nhất sau khi xóa
     const updatedCart = await tx.orderItem.findMany({
-      where: { sessionId },
+      where: { sessionId, status: 'CART' },
       include: {
         menuItem: {
           select: {

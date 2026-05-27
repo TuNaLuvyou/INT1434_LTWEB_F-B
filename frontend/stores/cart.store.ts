@@ -36,6 +36,7 @@ export type CartStore = {
   isSubmitting: boolean;
   submitError: string | null;
   clockOffset: number; // Thêm clockOffset để bù giờ client-server
+  isLocked: boolean; // Trạng thái khóa giỏ hàng của bàn
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -105,6 +106,7 @@ export const useCartStore = create<CartStore>()(
       isSubmitting: false,
       submitError: null,
       clockOffset: 0,
+      isLocked: false,
 
       initSession: async (tableId: string) => {
         const state = get();
@@ -122,11 +124,13 @@ export const useCartStore = create<CartStore>()(
         }
 
         const { data } = await res.json() as {
-          data: { session: { id: string; tableId: string }; isNew: boolean; serverTime?: number };
+          data: { session: { id: string; tableId: string; lockedAt?: string | null }; isNew: boolean; serverTime?: number };
         };
 
         const serverTime = data.serverTime || Date.now();
         const clockOffset = serverTime - Date.now();
+
+        const isLocked = Boolean(data.session.lockedAt);
 
         // Nếu session ID thay đổi (phiên cũ đã đóng, phiên mới được tạo)
         if (state.sessionId !== data.session.id) {
@@ -135,12 +139,14 @@ export const useCartStore = create<CartStore>()(
             tableId: data.session.tableId,
             items: [], // Reset giỏ hàng của phiên cũ
             clockOffset,
+            isLocked,
           });
         } else {
           set({
             sessionId: data.session.id,
             tableId: data.session.tableId,
             clockOffset,
+            isLocked,
           });
         }
 
@@ -189,6 +195,13 @@ export const useCartStore = create<CartStore>()(
             return;
           }
 
+          if (res.status === 423) {
+            const data = await res.json().catch(() => ({}));
+            set({ isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
+            window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
+            return;
+          }
+
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             
@@ -199,8 +212,8 @@ export const useCartStore = create<CartStore>()(
               // Reset session ID cục bộ để dọn dẹp
               set({ sessionId: null, items: [] });
               
-              // Phát sự kiện thông báo phiên đã đóng để hiển thị màn hình Cảm ơn
-              window.dispatchEvent(new CustomEvent('session-closed'));
+              // Phát sự kiện thông báo phiên đã đóng để hiển thị màn hình phù hợp
+              window.dispatchEvent(new CustomEvent('session-closed', { detail: { status: 'UNKNOWN' } }));
               return;
             }
             
@@ -249,6 +262,13 @@ export const useCartStore = create<CartStore>()(
             if (data.code === 'CONFLICT' && data.currentCart) {
               state.syncCartFromServer(data.currentCart);
             }
+            return;
+          }
+
+          if (res.status === 423) {
+            const data = await res.json().catch(() => ({}));
+            set({ isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
+            window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
             return;
           }
 
@@ -301,6 +321,13 @@ export const useCartStore = create<CartStore>()(
             return;
           }
 
+          if (res.status === 423) {
+            const data = await res.json().catch(() => ({}));
+            set({ isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
+            window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
+            return;
+          }
+
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             throw new Error(data.message || `HTTP ${res.status}`);
@@ -340,6 +367,13 @@ export const useCartStore = create<CartStore>()(
             if (data.code === 'CONFLICT' && data.currentCart) {
               state.syncCartFromServer(data.currentCart);
             }
+            return;
+          }
+
+          if (res.status === 423) {
+            const data = await res.json().catch(() => ({}));
+            set({ isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
+            window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
             return;
           }
 
@@ -398,6 +432,7 @@ export const useCartStore = create<CartStore>()(
         items: state.items,
         sessionId: state.sessionId,
         tableId: state.tableId,
+        isLocked: state.isLocked,
       }),
     }
   )
