@@ -238,6 +238,7 @@ export default function AdminAttendancePage() {
                     <th className="px-5 py-3">Nhân Viên</th>
                     <th className="px-5 py-3">Vai Trò</th>
                     <th className="px-5 py-3">Thời Gian Check-In</th>
+                    <th className="px-5 py-3">Thời Gian Check-Out</th>
                     <th className="px-5 py-3">Thiết Bị Ghi Nhận</th>
                     <th className="px-5 py-3 text-center">Trạng Thái Phê Duyệt</th>
                   </tr>
@@ -245,7 +246,7 @@ export default function AdminAttendancePage() {
                 <tbody className="divide-y divide-zinc-900 text-xs">
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="px-5 py-12 text-center text-zinc-500 font-light">
+                      <td colSpan={6} className="px-5 py-12 text-center text-zinc-500 font-light">
                         Đang tải chấm công hôm nay...
                       </td>
                     </tr>
@@ -255,6 +256,13 @@ export default function AdminAttendancePage() {
                       <td className="px-5 py-3.5 text-zinc-400">{rec.user?.role}</td>
                       <td className="px-5 py-3.5 font-mono text-zinc-200">
                         {new Date(rec.checkInAt).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </td>
+                      <td className="px-5 py-3.5 font-mono text-zinc-400">
+                        {rec.checkOutAt ? (
+                          new Date(rec.checkOutAt).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                        ) : (
+                          <span className="text-zinc-600 italic">Chưa check-out</span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-zinc-400">{rec.device?.label || "App Web"}</td>
                       <td className="px-5 py-3.5 text-center">
@@ -274,7 +282,7 @@ export default function AdminAttendancePage() {
                   ))}
                   {!loading && filteredToday.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-5 py-8 text-center text-zinc-600 font-light">
+                      <td colSpan={6} className="px-5 py-8 text-center text-zinc-600 font-light">
                         Chưa có check-in nào trong ngày hôm nay.
                       </td>
                     </tr>
@@ -293,6 +301,7 @@ export default function AdminAttendancePage() {
                     <th className="px-5 py-3">Nhân Viên</th>
                     <th className="px-5 py-3">Ngày Chấm</th>
                     <th className="px-5 py-3">Giờ Check-in</th>
+                    <th className="px-5 py-3">Giờ Check-out</th>
                     <th className="px-5 py-3">Loại</th>
                     <th className="px-5 py-3">Thiết Bị</th>
                     <th className="px-5 py-3 text-center">Phê Duyệt</th>
@@ -301,7 +310,7 @@ export default function AdminAttendancePage() {
                 <tbody className="divide-y divide-zinc-900 text-xs">
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="px-5 py-12 text-center text-zinc-500 font-light">
+                      <td colSpan={7} className="px-5 py-12 text-center text-zinc-500 font-light">
                         Đang tải lịch sử chấm công...
                       </td>
                     </tr>
@@ -315,6 +324,13 @@ export default function AdminAttendancePage() {
                         </td>
                         <td className="px-5 py-3.5 font-mono text-zinc-200">
                           {dateObj.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-5 py-3.5 font-mono text-zinc-400">
+                          {rec.checkOutAt ? (
+                            new Date(rec.checkOutAt).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })
+                          ) : (
+                            <span className="text-zinc-600 italic">Chưa check-out</span>
+                          )}
                         </td>
                         <td className="px-5 py-3.5 uppercase font-semibold text-zinc-300">{rec.type || "Check-in"}</td>
                         <td className="px-5 py-3.5 text-zinc-400">{rec.device?.label || "Web App"}</td>
@@ -334,7 +350,7 @@ export default function AdminAttendancePage() {
                   })}
                   {!loading && filteredHistory.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-5 py-8 text-center text-zinc-600 font-light">
+                      <td colSpan={7} className="px-5 py-8 text-center text-zinc-600 font-light">
                         Không tìm thấy dòng lịch sử chấm công nào.
                       </td>
                     </tr>
@@ -352,6 +368,7 @@ export default function AdminAttendancePage() {
                   <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
                     <th className="px-5 py-3">Nhân Viên</th>
                     <th className="px-5 py-3">Thời Gian Check-In</th>
+                    <th className="px-5 py-3">Thời Gian Check-Out</th>
                     <th className="px-5 py-3">Loại</th>
                     <th className="px-5 py-3">Thiết Bị Yêu Cầu</th>
                     <th className="px-5 py-3 text-center">Hành Động</th>
@@ -360,7 +377,7 @@ export default function AdminAttendancePage() {
                 <tbody className="divide-y divide-zinc-900 text-xs">
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="px-5 py-12 text-center text-zinc-500 font-light">
+                      <td colSpan={6} className="px-5 py-12 text-center text-zinc-500 font-light">
                         Đang tải danh sách chờ phê duyệt...
                       </td>
                     </tr>
@@ -369,6 +386,13 @@ export default function AdminAttendancePage() {
                       <td className="px-5 py-3.5 font-semibold text-white">{rec.user?.name}</td>
                       <td className="px-5 py-3.5 font-mono text-zinc-200">
                         {new Date(rec.checkInAt).toLocaleString("vi-VN")}
+                      </td>
+                      <td className="px-5 py-3.5 font-mono text-zinc-400">
+                        {rec.checkOutAt ? (
+                          new Date(rec.checkOutAt).toLocaleString("vi-VN")
+                        ) : (
+                          <span className="text-zinc-600 italic">Chưa check-out</span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 uppercase font-semibold text-zinc-400">{rec.type || "Check-in"}</td>
                       <td className="px-5 py-3.5 text-zinc-400">{rec.device?.label || "Web App"}</td>
@@ -384,7 +408,7 @@ export default function AdminAttendancePage() {
                   ))}
                   {!loading && pendingApprovals.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-5 py-8 text-center text-zinc-600 font-light">
+                      <td colSpan={6} className="px-5 py-8 text-center text-zinc-600 font-light">
                         Tất cả các chấm công đã được phê duyệt!
                       </td>
                     </tr>
