@@ -276,7 +276,7 @@ export async function voidKdsOrderItem(req: Request, res: Response): Promise<voi
     const now = new Date().toISOString();
 
     try {
-      await ingredientService.reverseStockByOrderItem(orderItemId, voidedBy);
+      await ingredientService.reverseInventory(orderItemId, voidedBy);
     } catch (reverseErr: any) {
       console.warn('[voidKdsOrderItem] reverseStock skip:', reverseErr?.message);
     }
