@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getIngredients, createIngredient, updateIngredient,
   deleteIngredient, adjustStock, getLogs, reverseStock,
+  recordWasteEntry,
   getBom, addBomEntry, updateBomEntry, deleteBomEntry,
 } from '../controllers/ingredient.controller';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
@@ -16,6 +17,9 @@ adminRouter.post('/',          createIngredient);
 adminRouter.put('/:id',        updateIngredient);
 adminRouter.delete('/:id',     deleteIngredient);
 adminRouter.patch('/:id/stock', adjustStock);
+
+// POST /api/ingredients/:id/waste — Xuất hủy nguyên liệu (ADMIN / MANAGER)
+adminRouter.post('/:id/waste',  recordWasteEntry);
 
 // ── Inventory Logs ───────────────────────────────────────────────
 adminRouter.get('/logs',       getLogs);
