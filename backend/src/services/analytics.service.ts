@@ -10,6 +10,7 @@ export const getRevenue = async (from: string, to: string, groupBy: 'day' | 'wee
   const query = `
     SELECT
       date_trunc('${groupBy}', "paidAt" AT TIME ZONE 'Asia/Ho_Chi_Minh') as "date",
+      COUNT(id) as "orderCount",
       SUM(total) as "revenue"
     FROM "Payment"
     WHERE "paidAt" >= $1 AND "paidAt" <= $2
@@ -21,6 +22,33 @@ export const getRevenue = async (from: string, to: string, groupBy: 'day' | 'wee
 
   return results.map(r => ({
     date: r.date,
+    orderCount: Number(r.orderCount),
+    revenue: Number(r.revenue),
+  }));
+};
+
+export const getPeakHours = async (from: string, to: string) => {
+  const fromDate = new Date(from);
+  const toDate = new Date(to);
+
+  const query = `
+    SELECT
+      EXTRACT(ISODOW FROM "paidAt" AT TIME ZONE 'Asia/Ho_Chi_Minh') as "dayOfWeek",
+      EXTRACT(HOUR FROM "paidAt" AT TIME ZONE 'Asia/Ho_Chi_Minh') as "hourOfDay",
+      COUNT(id) as "orderCount",
+      SUM(total) as "revenue"
+    FROM "Payment"
+    WHERE "paidAt" >= $1 AND "paidAt" <= $2
+    GROUP BY "dayOfWeek", "hourOfDay"
+    ORDER BY "dayOfWeek" ASC, "hourOfDay" ASC;
+  `;
+
+  const results = await prisma.$queryRawUnsafe<any[]>(query, fromDate, toDate);
+
+  return results.map(r => ({
+    dayOfWeek: Number(r.dayOfWeek), // 1 (Monday) to 7 (Sunday)
+    hourOfDay: Number(r.hourOfDay),
+    orderCount: Number(r.orderCount),
     revenue: Number(r.revenue),
   }));
 };
