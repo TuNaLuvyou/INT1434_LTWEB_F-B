@@ -47,6 +47,7 @@ function canJoinRoom(room: string, role: string): boolean {
 }
 
 // ─── initSocket ───────────────────────────────────────────────────────────────
+
 /**
  * Khởi tạo Socket.io server từ HTTP server đã tồn tại.
  * Gọi hàm này SAU KHI tạo httpServer trong app.ts.
