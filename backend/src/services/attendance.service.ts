@@ -46,7 +46,8 @@ export const checkIn = async (userId: string, deviceId: string) => {
     data: {
       userId,
       deviceId,
-      checkInAt: new Date()
+      checkInAt: new Date(),
+      isApproved: false
     },
     include: {
       device: { select: { label: true } }
