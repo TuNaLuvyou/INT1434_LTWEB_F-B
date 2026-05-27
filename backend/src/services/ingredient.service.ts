@@ -14,48 +14,80 @@ import prisma from '../config/prisma';
  *
  * @returns danh sách { ingredientId, name, delta, newStock } đã hoàn trả
  */
-export const reverseStockByOrderItem = async (
+export const reverseInventory = async (
   orderItemId: string,
   reversedBy?: string
 ): Promise<Array<{ ingredientId: string; name: string; delta: number; newStock: number }>> => {
-  // Lấy OrderItem + BOM của menuItem
+  // 1. Kiểm tra OrderItem có tồn tại và đã ở trạng thái VOID chưa
   const orderItem = await prisma.orderItem.findUnique({
     where: { id: orderItemId },
-    include: {
-      menuItem: {
-        include: {
-          bom: {
-            include: { ingredient: true },
-          },
-        },
-      },
-    },
   });
 
-  if (!orderItem) throw Object.assign(new Error('OrderItem không tồn tại'), { code: 'NOT_FOUND' });
-  if (orderItem.status !== 'VOID') throw Object.assign(new Error('Chỉ có thể hoàn kho cho item đã VOID'), { code: 'INVALID_STATUS' });
+  if (!orderItem) {
+    throw Object.assign(new Error('OrderItem không tồn tại'), { code: 'NOT_FOUND' });
+  }
+  if (orderItem.status !== 'VOID') {
+    throw Object.assign(new Error('Chỉ có thể hoàn kho cho item đã VOID'), { code: 'INVALID_STATUS' });
+  }
 
-  const bom = orderItem.menuItem.bom;
-  if (bom.length === 0) return []; // Không có BOM → không cần hoàn kho
+  // 2. Tìm các InventoryLog đã trừ kho cho orderItemId này (delta < 0)
+  const deductLogs = await prisma.inventoryLog.findMany({
+    where: {
+      orderId: orderItemId,
+      delta: { lt: 0 },
+    },
+    include: { ingredient: true },
+  });
+
+  if (deductLogs.length === 0) {
+    return []; // Không có log trừ kho → không có gì để hoàn
+  }
 
   const results: Array<{ ingredientId: string; name: string; delta: number; newStock: number }> = [];
 
-  // Thực hiện trong 1 transaction
+  // 3. Thực hiện hoàn kho trong transaction
   await prisma.$transaction(async (tx) => {
-    for (const entry of bom) {
-      const delta = Number(entry.quantity) * orderItem.qty; // lượng hoàn trả (dương)
-      const newStock = Number(entry.ingredient.stock) + delta;
+    // Kiểm tra xem đã hoàn kho cho orderItemId này chưa để tránh hoàn trùng lặp
+    const existingReverse = await tx.inventoryLog.findFirst({
+      where: {
+        orderId: orderItemId,
+        reason: { startsWith: 'VOID_REVERSE' },
+      },
+    });
+
+    if (existingReverse) {
+      throw Object.assign(new Error('Item này đã được hoàn kho trước đó'), { code: 'ALREADY_REVERSED' });
+    }
+
+    // Gộp delta nếu có nhiều log cho cùng 1 nguyên liệu
+    const refundMap = new Map<string, { delta: number; ingredient: any }>();
+    for (const log of deductLogs) {
+      const current = refundMap.get(log.ingredientId);
+      const refundAmount = Math.abs(Number(log.delta));
+      if (current) {
+        current.delta += refundAmount;
+      } else {
+        refundMap.set(log.ingredientId, { delta: refundAmount, ingredient: log.ingredient });
+      }
+    }
+
+    for (const [ingredientId, { delta, ingredient }] of refundMap.entries()) {
+      // Lấy tồn kho mới nhất
+      const currentIng = await tx.ingredient.findUnique({ where: { id: ingredientId } });
+      if (!currentIng) continue;
+
+      const newStock = Number(currentIng.stock) + delta;
 
       // Cộng ngược tồn kho
       await tx.ingredient.update({
-        where: { id: entry.ingredientId },
+        where: { id: ingredientId },
         data: { stock: newStock },
       });
 
-      // Ghi log
+      // Ghi log hoàn kho
       await tx.inventoryLog.create({
         data: {
-          ingredientId: entry.ingredientId,
+          ingredientId,
           delta,
           reason: `VOID_REVERSE: OrderItem ${orderItemId}`,
           orderId: orderItemId,
@@ -64,8 +96,8 @@ export const reverseStockByOrderItem = async (
       });
 
       results.push({
-        ingredientId: entry.ingredientId,
-        name: entry.ingredient.name,
+        ingredientId,
+        name: ingredient.name,
         delta,
         newStock,
       });
