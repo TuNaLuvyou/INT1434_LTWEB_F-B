@@ -136,7 +136,7 @@ export async function voidOrderItem(req: Request, res: Response): Promise<void> 
 
     // 3. Hoàn kho nguyên liệu dựa trên BOM (nếu có)
     try {
-      await ingredientService.reverseStockByOrderItem(orderItemId, voidedBy);
+      await ingredientService.reverseInventory(orderItemId, voidedBy);
     } catch (reverseErr: any) {
       // Không có BOM hoặc BOM rỗng → bỏ qua, không fail toàn bộ request
       console.warn('[voidOrderItem] reverseStock skip:', reverseErr?.message);
