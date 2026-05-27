@@ -1,4 +1,5 @@
 import prisma from '../config/prisma';
+import { checkAndAlertLowStock } from './low-stock.service';
 
 // ── Inventory Reverse (Void) ──────────────────────────────────────
 
@@ -160,6 +161,12 @@ export const adjustStock = async (
   ]);
 
   const lowStockAlert = Number(updated.stock) <= Number(updated.minStock);
+
+  // Kiểm tra và gửi email cảnh báo nếu tồn kho thấp (fire-and-forget)
+  if (lowStockAlert) {
+    checkAndAlertLowStock([id], reason).catch(() => {});
+  }
+
   return { ...updated, lowStockAlert };
 };
 
