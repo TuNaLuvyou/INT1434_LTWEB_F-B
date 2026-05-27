@@ -118,6 +118,12 @@ export default function POSPage() {
 
   // Sync session select
   const handleTableChange = async (tableId: string) => {
+    const selectedTable = tables.find((table) => table.id === tableId);
+    if (selectedTable?.status === 'OCCUPIED') {
+      alert('Bàn đang có khách, không thể chọn để gọi món mới.');
+      return;
+    }
+
     setSelectedTableId(tableId);
     if (!tableId) {
       setSessionId("");
@@ -131,7 +137,7 @@ export default function POSPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ tableId }),
+        body: JSON.stringify({ tableId, source: 'POS' }),
       });
       const result = await response.json();
       if (response.ok && result.success) {
@@ -229,6 +235,12 @@ export default function POSPage() {
           t.id === payload.tableId ? { ...t, status: payload.status } : t
         )
       );
+      if (payload.status === 'OCCUPIED' && payload.tableId === selectedTableId) {
+        setSelectedTableId("");
+        setSessionId("");
+        setCart([]);
+        alert('Bàn vừa có khách, vui lòng chọn bàn khác để gọi món.');
+      }
     };
 
     cashierSocket.on('table:session-updated', handleSessionUpdate);
@@ -345,7 +357,7 @@ export default function POSPage() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${accessToken || ''}`,
         },
-        body: JSON.stringify({ status: 'PAID' }),
+        body: JSON.stringify({ status: 'PAID', keepOccupied: true }),
       });
       
       const result = await response.json();
@@ -409,7 +421,7 @@ export default function POSPage() {
                 >
                   <option value="">-- Chọn Bàn Phục Vụ --</option>
                   {tables.map(table => (
-                    <option key={table.id} value={table.id}>
+                    <option key={table.id} value={table.id} disabled={table.status === 'OCCUPIED'}>
                       {table.label} ({table.status === 'OCCUPIED' ? 'Đang hoạt động' : 'Còn trống'})
                     </option>
                   ))}

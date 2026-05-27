@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import * as svc from '../services/ingredient.service';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
+import { WasteReason } from '../services/ingredient.service';
 
 // ── Schemas ──────────────────────────────────────────────────────
 
@@ -19,10 +21,56 @@ const stockAdjSchema = z.object({
   note:   z.string().optional(),
 });
 
+const WASTE_REASONS = ['EXPIRED', 'DAMAGED', 'CONTAMINATED', 'OVERCOOKED', 'SPILLED', 'OTHER'] as const;
+
+const wasteSchema = z.object({
+  quantity:    z.coerce.number().positive('Số lượng xuất hủy phải > 0'),
+  wasteReason: z.enum(WASTE_REASONS, {
+    error: `Lý do phải là một trong: ${WASTE_REASONS.join(', ')}`,
+  }),
+  note: z.string().max(500).optional(),
+});
+
 const bomEntrySchema = z.object({
   ingredientId: z.string().min(1),
   quantity:     z.coerce.number().positive('Số lượng phải > 0'),
 });
+
+// ── Inventory Reverse (Void) ─────────────────────────────────────
+
+/**
+ * POST /api/inventory/reverse
+ * Body: { orderItemId: string }
+ *
+ * Hoàn trả tồn kho nguyên liệu cho một OrderItem đã bị VOID.
+ * Thường được gọi tự động bên trong voidOrderItem của cashier controller,
+ * nhưng cũng có thể gọi trực tiếp (ví dụ: admin điều chỉnh thủ công).
+ */
+export const reverseStock = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { orderItemId } = z.object({ orderItemId: z.string().min(1) }).parse(req.body);
+    const authReq = req as AuthenticatedRequest;
+    const reversedBy = authReq.user?.userId;
+
+    const reversed = await svc.reverseStockByOrderItem(orderItemId, reversedBy);
+
+    res.json({
+      success: true,
+      message: `Đã hoàn kho ${reversed.length} nguyên liệu`,
+      data: reversed,
+    });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) {
+      res.status(400).json({ success: false, errors: e.issues });
+    } else if (e?.code === 'NOT_FOUND') {
+      res.status(404).json({ success: false, message: e.message });
+    } else if (e?.code === 'INVALID_STATUS') {
+      res.status(409).json({ success: false, message: e.message });
+    } else {
+      res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+  }
+};
 
 // ── Ingredient CRUD ──────────────────────────────────────────────
 
@@ -115,6 +163,69 @@ export const adjustStock = async (req: Request, res: Response): Promise<void> =>
       res.status(400).json({ success: false, errors: e.issues });
     } else if (e?.message === 'Ingredient not found') {
       res.status(404).json({ success: false, message: 'Không tìm thấy nguyên liệu' });
+    } else if (e?.code === 'STOCK_UNDERFLOW') {
+      res.status(422).json({ success: false, code: 'STOCK_UNDERFLOW', message: e.message });
+    } else {
+      res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+  }
+};
+
+/**
+ * POST /api/ingredients/:id/waste
+ *
+ * Ghi nhận xuất hủy nguyên liệu (Waste Entry).
+ * Yêu cầu quyền ADMIN hoặc MANAGER.
+ *
+ * Body:
+ *  - quantity:    number  (bắt buộc, > 0 — luôn là lượng dương, service tự đổi dấu)
+ *  - wasteReason: string  (bắt buộc — EXPIRED | DAMAGED | CONTAMINATED | OVERCOOKED | SPILLED | OTHER)
+ *  - note:        string  (tùy chọn; BẮT BUỘC khi wasteReason = 'OTHER')
+ *
+ * Response 200:
+ *  { success: true, data: { ingredient, log, lowStockAlert } }
+ *
+ * Error codes:
+ *  400 VALIDATION   — Zod schema fail
+ *  400 NOTE_REQUIRED — wasteReason='OTHER' nhưng thiếu note
+ *  404 NOT_FOUND    — ingredientId không tồn tại
+ *  422 STOCK_UNDERFLOW — số lượng hủy > tồn kho hiện tại
+ */
+export const recordWasteEntry = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ingredientId = req.params.id as string;
+    const { quantity, wasteReason, note } = wasteSchema.parse(req.body);
+    const authReq    = req as AuthenticatedRequest;
+    const performedBy = authReq.user?.userId ?? 'UNKNOWN';
+
+    const result = await svc.recordWaste({
+      ingredientId,
+      quantity,
+      wasteReason: wasteReason as WasteReason,
+      note,
+      performedBy,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ingredient:    result.ingredient,
+        log:           result.log,
+        lowStockAlert: result.lowStockAlert,
+      },
+      ...(result.lowStockAlert && {
+        warning: `Tồn kho ${result.ingredient.name} đang ở mức cảnh báo (${Number(result.ingredient.stock)} ${result.ingredient.unit})`
+      }),
+    });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) {
+      res.status(400).json({ success: false, errors: e.issues });
+    } else if (e?.code === 'NOT_FOUND') {
+      res.status(404).json({ success: false, message: e.message });
+    } else if (e?.code === 'NOTE_REQUIRED') {
+      res.status(400).json({ success: false, code: 'NOTE_REQUIRED', message: e.message });
+    } else if (e?.code === 'STOCK_UNDERFLOW') {
+      res.status(422).json({ success: false, code: 'STOCK_UNDERFLOW', message: e.message });
     } else {
       res.status(500).json({ success: false, message: 'Lỗi server' });
     }

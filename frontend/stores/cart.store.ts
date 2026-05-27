@@ -212,8 +212,8 @@ export const useCartStore = create<CartStore>()(
               // Reset session ID cục bộ để dọn dẹp
               set({ sessionId: null, items: [] });
               
-              // Phát sự kiện thông báo phiên đã đóng để hiển thị màn hình Cảm ơn
-              window.dispatchEvent(new CustomEvent('session-closed'));
+              // Phát sự kiện thông báo phiên đã đóng để hiển thị màn hình phù hợp
+              window.dispatchEvent(new CustomEvent('session-closed', { detail: { status: 'UNKNOWN' } }));
               return;
             }
             

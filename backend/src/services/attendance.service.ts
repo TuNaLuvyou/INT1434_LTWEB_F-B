@@ -19,12 +19,35 @@ export const getTodayAttendance = async (userId: string) => {
   });
 };
 
+export const getAllTodayAttendance = async () => {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
+  return await prisma.attendance.findMany({
+    where: {
+      checkInAt: {
+        gte: startOfDay,
+        lte: endOfDay
+      }
+    },
+    include: {
+      user: { select: { name: true, email: true, role: true } },
+      device: { select: { label: true } }
+    },
+    orderBy: { checkInAt: 'desc' }
+  });
+};
+
 export const checkIn = async (userId: string, deviceId: string) => {
   return await prisma.attendance.create({
     data: {
       userId,
       deviceId,
-      checkInAt: new Date()
+      checkInAt: new Date(),
+      isApproved: false
     },
     include: {
       device: { select: { label: true } }
