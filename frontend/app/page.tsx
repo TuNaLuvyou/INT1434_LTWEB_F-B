@@ -14,8 +14,8 @@ import {
   Layers,
   Utensils,
   Table,
-  LogOut,
-  UserCheck
+  UserCheck,
+  LogOut
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth.store";
 import { logout, getAccessTokenFromCookie } from "../lib/auth/client";
@@ -83,6 +83,8 @@ export default function Home() {
       visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "CASHIER"
     }
   ].filter(app => app.visible);
+
+  const visibleApps = apps.filter((app) => app.visible !== false);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col selection:bg-indigo-500 selection:text-white overflow-hidden relative">
@@ -158,8 +160,8 @@ export default function Home() {
         </div>
 
         {/* Dashboard Grid */}
-        <div className={`grid gap-6 lg:gap-8 ${apps.length === 1 ? 'grid-cols-1 max-w-xl mx-auto w-full' : 'grid-cols-1 md:grid-cols-2'}`}>
-          {apps.map((app) => {
+        <div className={`grid gap-6 lg:gap-8 ${visibleApps.length === 1 ? 'grid-cols-1 max-w-xl mx-auto w-full' : 'grid-cols-1 md:grid-cols-2'}`}>
+          {visibleApps.map((app) => {
             const IconComponent = app.icon;
             return (
               <Link 

@@ -11,14 +11,15 @@ import { emitCartUpdated } from '../socket/emit.helpers';
  */
 export async function joinSession(req: Request, res: Response): Promise<void> {
   try {
-    const { tableId } = req.body as { tableId?: string };
+    const { tableId, source } = req.body as { tableId?: string; source?: string };
 
     if (!tableId || typeof tableId !== 'string' || tableId.trim() === '') {
       res.status(400).json({ success: false, message: 'tableId là bắt buộc' });
       return;
     }
 
-    const { session, isNew } = await sessionService.joinOrCreateSession(tableId.trim());
+    const createdViaPos = source === 'POS';
+    const { session, isNew } = await sessionService.joinOrCreateSession(tableId.trim(), createdViaPos);
 
     res.status(isNew ? 201 : 200).json({
       success: true,
@@ -80,7 +81,7 @@ export async function getActiveSession(req: Request, res: Response): Promise<voi
 export async function updateSessionStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { sessionId } = req.params as { sessionId: string };
-    const { status } = req.body as { status?: string };
+    const { status, keepOccupied } = req.body as { status?: string; keepOccupied?: boolean };
 
     if (!status || !['PAID', 'CANCELLED'].includes(status)) {
       res.status(400).json({
@@ -92,7 +93,8 @@ export async function updateSessionStatus(req: AuthenticatedRequest, res: Respon
 
     const updatedSession = await sessionService.updateSessionStatus(
       sessionId,
-      status as 'PAID' | 'CANCELLED'
+      status as 'PAID' | 'CANCELLED',
+      keepOccupied
     );
 
     res.status(200).json({
