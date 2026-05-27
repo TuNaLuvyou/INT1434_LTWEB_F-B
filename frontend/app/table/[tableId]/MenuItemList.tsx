@@ -97,6 +97,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   const [isSessionClosed, setIsSessionClosed] = useState(false);
   const [sessionClosedStatus, setSessionClosedStatus] = useState<'PAID' | 'CANCELLED' | 'UNKNOWN' | null>(null);
   const [dbOrderItems, setDbOrderItems] = useState<any[]>([]);
+  const [isOccupiedByPos, setIsOccupiedByPos] = useState(false);
 
   const fetchSessionDetails = useCallback(async (sid: string) => {
     try {
@@ -183,10 +184,14 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
       initSession(tableNumber).then(({ sessionId }) => {
         fetchSessionDetails(sessionId);
       }).catch((err) => {
-        console.error('[MenuItemList] Khởi tạo session thất bại:', err);
         const msg = (err as Error)?.message || '';
-        if (msg.includes('404') || msg.toLowerCase().includes('bàn không tồn tại')) {
-          router.replace('/404');
+        if (msg.includes('409') || msg.toLowerCase().includes('đã có người đặt')) {
+          setIsOccupiedByPos(true);
+        } else {
+          console.error('[MenuItemList] Khởi tạo session thất bại:', err);
+          if (msg.includes('404') || msg.toLowerCase().includes('bàn không tồn tại')) {
+            router.replace('/404');
+          }
         }
       });
     }
@@ -960,6 +965,21 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
               </div>
             </>
           )}
+        </div>
+      )}
+      {/* Màn hình Bàn đã có người đặt tại quầy */}
+      {isOccupiedByPos && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+          <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mb-6 animate-pulse">
+            <AlertTriangle size={40} />
+          </div>
+          <h2 className="text-xl font-black text-gray-900 mb-2">Bàn đã được đặt chỗ</h2>
+          <p className="text-sm text-gray-500 max-w-sm mb-8 leading-relaxed">
+            Bàn này hiện tại đã có người đặt hoặc đang được gọi món tại quầy. Vui lòng liên hệ nhân viên tại quầy thu ngân để được hỗ trợ.
+          </p>
+          <div className="text-xs text-gray-400 font-medium">
+            Xin lỗi quý khách vì sự bất tiện này!
+          </div>
         </div>
       )}
     </>
