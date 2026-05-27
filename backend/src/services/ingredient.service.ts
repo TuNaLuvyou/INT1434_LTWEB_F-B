@@ -124,7 +124,7 @@ export const remove = async (id: string) => {
 export const adjustStock = async (
   id: string,
   delta: number,
-  reason: 'MANUAL_IMPORT' | 'ADJUSTMENT',
+  reason: 'MANUAL_IMPORT' | 'ADJUSTMENT' | 'WASTE',
   createdBy: string,
   note?: string
 ) => {
@@ -133,25 +133,137 @@ export const adjustStock = async (
 
   const newStock = Number(ingredient.stock) + delta;
 
+  // WASTE không được khiến stock âm
+  if (reason === 'WASTE' && newStock < 0) {
+    throw Object.assign(
+      new Error(`Số lượng xuất hủy (${Math.abs(delta)}) vượt quá tồn kho hiện tại (${Number(ingredient.stock)})`),
+      { code: 'STOCK_UNDERFLOW' }
+    );
+  }
+
+  const reasonLabel = note ? `${reason}: ${note}` : reason;
+
   const [updated] = await prisma.$transaction([
     prisma.ingredient.update({
       where: { id },
-      data: { stock: newStock },
+      data:  { stock: newStock },
     }),
     prisma.inventoryLog.create({
       data: {
         ingredientId: id,
         delta,
-        reason,
+        reason:    reasonLabel,
         createdBy,
-        orderId: null,
-        ...(note && { reason: `${reason}: ${note}` }),
+        orderId:   null,
       },
     }),
   ]);
 
   const lowStockAlert = Number(updated.stock) <= Number(updated.minStock);
   return { ...updated, lowStockAlert };
+};
+
+// ── Waste Entry (Xuất hủy) ───────────────────────────────────────
+//
+// Xuất hủy là nghiệp vụ ghi nhận nguyên liệu bị loại bỏ (hết hạn, hư hỏng,
+// nhiễm bẩn, v.v.) mà KHÔNG liên quan đến OrderItem hay BOM.
+// Khác biệt so với ADJUSTMENT:
+//  - WASTE: luôn là delta âm, bắt buộc có reason cụ thể (hư hỏng, hết hạn...)
+//  - ADJUSTMENT: có thể dương/âm, dùng khi kiểm kho phát hiện lệch số
+//
+// Dữ liệu trả về:
+//  { ingredient (trạng thái mới), log (record vừa tạo), lowStockAlert }
+
+export type WasteReason =
+  | 'EXPIRED'       // Hết hạn sử dụng
+  | 'DAMAGED'       // Hư hỏng vật lý (vỡ, dập nát)
+  | 'CONTAMINATED'  // Nhiễm bẩn, không đạt vệ sinh
+  | 'OVERCOOKED'    // Nấu hỏng / lỗi chế biến
+  | 'SPILLED'       // Đổ vỡ, rò rỉ
+  | 'OTHER';        // Lý do khác (bắt buộc đi kèm note)
+
+export interface WasteEntryInput {
+  ingredientId: string;
+  quantity:     number;       // luôn dương — service sẽ tự đổi dấu
+  wasteReason:  WasteReason;
+  note?:        string;       // bắt buộc khi wasteReason = 'OTHER'
+  performedBy:  string;       // userId của người thực hiện
+}
+
+export interface WasteEntryResult {
+  log:           any;     // InventoryLog record vừa tạo
+  ingredient:    any;     // Ingredient với stock đã cập nhật
+  lowStockAlert: boolean;
+}
+
+export const recordWaste = async (input: WasteEntryInput): Promise<WasteEntryResult> => {
+  const { ingredientId, quantity, wasteReason, note, performedBy } = input;
+
+  // Bắt buộc có note khi chọn 'OTHER'
+  if (wasteReason === 'OTHER' && (!note || note.trim() === '')) {
+    throw Object.assign(
+      new Error('Lý do "OTHER" yêu cầu mô tả cụ thể trong trường note'),
+      { code: 'NOTE_REQUIRED' }
+    );
+  }
+
+  // Lấy ingredient hiện tại (validation + đọc stock)
+  const ingredient = await prisma.ingredient.findUnique({ where: { id: ingredientId } });
+  if (!ingredient) {
+    throw Object.assign(new Error('Nguyên liệu không tồn tại'), { code: 'NOT_FOUND' });
+  }
+
+  // delta luôn âm (trừ kho)
+  const delta    = -Math.abs(quantity);
+  const newStock = Number(ingredient.stock) + delta;
+
+  if (newStock < 0) {
+    throw Object.assign(
+      new Error(
+        `Số lượng xuất hủy (${quantity} ${ingredient.unit}) vượt quá tồn kho hiện tại ` +
+        `(${Number(ingredient.stock)} ${ingredient.unit})`
+      ),
+      { code: 'STOCK_UNDERFLOW' }
+    );
+  }
+
+  // Label ghi vào InventoryLog: 'WASTE:<REASON> [note nếu có]'
+  const reasonLabel = note?.trim()
+    ? `WASTE:${wasteReason} — ${note.trim()}`
+    : `WASTE:${wasteReason}`;
+
+  // Thực hiện UPDATE + INSERT trong 1 transaction
+  let createdLog: any;
+  const [updatedIngredient] = await prisma.$transaction([
+    prisma.ingredient.update({
+      where: { id: ingredientId },
+      data:  { stock: newStock },
+    }),
+    prisma.inventoryLog.create({
+      data: {
+        ingredientId,
+        delta,
+        reason:    reasonLabel,
+        orderId:   null,
+        createdBy: performedBy,
+      },
+    }),
+  ]);
+
+  // Lấy log vừa tạo để trả về (prisma.$transaction sequential không return create)
+  createdLog = await prisma.inventoryLog.findFirst({
+    where: { ingredientId, createdBy: performedBy },
+    orderBy: { createdAt: 'desc' },
+    include: { ingredient: { select: { name: true, unit: true } } },
+  });
+
+  const lowStockAlert = Number(updatedIngredient.stock) <= Number(updatedIngredient.minStock);
+
+  return {
+    log:           createdLog,
+    ingredient:    updatedIngredient,
+    lowStockAlert,
+  };
 };
 
 // ── Inventory Logs ───────────────────────────────────────────────
