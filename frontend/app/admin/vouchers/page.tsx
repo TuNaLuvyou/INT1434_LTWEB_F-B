@@ -15,7 +15,6 @@ import {
   TrendingDown,
   UserCheck
 } from "lucide-react";
-import AdminTabs from "@/components/admin/AdminTabs";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
 
 interface Voucher {
@@ -153,21 +152,15 @@ export default function AdminVouchersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
+    <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
       {/* Background Glow */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-900/10 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[130px] pointer-events-none" />
 
       {/* Header */}
-      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
+        <div className="max-w-7xl mx-auto px-6 pl-16 lg:pl-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link
-              href="/admin"
-              className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-lg text-white">Quản Lý Voucher</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">
@@ -179,29 +172,26 @@ export default function AdminVouchersPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-        <div className="flex justify-start">
-          <AdminTabs />
-        </div>
+      <main className="flex-1 overflow-hidden flex flex-col p-6 space-y-4 max-w-7xl w-full mx-auto">
 
         {/* Feedback Alerts */}
         {errorMsg && (
-          <div className="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 text-sm text-rose-400">
+          <div className="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 text-sm text-rose-400 shrink-0">
             <AlertCircle className="h-5 w-5 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
-          <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-sm text-emerald-400">
+          <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-sm text-emerald-400 shrink-0">
             <Sparkles className="h-5 w-5 shrink-0" />
             <span>{successMsg}</span>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Form Create Voucher (Left side) */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-5">
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 space-y-4 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <Ticket className="h-5 w-5 text-violet-400" />
@@ -324,8 +314,8 @@ export default function AdminVouchersPage() {
           </div>
 
           {/* List of Vouchers (Right side) */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 lg:col-span-2 space-y-5">
-            <div>
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 lg:col-span-2 flex flex-col space-y-4 h-full min-h-0">
+            <div className="shrink-0">
               <h2 className="text-base font-bold text-white">Danh Sách Voucher</h2>
               <p className="text-xs text-zinc-500 mt-1">
                 Quản lý các mã giảm giá đang hoạt động hoặc đã lưu vết trong hệ thống.
@@ -333,26 +323,26 @@ export default function AdminVouchersPage() {
             </div>
 
             {loading ? (
-              <div className="py-20 flex flex-col items-center justify-center gap-3 text-zinc-500 font-light">
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 text-zinc-500 font-light">
                 <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
                 <span>Đang tải danh sách voucher...</span>
               </div>
             ) : vouchers.length === 0 ? (
-              <div className="py-20 text-center text-zinc-600 font-light text-xs flex flex-col items-center gap-2">
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 text-zinc-600 font-light text-xs">
                 <Ticket className="h-10 w-10 stroke-[1] text-zinc-700" />
                 <span>Chưa có mã giảm giá nào được tạo.</span>
               </div>
             ) : (
-              <div className="overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20">
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
-                      <th className="px-4 py-3">Mã Code</th>
-                      <th className="px-4 py-3">Mức Giảm</th>
-                      <th className="px-4 py-3 text-center">Đã Dùng / Giới Hạn</th>
-                      <th className="px-4 py-3">Ngày Hết Hạn</th>
-                      <th className="px-4 py-3 text-center">Trạng Thái</th>
-                      <th className="px-4 py-3 text-center">Hành Động</th>
+                      <th className="px-4 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Mã Code</th>
+                      <th className="px-4 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Mức Giảm</th>
+                      <th className="px-4 py-3 text-center sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Đã Dùng / Giới Hạn</th>
+                      <th className="px-4 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Ngày Hết Hạn</th>
+                      <th className="px-4 py-3 text-center sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Trạng Thái</th>
+                      <th className="px-4 py-3 text-center sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Hành Động</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-900 text-xs">

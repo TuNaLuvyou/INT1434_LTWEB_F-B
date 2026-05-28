@@ -12,9 +12,6 @@ import prisma from '../config/prisma';
 export const getDeviceUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const users = await prisma.user.findMany({
-      where: {
-        role: 'STAFF'
-      },
       select: {
         id: true,
         name: true,

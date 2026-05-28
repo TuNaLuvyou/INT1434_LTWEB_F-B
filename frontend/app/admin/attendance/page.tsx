@@ -15,7 +15,6 @@ import {
   UserX,
   FileText
 } from "lucide-react";
-import AdminTabs from "@/components/admin/AdminTabs";
 import { 
   fetchAttendanceToday, 
   fetchAttendanceHistory, 
@@ -131,18 +130,15 @@ export default function AdminAttendancePage() {
   );
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
+    <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
       {/* Background Glow */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-900/10 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[130px] pointer-events-none" />
 
       {/* Header */}
-      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
+        <div className="max-w-7xl mx-auto px-6 pl-16 lg:pl-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-lg text-white">Quản Lý Chấm Công</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">Chấm Công</span>
@@ -162,16 +158,11 @@ export default function AdminAttendancePage() {
       </header>
 
       {/* Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-        
-        {/* Navigation Tabs */}
-        <div className="flex justify-start">
-          <AdminTabs />
-        </div>
+      <main className="flex-1 overflow-hidden flex flex-col p-6 space-y-4 max-w-7xl w-full mx-auto">
 
         {/* Section Actions & Sub-Tabs */}
-        <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="flex-1 min-h-0 bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 flex flex-col space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between shrink-0">
             <div className="flex gap-1.5 border border-zinc-900 bg-zinc-950/60 rounded-xl p-1 shrink-0">
               <button
                 onClick={() => { setActiveTab(SubTab.Today); setSearchQuery(""); }}
@@ -231,16 +222,16 @@ export default function AdminAttendancePage() {
 
           {/* Sub-tab 1: TODAY */}
           {activeTab === SubTab.Today && (
-            <div className="overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
-                    <th className="px-5 py-3">Nhân Viên</th>
-                    <th className="px-5 py-3">Vai Trò</th>
-                    <th className="px-5 py-3">Thời Gian Check-In</th>
-                    <th className="px-5 py-3">Thời Gian Check-Out</th>
-                    <th className="px-5 py-3">Thiết Bị Ghi Nhận</th>
-                    <th className="px-5 py-3 text-center">Trạng Thái Phê Duyệt</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Nhân Viên</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Vai Trò</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thời Gian Check-In</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thời Gian Check-Out</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thiết Bị Ghi Nhận</th>
+                    <th className="px-5 py-3 text-center sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Trạng Thái Phê Duyệt</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900 text-xs">
@@ -294,17 +285,17 @@ export default function AdminAttendancePage() {
 
           {/* Sub-tab 2: HISTORY */}
           {activeTab === SubTab.History && (
-            <div className="overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
-                    <th className="px-5 py-3">Nhân Viên</th>
-                    <th className="px-5 py-3">Ngày Chấm</th>
-                    <th className="px-5 py-3">Giờ Check-in</th>
-                    <th className="px-5 py-3">Giờ Check-out</th>
-                    <th className="px-5 py-3">Loại</th>
-                    <th className="px-5 py-3">Thiết Bị</th>
-                    <th className="px-5 py-3 text-center">Phê Duyệt</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Nhân Viên</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Ngày Chấm</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Giờ Check-in</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Giờ Check-out</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Loại</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thiết Bị</th>
+                    <th className="px-5 py-3 text-center sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Phê Duyệt</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900 text-xs">
@@ -362,16 +353,16 @@ export default function AdminAttendancePage() {
 
           {/* Sub-tab 3: APPROVE */}
           {activeTab === SubTab.Approve && (
-            <div className="overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
-                    <th className="px-5 py-3">Nhân Viên</th>
-                    <th className="px-5 py-3">Thời Gian Check-In</th>
-                    <th className="px-5 py-3">Thời Gian Check-Out</th>
-                    <th className="px-5 py-3">Loại</th>
-                    <th className="px-5 py-3">Thiết Bị Yêu Cầu</th>
-                    <th className="px-5 py-3 text-center">Hành Động</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Nhân Viên</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thời Gian Check-In</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thời Gian Check-Out</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Loại</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thiết Bị Yêu Cầu</th>
+                    <th className="px-5 py-3 text-center sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Hành Động</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900 text-xs">
