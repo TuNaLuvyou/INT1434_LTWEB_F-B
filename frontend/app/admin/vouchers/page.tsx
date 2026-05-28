@@ -221,11 +221,10 @@ export default function AdminVouchersPage() {
                   <button
                     type="button"
                     onClick={() => setDiscountType("PERCENT")}
-                    className={`rounded-xl border py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all ${
-                      discountType === "PERCENT"
-                        ? "border-violet-500/50 bg-violet-500/10 text-violet-400 font-bold"
-                        : "border-zinc-900 bg-zinc-950 text-zinc-500 hover:text-zinc-300"
-                    }`}
+                    className={`rounded-xl border py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all ${discountType === "PERCENT"
+                      ? "border-violet-500/50 bg-violet-500/10 text-violet-400 font-bold"
+                      : "border-zinc-900 bg-zinc-950 text-zinc-500 hover:text-zinc-300"
+                      }`}
                   >
                     <Percent className="h-3.5 w-3.5" />
                     Phần trăm (%)
@@ -233,13 +232,10 @@ export default function AdminVouchersPage() {
                   <button
                     type="button"
                     onClick={() => setDiscountType("FIXED")}
-                    className={`rounded-xl border py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all ${
-                      discountType === "FIXED"
-                        ? "border-violet-500/50 bg-violet-500/10 text-violet-400 font-bold"
-                        : "border-zinc-900 bg-zinc-950 text-zinc-500 hover:text-zinc-300"
-                    }`}
-                  >
-                    <span>đ</span>
+                    className={`rounded-xl border py-2.5 flex items-center justify-center gap-1.5 text-xs font-semibold transition-all ${discountType === "FIXED"
+                      ? "border-violet-500/50 bg-violet-500/10 text-violet-400 font-bold"
+                      : "border-zinc-900 bg-zinc-950 text-zinc-500 hover:text-zinc-300"
+                      }`}>
                     Số tiền cố định
                   </button>
                 </div>
@@ -374,11 +370,10 @@ export default function AdminVouchersPage() {
                           </td>
                           <td className="px-4 py-3.5 text-center">
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold ${
-                                active
-                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                  : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                              }`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold ${active
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                }`}
                             >
                               {active ? "Hoạt động" : "Hết hạn/Khóa"}
                             </span>
