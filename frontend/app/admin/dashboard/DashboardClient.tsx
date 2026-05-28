@@ -5,18 +5,29 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   LineChart, Line, ScatterChart, Scatter, ZAxis, Cell
 } from 'recharts';
-import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, isValid, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Loader2, Calendar } from 'lucide-react';
+import { Loader2, Calendar, Download } from 'lucide-react';
+import { RoleGate } from '@/components/auth';
+import { useAuthStore } from '@/stores/auth.store';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 const fmtCurrency = (val: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
-export default function DashboardClient() {
+export default function DashboardClient({ initialRole }: { initialRole?: 'ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN' | 'CASHIER' }) {
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [peakHoursData, setPeakHoursData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const setUser = useAuthStore(state => state.setUser);
+  const currentUser = useAuthStore(state => state.user);
+
+  useEffect(() => {
+    if (initialRole && !currentUser) {
+      setUser({ id: '', email: '', name: '', role: initialRole });
+    }
+  }, [initialRole, currentUser, setUser]);
 
   // Filters
   const [dateRange, setDateRange] = useState<'7days' | '30days' | 'thisMonth'>('7days');
@@ -85,34 +96,43 @@ export default function DashboardClient() {
 
   return (
     <div className="flex-grow flex flex-col space-y-4 overflow-hidden h-full min-h-0">
-      {/* Filters (Shrink-0) */}
-      <div className="flex flex-wrap gap-4 bg-zinc-900/40 p-4 rounded-2xl border border-zinc-900 shadow-sm shrink-0">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-violet-400" />
-          <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Thời gian:</label>
-          <select 
-            value={dateRange} 
-            onChange={e => setDateRange(e.target.value as any)}
-            className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-violet-500 transition-all font-semibold cursor-pointer"
-          >
-            <option value="7days">7 ngày qua</option>
-            <option value="30days">30 ngày qua</option>
-            <option value="thisMonth">Tháng này</option>
-          </select>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 bg-zinc-900/40 p-4 rounded-2xl border border-zinc-900 shadow-sm shrink-0 items-center justify-between">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-violet-400" />
+            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Thời gian:</label>
+            <select 
+              value={dateRange} 
+              onChange={e => setDateRange(e.target.value as any)}
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-violet-500 transition-all font-semibold cursor-pointer"
+            >
+              <option value="7days">7 ngày qua</option>
+              <option value="30days">30 ngày qua</option>
+              <option value="thisMonth">Tháng này</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Nhóm theo:</label>
+            <select 
+              value={groupBy} 
+              onChange={e => setGroupBy(e.target.value as any)}
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-violet-500 transition-all font-semibold cursor-pointer"
+            >
+              <option value="day">Ngày</option>
+              <option value="week">Tuần</option>
+              <option value="month">Tháng</option>
+            </select>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Nhóm theo:</label>
-          <select 
-            value={groupBy} 
-            onChange={e => setGroupBy(e.target.value as any)}
-            className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-violet-500 transition-all font-semibold cursor-pointer"
-          >
-            <option value="day">Ngày</option>
-            <option value="week">Tuần</option>
-            <option value="month">Tháng</option>
-          </select>
-        </div>
+        <RoleGate allowedRoles={['ADMIN', 'MANAGER']}>
+          <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all">
+            <Download className="h-4 w-4" />
+            Xuất Excel
+          </button>
+        </RoleGate>
       </div>
 
       {loading ? (
@@ -121,7 +141,49 @@ export default function DashboardClient() {
           <p className="text-xs font-bold text-zinc-400">Đang phân tích dữ liệu hiệu suất...</p>
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-6 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-6 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent pb-10">
+          
+          {/* Quick Stats */}
+          <RoleGate allowedRoles={['ADMIN', 'MANAGER']}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-900 shadow-xl">
+                <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Tổng đơn hàng</p>
+                <p className="text-3xl font-black text-white mt-2">1,234</p>
+              </div>
+              <div className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-900 shadow-xl">
+                <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Doanh thu hôm nay</p>
+                <p className="text-3xl font-black text-emerald-400 mt-2">15.000.000 ₫</p>
+              </div>
+              <div className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-900 shadow-xl">
+                <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Bàn đang active</p>
+                <p className="text-3xl font-black text-violet-400 mt-2">12 / 20</p>
+              </div>
+            </div>
+          </RoleGate>
+
+          {/* Admin Only Information Section */}
+          <RoleGate allowedRoles={['ADMIN']}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="bg-rose-500/10 border border-rose-500/20 p-5 rounded-3xl shadow-xl">
+                <h3 className="text-rose-400 font-bold mb-2 uppercase text-xs tracking-wider">System Alerts</h3>
+                <p className="text-sm text-rose-300">Cảnh báo: Server CPU đang ở mức 85%. Cần nâng cấp gói hosting.</p>
+              </div>
+              <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-3xl shadow-xl">
+                <h3 className="text-amber-400 font-bold mb-2 uppercase text-xs tracking-wider">License Info</h3>
+                <p className="text-sm text-amber-300">RestoFlow Enterprise License. Hết hạn sau 365 ngày.</p>
+              </div>
+              <div className="bg-blue-500/10 border border-blue-500/20 p-5 rounded-3xl shadow-xl flex flex-col items-start justify-between">
+                <div>
+                  <h3 className="text-blue-400 font-bold mb-2 uppercase text-xs tracking-wider">User Management</h3>
+                  <p className="text-sm text-blue-300 mb-3">Tạo và phân quyền quản trị.</p>
+                </div>
+                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-colors">
+                  Thêm tài khoản
+                </button>
+              </div>
+            </div>
+          </RoleGate>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Doanh thu BarChart */}
             <div className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-900 shadow-xl">

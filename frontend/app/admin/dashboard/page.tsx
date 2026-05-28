@@ -1,5 +1,7 @@
 import DashboardClient from './DashboardClient';
 import { Calendar } from 'lucide-react';
+import { getCurrentUser } from '@/lib/auth/getCurrentUser';
+import { redirect } from 'next/navigation';
 
 export const revalidate = 60; // Chiến lược ISR: revalidate mỗi 60 giây
 
@@ -8,6 +10,11 @@ export const metadata = {
 };
 
 export default function DashboardPage() {
+  const user = getCurrentUser();
+  if (!user || !['ADMIN', 'MANAGER'].includes(user.role)) {
+    redirect('/login?reason=forbidden');
+  }
+
   return (
     <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
       {/* Background Glow */}
@@ -39,7 +46,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <DashboardClient />
+        <DashboardClient initialRole={user.role as any} />
       </main>
     </div>
   );
