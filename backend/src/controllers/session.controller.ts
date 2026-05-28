@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import * as sessionService from '../services/session.service';
 import { AppError } from '../utils/app-error';
 import { emitCartUpdated } from '../socket/emit.helpers';
+import { InsufficientStockError } from '../services/inventory.service';
 
 // ─── POST /api/sessions/join ──────────────────────────────────────────────────
 /**
@@ -102,6 +103,18 @@ export async function updateSessionStatus(req: AuthenticatedRequest, res: Respon
       data: { session: updatedSession },
     });
   } catch (error: any) {
+    // ── Xử lý đặc biệt: Tồn kho không đủ ────────────────────────────────────
+    // HTTP 422 Unprocessable Entity — request hợp lệ nhưng không thể thực thi
+    // vì điều kiện nghiệp vụ không thỏa mãn (thiếu nguyên liệu).
+    if (error instanceof InsufficientStockError) {
+      res.status(422).json({
+        success:  false,
+        code:     'INSUFFICIENT_STOCK',
+        message:  error.message,
+        shortages: error.shortages, // [{ingredientName, required, available, shortage, unit}]
+      });
+      return;
+    }
     const status = error.statusCode ?? 500;
     res.status(status).json({ success: false, message: error.message ?? 'Internal server error' });
   }

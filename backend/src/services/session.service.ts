@@ -2,6 +2,7 @@ import prisma from '../config/prisma';
 import { SessionStatus } from '@prisma/client';
 import { emitTableStatusChanged, emitSessionClosed, emitKitchenNewTicket } from '../socket/emit.helpers';
 import { AppError } from '../utils/app-error';
+import { deductInventory, InsufficientStockError } from './inventory.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -234,17 +235,25 @@ export async function updateSessionStatus(
       // 1. Chuyển tất cả CART thành PENDING
       if (cartItems.length > 0) {
         await tx.orderItem.updateMany({
-          where: {
-            sessionId,
-            status: 'CART'
-          },
-          data: {
-            status: 'PENDING'
-          }
+          where: { sessionId, status: 'CART' },
+          data:  { status: 'PENDING' },
         });
       }
 
-      // 2. Cập nhật TableSession thành PAID, closedAt, và lockedAt (nếu chưa locked)
+      // 2. AUTO-DEDUCTION: Trừ tồn kho nguyên liệu theo BOM
+      //    Gộp các items CART + PENDING (chưa bị deduct) để tính nguyên liệu.
+      //    Chỉ deduct các món có trạng thái CART hoặc PENDING (không deduct DONE/VOID lần 2).
+      const itemsToDeduct = session.orderItems
+        .filter(i => i.status === 'CART' || i.status === 'PENDING')
+        .map(i => ({ menuItemId: i.menuItemId, qty: i.qty }));
+
+      if (itemsToDeduct.length > 0) {
+        // Truyền tx vào deductInventory để chạy trong cùng 1 transaction
+        // → nếu deduct fail (thiếu stock) toàn bộ PAID operation sẽ rollback
+        await deductInventory(itemsToDeduct, sessionId, 'SYSTEM_CASHIER', tx as any);
+      }
+
+      // 3. Cập nhật TableSession thành PAID, closedAt, và lockedAt (nếu chưa locked)
       updatedSession = await tx.tableSession.update({
         where: { id: sessionId },
         data: {
@@ -255,11 +264,14 @@ export async function updateSessionStatus(
         include: orderItemsInclude,
       });
 
-      // 3. Cập nhật trạng thái bàn
+      // 4. Cập nhật trạng thái bàn
       await tx.table.update({
         where: { id: session.tableId },
         data: { status: targetTableStatus },
       });
+    }, {
+      timeout:  15_000, // 15s — đủ cho batch deduction lớn
+      maxWait:   5_000,
     });
 
     // Emit socket events cho floor-plan

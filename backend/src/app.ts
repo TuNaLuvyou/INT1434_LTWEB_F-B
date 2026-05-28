@@ -15,6 +15,9 @@ import attendanceRoutes from './routes/attendance.routes';
 import scheduleRoutes from './routes/schedule.routes';
 import kdsRoutes from './routes/kds.routes';
 import cashierRoutes from './routes/cashier.routes';
+import analyticsRoutes from './routes/analytics.routes';
+import paymentRoutes from './routes/payment.routes';
+import voucherRoutes from './routes/voucher.routes';
 import { initSocket } from './socket';
 
 const app = express();
@@ -41,6 +44,9 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/kds', kdsRoutes);
 app.use('/api/cashier', cashierRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/vouchers', voucherRoutes);
 
 // Đăng ký route sold-out TRƯỚC để nó bắt lấy request PATCH /:id/sold-out
 // và xử lý quyền hạn cho cả KITCHEN, tránh bị chặn bởi adminMenuRoutes ở dưới.
