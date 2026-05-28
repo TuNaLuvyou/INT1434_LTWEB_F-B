@@ -6,6 +6,8 @@ import 'dotenv/config';
 import authRoutes from './routes/auth.routes';
 import menuRoutes from './routes/menu.routes';
 import adminMenuRoutes from './routes/admin.menu.routes';
+import adminUserRoutes from './routes/admin.user.routes';
+import systemRoutes from './routes/system.routes';
 import soldOutRoutes from './routes/sold-out.routes';
 import tableRoutes from './routes/table.routes';
 import sessionRoutes from './routes/session.routes';
@@ -56,6 +58,15 @@ app.use('/api/admin/menu-items', soldOutRoutes);
 
 // Đăng ký route quản lý admin (yêu cầu ADMIN/MANAGER cho các thao tác CRUD)
 app.use('/api/admin/menu-items', adminMenuRoutes);
+app.use('/api/admin/users', adminUserRoutes);
+
+// System routes
+app.use('/api/system', systemRoutes);
+
+// Admin sync menu
+import { syncMenu } from './controllers/system.controller';
+import { authMiddleware, requireRole } from './middlewares/auth.middleware';
+app.post('/api/admin/menu/sync', authMiddleware, requireRole(['ADMIN', 'MANAGER']), syncMenu as any);
 
 // Route kiểm tra server
 app.get('/', (req, res) => {
