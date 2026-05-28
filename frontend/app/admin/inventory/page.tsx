@@ -209,7 +209,7 @@ export default function AdminInventoryPage() {
                             onClick={() => setStockTarget(item)}
                             className="px-2.5 py-1 rounded bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25 text-[10px] font-semibold transition-all"
                           >
-                            Nhập kho
+                            Nhập/Xuất
                           </button>
                           <button 
                             onClick={() => setEditTarget(item)}

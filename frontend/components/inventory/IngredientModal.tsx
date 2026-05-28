@@ -3,6 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { X, Loader2, AlertTriangle, Layers, Scale, Info } from 'lucide-react';
 
 const schema = z.object({
   name:     z.string().min(1, 'Tên nguyên liệu không được để trống'),
@@ -53,76 +54,141 @@ export default function IngredientModal({ ingredient, onClose, onSaved }: Props)
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">
-            {isEdit ? 'Chỉnh sửa nguyên liệu' : 'Thêm nguyên liệu mới'}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+      <div 
+        className="w-full max-w-md bg-zinc-900/95 border border-zinc-800 rounded-[28px] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden font-sans"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Background Glow */}
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-900/10 blur-[100px] pointer-events-none" />
+
+        {/* Modal Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h3 className="text-base font-extrabold text-white">
+              {isEdit ? 'Chỉnh sửa nguyên liệu' : 'Thêm nguyên liệu mới'}
+            </h3>
+            <p className="text-[11px] text-zinc-300 font-normal mt-1">
+              {isEdit ? 'Thay đổi thông số cấu hình nguyên liệu nhà hàng RestoFlow.' : 'Tạo mới một nguyên liệu vào danh sách kho.'}
+            </p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="h-8 w-8 rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center transition-all active:scale-90"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tên nguyên liệu</label>
-            <input
-              type="text"
-              {...register('name')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="VD: Thịt bò, Bột mì..."
-            />
-            {errors.name?.message && <p className="text-red-500 text-xs mt-1">{String(errors.name.message)}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Đơn vị tính</label>
-            <input
-              type="text"
-              {...register('unit')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="VD: kg, gam, quả, hộp..."
-            />
-            {errors.unit?.message && <p className="text-red-500 text-xs mt-1">{String(errors.unit.message)}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tồn kho hiện tại</label>
-            <input
-              type="number"
-              step="0.01"
-              {...register('stock')}
-              disabled={isEdit} // Thường không nên trực tiếp sửa tồn kho khi edit mà qua phiếu nhập kho
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed"
-              placeholder="VD: 100"
-            />
-            {errors.stock?.message && <p className="text-red-500 text-xs mt-1">{String(errors.stock.message)}</p>}
-            {isEdit && (
-              <p className="text-[11px] text-gray-400 mt-1">
-                Lưu ý: Để điều chỉnh tồn kho, vui lòng dùng tính năng "Nhập kho" ở trang danh sách.
-              </p>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Ingredient Name */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold text-zinc-400 block">Tên nguyên liệu</label>
+            <div className="relative">
+              <Layers className="absolute left-3.5 top-3 h-4 w-4 text-zinc-500" />
+              <input
+                type="text"
+                {...register('name')}
+                className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/10 transition-all font-medium"
+                placeholder="Ví dụ: Thịt bò, Bột mì..."
+              />
+            </div>
+            {errors.name?.message && (
+              <div className="mt-1.5 px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-2xs flex items-center gap-1.5 animate-shake">
+                <AlertTriangle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                <span className="font-semibold">{String(errors.name.message)}</span>
+              </div>
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ngưỡng cảnh báo hết hàng</label>
-            <input
-              type="number"
-              step="0.01"
-              {...register('minStock')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="VD: 10"
-            />
-            {errors.minStock?.message && <p className="text-red-500 text-xs mt-1">{String(errors.minStock.message)}</p>}
+          {/* Unit */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold text-zinc-400 block">Đơn vị tính</label>
+            <div className="relative">
+              <Scale className="absolute left-3.5 top-3 h-4 w-4 text-zinc-500" />
+              <input
+                type="text"
+                {...register('unit')}
+                className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/10 transition-all font-medium"
+                placeholder="Ví dụ: kg, gam, quả, hộp..."
+              />
+            </div>
+            {errors.unit?.message && (
+              <div className="mt-1.5 px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-2xs flex items-center gap-1.5 animate-shake">
+                <AlertTriangle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                <span className="font-semibold">{String(errors.unit.message)}</span>
+              </div>
+            )}
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          {/* Current Stock */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold text-zinc-400 block">Tồn kho hiện tại</label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.01"
+                {...register('stock')}
+                disabled={isEdit}
+                className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl py-2.5 px-3.5 text-xs text-zinc-100 placeholder-zinc-650 focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/10 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-zinc-950/30"
+                placeholder="Ví dụ: 100"
+              />
+            </div>
+            {errors.stock?.message && (
+              <div className="mt-1.5 px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-2xs flex items-center gap-1.5 animate-shake">
+                <AlertTriangle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                <span className="font-semibold">{String(errors.stock.message)}</span>
+              </div>
+            )}
+            {isEdit && (
+              <div className="mt-2 p-3 bg-zinc-950/40 rounded-xl border border-zinc-850/60 flex items-start gap-2.5">
+                <Info className="h-3.5 w-3.5 text-violet-400 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-zinc-400 font-medium leading-normal">
+                  Lưu ý: Để điều chỉnh tồn kho, vui lòng dùng tính năng <span className="text-violet-400 font-bold">"Nhập kho"</span> tại danh sách ngoài để giữ lịch sử điều chỉnh chính xác.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Low Stock Warning Alert Threshold */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold text-zinc-400 block">Ngưỡng cảnh báo hết hàng</label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.01"
+                {...register('minStock')}
+                className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl py-2.5 px-3.5 text-xs text-zinc-100 placeholder-zinc-650 focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/10 transition-all font-medium"
+                placeholder="Ví dụ: 10"
+              />
+            </div>
+            {errors.minStock?.message && (
+              <div className="mt-1.5 px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-2xs flex items-center gap-1.5 animate-shake">
+                <AlertTriangle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                <span className="font-semibold">{String(errors.minStock.message)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex gap-3 pt-3 mt-4">
+            <button 
+              type="button" 
+              onClick={onClose}
+              className="px-4 py-2.5 bg-zinc-850/40 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 transition-all active:scale-95 flex-1"
+            >
               Hủy
             </button>
-            <button type="submit" disabled={isSubmitting}
-              className="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-60">
-              {isSubmitting ? 'Đang lưu...' : 'Lưu lại'}
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 text-white text-xs font-semibold py-2.5 rounded-xl transition-all shadow-[0_0_20px_rgba(124,58,237,0.3)] active:scale-95 flex-1"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <span>Lưu lại</span>
+              )}
             </button>
           </div>
         </form>

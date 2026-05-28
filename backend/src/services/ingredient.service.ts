@@ -156,7 +156,7 @@ export const remove = async (id: string) => {
 export const adjustStock = async (
   id: string,
   delta: number,
-  reason: 'MANUAL_IMPORT' | 'ADJUSTMENT',
+  reason: 'MANUAL_IMPORT' | 'ADJUSTMENT' | 'MANUAL_EXPORT',
   createdBy: string,
   note?: string
 ) => {
