@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   AlertCircle
 } from 'lucide-react';
-import AdminTabs from "@/components/admin/AdminTabs";
 import { getAccessTokenFromCookie } from '@/lib/auth/client';
 import { useAuthStore } from '@/stores/auth.store';
 
@@ -94,18 +93,15 @@ export default function ProfileRequestsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
+    <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
       {/* Background Glow */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-900/10 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[130px] pointer-events-none" />
 
       {/* Header */}
-      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
+        <div className="max-w-7xl mx-auto px-6 pl-16 lg:pl-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-lg text-white">Duyệt Hồ Sơ</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">HRM Approvals</span>
@@ -124,13 +120,10 @@ export default function ProfileRequestsPage() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-        <div className="flex justify-start">
-          <AdminTabs />
-        </div>
+      <main className="flex-1 overflow-hidden flex flex-col p-6 space-y-4 max-w-7xl w-full mx-auto">
 
-        <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="flex-1 min-h-0 bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 flex flex-col space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between shrink-0">
             <div>
               <h2 className="text-base font-bold text-white">Danh Sách Yêu Cầu Thay Đổi Thông Tin</h2>
               <p className="text-xs text-zinc-400 font-light mt-0.5">Phê duyệt hoặc từ chối các yêu cầu sửa đổi hồ sơ cá nhân của nhân viên.</p>
@@ -156,15 +149,15 @@ export default function ProfileRequestsPage() {
 
           {/* Requests Grid */}
           {isLoading ? (
-            <div className="text-center py-12 text-zinc-500 font-light text-sm">
+            <div className="flex-1 flex items-center justify-center text-zinc-500 font-light text-sm">
               Đang tải danh sách yêu cầu...
             </div>
           ) : filteredRequests.length === 0 ? (
-            <div className="text-center py-12 text-zinc-600 font-light text-sm border border-dashed border-zinc-900 rounded-2xl bg-zinc-950/10">
+            <div className="flex-1 flex items-center justify-center text-zinc-600 font-light text-sm border border-dashed border-zinc-900 rounded-2xl bg-zinc-950/10">
               Không có yêu cầu chỉnh sửa nào.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 grid grid-cols-1 md:grid-cols-2 gap-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
               {filteredRequests.map(req => (
                 <div 
                   key={req.id} 

@@ -143,11 +143,11 @@ export default function DevicesClient() {
   }
 
   return (
-    <div className="space-y-8 relative z-10">
+    <div className="flex-1 min-h-0 flex flex-col space-y-4 relative z-10">
       
       {/* SUCCESS TOKEN SHOWCASE */}
       {newToken && (
-        <div className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-6 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-5 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300 shrink-0">
           <div className="absolute -right-16 -top-16 h-36 w-36 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
           
           <div className="flex gap-4">
@@ -203,9 +203,9 @@ export default function DevicesClient() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* REGISTER FORM */}
-        <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-6 lg:sticky lg:top-24">
+        <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 space-y-4 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <PlusCircle className="h-4 w-4 text-violet-400" />
@@ -271,8 +271,8 @@ export default function DevicesClient() {
         </div>
 
         {/* REGISTERED LIST */}
-        <div className="lg:col-span-2 bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-6 flex flex-col justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="lg:col-span-2 bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 flex flex-col space-y-4 h-full min-h-0">
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between shrink-0">
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <Laptop className="h-4.5 w-4.5 text-indigo-400" />
@@ -296,15 +296,15 @@ export default function DevicesClient() {
             </div>
           </div>
 
-          <div className="overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
-                  <th className="px-5 py-3">Thiết bị</th>
-                  <th className="px-5 py-3">Người dùng sở hữu</th>
-                  <th className="px-5 py-3">Hoạt động gần nhất</th>
-                  <th className="px-5 py-3 text-center">Token</th>
-                  <th className="px-5 py-3 text-right">Thao tác</th>
+                  <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thiết bị</th>
+                  <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Người dùng sở hữu</th>
+                  <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Hoạt động gần nhất</th>
+                  <th className="px-5 py-3 text-center sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Token</th>
+                  <th className="px-5 py-3 text-right sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-900 text-xs">
