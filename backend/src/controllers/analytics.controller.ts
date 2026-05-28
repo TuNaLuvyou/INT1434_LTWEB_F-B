@@ -56,3 +56,26 @@ export const getPeakHours = async (req: Request, res: Response): Promise<void> =
     }
   }
 };
+
+import { ExcelService } from '../services/excel.service';
+
+export const exportExcel = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { from, to, type } = req.query;
+    
+    // Set timeout to 60s
+    req.setTimeout(60000);
+
+    const fromDate = from ? new Date(from as string) : new Date(new Date().setDate(1));
+    const toDate = to ? new Date(to as string) : new Date();
+    const reportType = type === 'summary' ? 'summary' : 'full';
+
+    const excelService = new ExcelService();
+    await excelService.generateRevenueReport(res, fromDate, toDate, reportType);
+  } catch (e) {
+    console.error('[AnalyticsController] exportExcel error:', e);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Lỗi xuất Excel' });
+    }
+  }
+};

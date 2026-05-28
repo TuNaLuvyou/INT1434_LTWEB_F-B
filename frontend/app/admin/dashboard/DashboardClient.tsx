@@ -17,6 +17,7 @@ export default function DashboardClient() {
   const [revenueData, setRevenueData] = useState<any[]>([]);
   const [peakHoursData, setPeakHoursData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Filters
   const [dateRange, setDateRange] = useState<'7days' | '30days' | 'thisMonth'>('7days');
@@ -81,6 +82,49 @@ export default function DashboardClient() {
     }));
   }, [peakHoursData]);
 
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    try {
+      const now = new Date();
+      let from: Date, to: Date = now;
+      if (dateRange === '7days') {
+        from = subDays(now, 7);
+      } else if (dateRange === '30days') {
+        from = subDays(now, 30);
+      } else {
+        from = startOfMonth(now);
+        to = endOfMonth(now);
+      }
+
+      const params = new URLSearchParams({
+        from: format(from, 'yyyy-MM-dd'),
+        to: format(to, 'yyyy-MM-dd'),
+        type: 'full'
+      });
+      
+      const res = await fetch(`${API}/api/analytics/export?${params}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+      
+      if (!res.ok) throw new Error('Export failed');
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `restoflow-report-${params.get('from')}-${params.get('to')}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert('Lỗi khi xuất Excel');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const maxOrders = Math.max(...heatmapData.map(d => d.orderCount), 1);
 
   return (
@@ -112,6 +156,17 @@ export default function DashboardClient() {
             <option value="week">Tuần</option>
             <option value="month">Tháng</option>
           </select>
+        </div>
+        
+        <div className="ml-auto">
+          <button 
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition-colors disabled:opacity-50"
+          >
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>📊</span>}
+            {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
+          </button>
         </div>
       </div>
 

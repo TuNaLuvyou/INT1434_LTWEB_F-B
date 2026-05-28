@@ -13,4 +13,8 @@ analyticsRouter.get('/revenue', getRevenue);
 // GET /api/analytics/peak-hours?from=...&to=...
 analyticsRouter.get('/peak-hours', getPeakHours);
 
+// GET /api/analytics/export?from=...&to=...&type=full|summary
+import { exportExcel } from '../controllers/analytics.controller';
+analyticsRouter.get('/export', exportExcel);
+
 export default analyticsRouter;
