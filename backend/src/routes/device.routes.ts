@@ -11,8 +11,8 @@ router.use(authMiddleware);
 // Routes accessible by ADMIN and MANAGER
 router.get('/', requireRole(['ADMIN', 'MANAGER']), getDevices);
 router.get('/users', requireRole(['ADMIN', 'MANAGER']), getDeviceUsers);
-router.post('/register', requireRole(['ADMIN', 'MANAGER']), registerDevice);
-router.delete('/:id', requireRole(['ADMIN', 'MANAGER']), revokeDevice);
+router.post('/register', requireRole(['ADMIN']), registerDevice);
+router.delete('/:id', requireRole(['ADMIN']), revokeDevice);
 
 // Strictly ADMIN only route for creating new accounts
 router.post('/users', requireRole(['ADMIN']), async (req, res) => {
