@@ -56,3 +56,26 @@ export const getPeakHours = async (req: Request, res: Response): Promise<void> =
     }
   }
 };
+
+/**
+ * GET /api/analytics/top-selling?from=...&to=...&limit=5
+ */
+export const getTopSelling = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 5;
+
+    // Optional date validation could be added here
+    if (from && to && new Date(from) > new Date(to)) {
+      res.status(400).json({ success: false, message: '"from" không thể lớn hơn "to"' });
+      return;
+    }
+
+    const data = await svc.getTopSellingItems(from, to, limit);
+    res.json({ success: true, data });
+  } catch (e: any) {
+    console.error('[AnalyticsController] getTopSelling error:', e);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
