@@ -1,5 +1,9 @@
 import DashboardClient from './DashboardClient';
 import { Calendar } from 'lucide-react';
+import { getCurrentUser } from '@/lib/auth/getCurrentUser';
+import { redirect } from 'next/navigation';
+import { subDays } from 'date-fns';
+import { cookies } from 'next/headers';
 
 export const revalidate = 60; // Chiến lược ISR: revalidate mỗi 60 giây
 
@@ -7,7 +11,43 @@ export const metadata = {
   title: 'Dashboard Analytics | RestoFlow',
 };
 
-export default function DashboardPage() {
+async function getInitialAnalyticsData() {
+  const now = new Date();
+  const from = subDays(now, 30).toISOString();
+  const to = now.toISOString();
+
+  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  
+  // Khi ISR build thì không có cookie, fetch sẽ trả 401. Ta bắt lỗi và trả mảng rỗng để client fetch sau.
+  const cookieStore = cookies();
+  const cookieHeader = cookieStore.toString();
+
+  try {
+    const [revRes, peakRes, topRes] = await Promise.all([
+      fetch(`${API}/api/analytics/revenue?from=${from}&to=${to}&groupBy=day`, { headers: { cookie: cookieHeader }, next: { revalidate: 60 } }),
+      fetch(`${API}/api/analytics/peak-hours?from=${from}&to=${to}`, { headers: { cookie: cookieHeader }, next: { revalidate: 60 } }),
+      fetch(`${API}/api/analytics/top-selling?from=${from}&to=${to}&limit=5`, { headers: { cookie: cookieHeader }, next: { revalidate: 60 } })
+    ]);
+
+    return {
+      revenueData: revRes.ok ? (await revRes.json()).data : null,
+      peakHoursData: peakRes.ok ? (await peakRes.json()).data : null,
+      topSellingData: topRes.ok ? (await topRes.json()).data : null
+    };
+  } catch (err) {
+    return { revenueData: null, peakHoursData: null, topSellingData: null };
+  }
+}
+
+export default async function DashboardPage() {
+  // RBAC: double-check server-side (middleware đã protect nhưng thêm lớp này cho chắc)
+  const user = getCurrentUser();
+  if (!user || !['ADMIN', 'MANAGER'].includes(user.role)) {
+    redirect('/login?reason=forbidden');
+  }
+
+  const initialData = await getInitialAnalyticsData();
+
   return (
     <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
       {/* Background Glow */}
@@ -39,7 +79,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <DashboardClient />
+        <DashboardClient initialData={initialData} initialRole={user.role as any} />
       </main>
     </div>
   );

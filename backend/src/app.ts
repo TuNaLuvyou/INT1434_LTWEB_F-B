@@ -20,6 +20,7 @@ import paymentRoutes from './routes/payment.routes';
 import voucherRoutes from './routes/voucher.routes';
 import zReportRoutes from './routes/z-report.routes';
 import { initSocket } from './socket';
+import { globalErrorHandler } from './middlewares/error.middleware';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -61,6 +62,9 @@ app.use('/api/admin/menu-items', adminMenuRoutes);
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'RestoFlow POS Backend API is running!' });
 });
+
+// Error handling middleware
+app.use(globalErrorHandler);
 
 // ─── QUAN TRỌNG: Tạo HTTP server thủ công để Socket.io có thể attach vào ───
 // Nếu dùng app.listen() trực tiếp thì Socket.io không thể share cùng port.
