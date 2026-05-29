@@ -1,5 +1,7 @@
 import DashboardClient from './DashboardClient';
 import { Calendar } from 'lucide-react';
+import { getCurrentUser } from '@/lib/auth/getCurrentUser';
+import { redirect } from 'next/navigation';
 import { subDays } from 'date-fns';
 import { cookies } from 'next/headers';
 
@@ -38,6 +40,12 @@ async function getInitialAnalyticsData() {
 }
 
 export default async function DashboardPage() {
+  // RBAC: double-check server-side (middleware đã protect nhưng thêm lớp này cho chắc)
+  const user = getCurrentUser();
+  if (!user || !['ADMIN', 'MANAGER'].includes(user.role)) {
+    redirect('/login?reason=forbidden');
+  }
+
   const initialData = await getInitialAnalyticsData();
 
   return (
@@ -71,7 +79,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <DashboardClient initialData={initialData} />
+        <DashboardClient initialData={initialData} initialRole={user.role as any} />
       </main>
     </div>
   );
