@@ -41,7 +41,7 @@ async function getInitialAnalyticsData() {
 
 export default async function DashboardPage() {
   // RBAC: double-check server-side (middleware đã protect nhưng thêm lớp này cho chắc)
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
   if (!user || !['ADMIN', 'MANAGER'].includes(user.role)) {
     redirect('/login?reason=forbidden');
   }
