@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getRevenue, getPeakHours, getTopSelling } from '../controllers/analytics.controller';
+import { getRevenue, getPeakHours, getTopSelling, exportExcel } from '../controllers/analytics.controller';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 
 const analyticsRouter = Router();
@@ -15,5 +15,8 @@ analyticsRouter.get('/peak-hours', getPeakHours);
 
 // GET /api/analytics/top-selling?from=...&to=...&limit=5
 analyticsRouter.get('/top-selling', getTopSelling);
+
+// GET /api/analytics/export?from=...&to=...&type=full|summary
+analyticsRouter.get('/export', exportExcel);
 
 export default analyticsRouter;

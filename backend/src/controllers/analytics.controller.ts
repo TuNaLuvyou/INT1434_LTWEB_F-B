@@ -15,7 +15,6 @@ export const getRevenue = async (req: Request, res: Response): Promise<void> => 
   try {
     const { from, to, groupBy } = revenueQuerySchema.parse(req.query);
     
-    // Nếu ngày from > to thì báo lỗi
     if (new Date(from) > new Date(to)) {
       res.status(400).json({ success: false, message: '"from" không thể lớn hơn "to"' });
       return;
@@ -66,7 +65,6 @@ export const getTopSelling = async (req: Request, res: Response): Promise<void> 
     const to = req.query.to as string | undefined;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 5;
 
-    // Optional date validation could be added here
     if (from && to && new Date(from) > new Date(to)) {
       res.status(400).json({ success: false, message: '"from" không thể lớn hơn "to"' });
       return;
@@ -77,5 +75,31 @@ export const getTopSelling = async (req: Request, res: Response): Promise<void> 
   } catch (e: any) {
     console.error('[AnalyticsController] getTopSelling error:', e);
     res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+/**
+ * GET /api/analytics/export?from=...&to=...&type=full|summary
+ */
+import { ExcelService } from '../services/excel.service';
+
+export const exportExcel = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { from, to, type } = req.query;
+    
+    // Set timeout to 60s
+    req.setTimeout(60000);
+
+    const fromDate = from ? new Date(from as string) : new Date(new Date().setDate(1));
+    const toDate = to ? new Date(to as string) : new Date();
+    const reportType = type === 'summary' ? 'summary' : 'full';
+
+    const excelService = new ExcelService();
+    await excelService.generateRevenueReport(res, fromDate, toDate, reportType);
+  } catch (e) {
+    console.error('[AnalyticsController] exportExcel error:', e);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Lỗi xuất Excel' });
+    }
   }
 };

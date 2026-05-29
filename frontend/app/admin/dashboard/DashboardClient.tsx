@@ -6,7 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   LineChart, Line, ScatterChart, Scatter, ZAxis, Cell
 } from 'recharts';
-import { format, subDays, startOfMonth, endOfMonth, isValid, parseISO } from 'date-fns';
+import { format, subDays, isValid, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Loader2, Calendar, Download } from 'lucide-react';
 import { RoleGate } from '@/components/auth';
@@ -96,12 +96,13 @@ export default function DashboardClient({
     fetchAnalytics();
   }, [fetchAnalytics]);
 
+  // Export Excel — dùng fromParam/toParam từ URL (DateRangePicker set)
   const handleExportExcel = async () => {
     setIsExporting(true);
     try {
       const now = new Date();
-      const from = fromParam ? parseISO(fromParam) : subDays(now, 30);
-      const to = toParam ? parseISO(toParam) : now;
+      const from = fromParam && isValid(parseISO(fromParam)) ? parseISO(fromParam) : subDays(now, 30);
+      const to = toParam && isValid(parseISO(toParam)) ? parseISO(toParam) : now;
 
       const params = new URLSearchParams({
         from: format(from, 'yyyy-MM-dd'),
