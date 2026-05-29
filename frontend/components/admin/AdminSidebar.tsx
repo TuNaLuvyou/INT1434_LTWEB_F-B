@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/auth.store";
 import { logout } from "@/lib/auth/client";
+import { RoleGate } from "@/components/auth";
+import type { Role } from "@/hooks/useRole";
 import {
   LayoutDashboard,
   Database,
@@ -21,36 +23,31 @@ import {
   LogOut,
   Sparkles,
   ArrowLeft
+  Settings,
 } from "lucide-react";
 
-// Định nghĩa cấu trúc tab với Icon tương ứng
-const tabs = [
-  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { name: "Nguyên liệu", href: "/admin/inventory", icon: Database },
-  { name: "Chấm công", href: "/admin/attendance", icon: ClipboardCheck },
-  { name: "Lịch làm việc", href: "/admin/schedule", icon: CalendarDays },
-  { name: "Thiết bị tin cậy", href: "/admin/devices", icon: Smartphone },
-  { name: "Duyệt Hồ Sơ", href: "/admin/profile-requests", icon: FolderSync },
-  { name: "Khuyến mãi", href: "/admin/vouchers", icon: Ticket },
-  { name: "Z-Report", href: "/admin/z-report", icon: FileText, managerOnly: true },
-  { name: "Phân Quyền", href: "/admin/roles", icon: ShieldAlert, adminOnly: true },
+const NAV_ITEMS = [
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
+  { name: "Nguyên liệu", href: "/admin/inventory", icon: Database, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
+  { name: "Chấm công", href: "/admin/attendance", icon: ClipboardCheck, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
+  { name: "Lịch làm việc", href: "/admin/schedule", icon: CalendarDays, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
+  { name: "Thiết bị", href: "/admin/devices", icon: Smartphone, allowedRoles: ["ADMIN"] as Role[] },
+  { name: "Duyệt Hồ Sơ", href: "/admin/profile-requests", icon: FolderSync, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
+  { name: "Khuyến mãi", href: "/admin/vouchers", icon: Ticket, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
+  { name: "Z-Report", href: "/admin/z-report", icon: FileText, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
+  { name: "Phân Quyền", href: "/admin/roles", icon: ShieldAlert, allowedRoles: ["ADMIN"] as Role[] },
+  { name: "Cài đặt hệ thống", href: "/admin/settings", icon: Settings, allowedRoles: ["ADMIN"] as Role[] },
 ];
 
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const { user, clearUser } = useAuthStore();
+  const { clearUser } = useAuthStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
   };
-
-  const visibleTabs = tabs.filter((tab) => {
-    if (tab.adminOnly && user?.role !== "ADMIN") return false;
-    if (tab.managerOnly && user?.role !== "ADMIN" && user?.role !== "MANAGER") return false;
-    return true;
-  });
 
   return (
     <>
@@ -97,22 +94,23 @@ export default function AdminSidebar() {
 
           {/* Navigation Links */}
           <nav className="space-y-1.5">
-            {visibleTabs.map((tab) => {
+            {NAV_ITEMS.map((tab) => {
               const isActive = pathname === tab.href;
               return (
-                <Link
-                  key={tab.name}
-                  href={tab.href}
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
-                    isActive
-                      ? "bg-violet-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.3)] font-bold"
-                      : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
-                  }`}
-                >
-                  <tab.icon className="h-4 w-4 shrink-0" />
-                  <span>{tab.name}</span>
-                </Link>
+                <RoleGate key={tab.name} allowedRoles={tab.allowedRoles}>
+                  <Link
+                    href={tab.href}
+                    onClick={() => setIsMobileOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 ${
+                      isActive
+                        ? "bg-violet-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.3)] font-bold"
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
+                    }`}
+                  >
+                    <tab.icon className="h-4 w-4 shrink-0" />
+                    <span>{tab.name}</span>
+                  </Link>
+                </RoleGate>
               );
             })}
           </nav>
@@ -178,31 +176,32 @@ export default function AdminSidebar() {
 
           {/* Navigation Links */}
           <nav className="space-y-1.5">
-            {visibleTabs.map((tab) => {
+            {NAV_ITEMS.map((tab) => {
               const isActive = pathname === tab.href;
               return (
-                <Link
-                  key={tab.name}
-                  href={tab.href}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                  className={`flex items-center rounded-xl transition-all duration-300 overflow-hidden whitespace-nowrap ${
-                    isCollapsed ? "justify-center p-3" : "gap-3.5 px-4 py-3"
-                  } ${
-                    isActive
-                      ? "bg-violet-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.3)] font-bold"
-                      : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
-                  }`}
-                  title={isCollapsed ? tab.name : ""}
-                >
-                  <tab.icon className="h-4.5 w-4.5 shrink-0" />
-                  <span className={`text-xs uppercase tracking-wider transition-all duration-300 overflow-hidden whitespace-nowrap ${
-                    isCollapsed ? "w-0 opacity-0 ml-0" : "w-auto opacity-100 ml-3.5"
-                  }`}>
-                    {tab.name}
-                  </span>
-                </Link>
+                <RoleGate key={tab.name} allowedRoles={tab.allowedRoles}>
+                  <Link
+                    href={tab.href}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    className={`flex items-center rounded-xl transition-all duration-300 overflow-hidden whitespace-nowrap ${
+                      isCollapsed ? "justify-center p-3" : "gap-3.5 px-4 py-3"
+                    } ${
+                      isActive
+                        ? "bg-violet-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.3)] font-bold"
+                        : "text-zinc-400 hover:text-white hover:bg-zinc-900/60"
+                    }`}
+                    title={isCollapsed ? tab.name : ""}
+                  >
+                    <tab.icon className="h-4.5 w-4.5 shrink-0" />
+                    <span className={`text-xs uppercase tracking-wider transition-all duration-300 overflow-hidden whitespace-nowrap ${
+                      isCollapsed ? "w-0 opacity-0 ml-0" : "w-auto opacity-100 ml-3.5"
+                    }`}>
+                      {tab.name}
+                    </span>
+                  </Link>
+                </RoleGate>
               );
             })}
           </nav>
