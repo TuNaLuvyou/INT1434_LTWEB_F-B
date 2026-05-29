@@ -1,0 +1,30 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRole } from '@/hooks/useRole';
+import type { Role } from '@/hooks/useRole';
+
+type RoleGateProps = {
+  allowedRoles: Role[];
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+};
+
+/**
+ * Component dùng để bọc các phần tử JSX, chỉ render nếu user có Role phù hợp.
+ * Tránh render trực tiếp vào DOM (không dùng CSS display: none hay opacity: 0).
+ */
+export function RoleGate({ allowedRoles, children, fallback = null }: RoleGateProps) {
+  const role = useRole();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null; // Prevent hydration mismatch
+
+  if (!role || !allowedRoles.includes(role)) return <>{fallback}</>;
+  
+  return <>{children}</>;
+}
