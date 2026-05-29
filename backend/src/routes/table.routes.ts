@@ -34,7 +34,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware as any,
-  requireRole(['ADMIN', 'MANAGER']) as any,
+  requireRole(['ADMIN']) as any,
   handleDeleteTable as any
 );
 
