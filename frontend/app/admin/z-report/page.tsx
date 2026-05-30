@@ -4,7 +4,8 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, FileText, Mail, Download, RefreshCw,
-  TrendingUp, ShoppingBag, Tag, BarChart2, Clock, AlertCircle, CheckCircle2, Loader2
+  TrendingUp, ShoppingBag, Tag, BarChart2, Clock, AlertCircle, CheckCircle2, Loader2,
+  FileSpreadsheet
 } from "lucide-react";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
 
@@ -117,6 +118,7 @@ export default function ZReportPage() {
   const [reportData, setReportData] = useState<ZReportData | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [sending, setSending] = useState(false);
   const [toast, setToast] = useState<ToastProps | null>(null);
 
@@ -200,6 +202,40 @@ export default function ZReportPage() {
       showToast("error", e.message ?? "Không thể gửi email Z-Report");
     } finally {
       setSending(false);
+    }
+  };
+
+  // ── Export Excel ────────────────────────────────────────────────────────────
+  const handleExportExcel = async () => {
+    if (!fromDate || !toDate) return;
+    setExportingExcel(true);
+    try {
+      const params = new URLSearchParams({
+        from: fromDate,
+        to: toDate,
+        type: 'full'
+      });
+
+      const res = await fetch(`${API_URL}/api/analytics/export?${params}`, {
+        headers: getAuthHeader()
+      });
+
+      if (!res.ok) throw new Error("Lỗi khi tạo file Excel");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `z-report-${fromDate}-to-${toDate}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("success", "Đã tải xuống Excel Z-Report thành công!");
+    } catch (e: any) {
+      showToast("error", e.message ?? "Không thể xuất Excel");
+    } finally {
+      setExportingExcel(false);
     }
   };
 
@@ -293,6 +329,15 @@ export default function ZReportPage() {
               </div>
               {/* Action buttons */}
               <div className="flex gap-2.5 shrink-0">
+                <button
+                  id="z-report-excel-btn"
+                  onClick={handleExportExcel}
+                  disabled={exportingExcel}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold transition-all disabled:opacity-60"
+                >
+                  {exportingExcel ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-500" />}
+                  Xuất Excel
+                </button>
                 <button
                   id="z-report-download-btn"
                   onClick={handleDownload}
