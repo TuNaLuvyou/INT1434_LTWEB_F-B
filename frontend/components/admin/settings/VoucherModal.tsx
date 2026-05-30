@@ -25,7 +25,7 @@ type FormData = z.infer<typeof schema>;
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export default function VoucherModal({ isOpen, onClose, voucher, onSuccess }: { isOpen: boolean, onClose: () => void, voucher?: any, onSuccess: (data: any) => void }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting }, watch, reset } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, watch, reset } = useForm<any>({
     resolver: zodResolver(schema),
     values: {
       code: voucher?.code || '',
@@ -40,7 +40,7 @@ export default function VoucherModal({ isOpen, onClose, voucher, onSuccess }: { 
 
   if (!isOpen) return null;
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: any) => {
     try {
       const url = voucher ? `${API}/api/vouchers/${voucher.id}` : `${API}/api/vouchers`;
       const method = voucher ? 'PUT' : 'POST';
@@ -93,7 +93,7 @@ export default function VoucherModal({ isOpen, onClose, voucher, onSuccess }: { 
               placeholder="VD: WELCOME20"
               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500 uppercase" 
             />
-            {errors.code && <p className="text-rose-500 text-xs">{errors.code.message}</p>}
+            {errors.code && <p className="text-rose-500 text-xs">{errors.code.message?.toString()}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -115,7 +115,7 @@ export default function VoucherModal({ isOpen, onClose, voucher, onSuccess }: { 
                 placeholder={discountType === 'PERCENT' ? '10' : '50000'}
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500" 
               />
-              {errors.discountValue && <p className="text-rose-500 text-xs">{errors.discountValue.message}</p>}
+              {errors.discountValue && <p className="text-rose-500 text-xs">{errors.discountValue.message?.toString()}</p>}
             </div>
           </div>
 
@@ -127,7 +127,7 @@ export default function VoucherModal({ isOpen, onClose, voucher, onSuccess }: { 
               placeholder="VD: 100"
               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-emerald-500" 
             />
-            {errors.maxUsage && <p className="text-rose-500 text-xs">{errors.maxUsage.message}</p>}
+            {errors.maxUsage && <p className="text-rose-500 text-xs">{errors.maxUsage.message?.toString()}</p>}
           </div>
 
           <div className="space-y-1">
