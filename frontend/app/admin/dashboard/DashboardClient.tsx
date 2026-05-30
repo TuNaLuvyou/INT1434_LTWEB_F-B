@@ -13,6 +13,7 @@ import { RoleGate } from '@/components/auth';
 import { useAuthStore } from '@/stores/auth.store';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import BestSellerCard, { TopSellingItem } from '@/components/dashboard/BestSellerCard';
+import { getAccessTokenFromCookie } from '@/lib/auth/client';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -111,7 +112,7 @@ export default function DashboardClient({
       });
 
       const res = await fetch(`${API}/api/analytics/export?${params}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
+        headers: { 'Authorization': `Bearer ${getAccessTokenFromCookie()}` }
       });
 
       if (!res.ok) throw new Error('Export failed');

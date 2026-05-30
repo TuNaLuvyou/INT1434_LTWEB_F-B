@@ -10,43 +10,34 @@ export const metadata = {
 };
 
 async function fetchSettingsData() {
-  const cookieStore = cookies();
-  const token = cookieStore.get('accessToken')?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get('access_token')?.value;
   
-  if (!token) return { users: [], vouchers: [], config: null };
+  if (!token) return { config: null };
 
   const headers = {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json'
   };
 
-  const [usersRes, vouchersRes, configRes] = await Promise.all([
-    fetch(`${API}/api/admin/users`, { headers, cache: 'no-store' }),
-    fetch(`${API}/api/vouchers`, { headers, cache: 'no-store' }),
-    fetch(`${API}/api/system/config`, { headers, cache: 'no-store' })
-  ]);
-
-  const [users, vouchers, config] = await Promise.all([
-    usersRes.ok ? usersRes.json() : { data: [] },
-    vouchersRes.ok ? vouchersRes.json() : { data: [] },
-    configRes.ok ? configRes.json() : { data: null }
-  ]);
-
-  return {
-    users: users.data || [],
-    vouchers: vouchers.data || [],
-    config: config.data || null
-  };
+  try {
+    const configRes = await fetch(`${API}/api/system/config`, { headers, cache: 'no-store' });
+    const config = configRes.ok ? await configRes.json() : { data: null };
+    return { config: config.data || null };
+  } catch (err) {
+    console.error('Error fetching settings config:', err);
+    return { config: null };
+  }
 }
 
 export default async function SettingsPage() {
-  const user = getCurrentUser();
+  const user = await getCurrentUser();
 
   if (!user || user.role !== 'ADMIN') {
     redirect('/login?reason=forbidden');
   }
 
-  const { users, vouchers, config } = await fetchSettingsData();
+  const { config } = await fetchSettingsData();
 
   return (
     <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
@@ -68,7 +59,7 @@ export default async function SettingsPage() {
 
       {/* Content Area */}
       <main className="flex-1 overflow-hidden flex flex-col p-6 max-w-7xl w-full mx-auto relative z-10">
-        <SettingsClient initialUsers={users} initialVouchers={vouchers} initialConfig={config} />
+        <SettingsClient initialConfig={config} />
       </main>
     </div>
   );
