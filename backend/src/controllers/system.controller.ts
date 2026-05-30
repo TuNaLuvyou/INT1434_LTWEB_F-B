@@ -34,26 +34,46 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
 
 export const updateConfig = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { restaurantName, managerEmail } = req.body;
+    const { restaurantName, managerEmail, licenseKey } = req.body;
     
     if (!restaurantName || !managerEmail) {
       res.status(400).json({ success: false, message: 'Thiếu thông tin cấu hình' });
       return;
     }
 
+    const currentConfig = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
+    let licenseExpiredAt = currentConfig?.licenseExpiredAt;
+
+    // Nếu người dùng nhập Key mới khác Key cũ, tự động gia hạn thêm 1 năm bản quyền
+    if (licenseKey && licenseKey !== currentConfig?.licenseKey) {
+      licenseExpiredAt = new Date(new Date().setFullYear(new Date().getFullYear() + 1));
+    }
+
     const config = await prisma.systemConfig.upsert({
       where: { id: 'singleton' },
-      update: { restaurantName, managerEmail },
+      update: { 
+        restaurantName, 
+        managerEmail,
+        ...(licenseKey ? { licenseKey, licenseExpiredAt } : {})
+      },
       create: {
         id: 'singleton',
         restaurantName,
         managerEmail,
-        licenseKey: 'RF-TRIAL-2025',
-        licenseExpiredAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+        licenseKey: licenseKey || 'RF-TRIAL-2025',
+        licenseExpiredAt: licenseExpiredAt || new Date(new Date().setFullYear(new Date().getFullYear() + 1))
       }
     });
 
-    res.json({ success: true, data: config });
+    const maskedKey = config.licenseKey.replace(/^([^-]+-[^-]+-).*/, '$1****');
+
+    res.json({ 
+      success: true, 
+      data: {
+        ...config,
+        licenseKey: maskedKey
+      }
+    });
   } catch (error) {
     console.error('updateConfig error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server' });
