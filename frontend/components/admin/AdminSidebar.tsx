@@ -22,7 +22,7 @@ import {
   ChevronRight,
   LogOut,
   Sparkles,
-  ArrowLeft
+  ArrowLeft,
   Settings,
 } from "lucide-react";
 

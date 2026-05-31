@@ -19,7 +19,7 @@ async function getInitialAnalyticsData() {
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
   
   // Khi ISR build thì không có cookie, fetch sẽ trả 401. Ta bắt lỗi và trả mảng rỗng để client fetch sau.
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
 
   try {
