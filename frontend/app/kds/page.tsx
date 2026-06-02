@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { 
   ArrowLeft, 
@@ -15,8 +15,11 @@ import {
   RotateCcw,
   X,
   Search,
-  Loader2
+  Loader2,
+  Calendar,
+  ChevronDown
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { useSocket } from "@/hooks/useSocket";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
 
@@ -53,6 +56,22 @@ interface ArchivedKdsOrder {
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+const getLocalDateString = (date: Date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatHeaderDate = (rangeStr: string) => {
+  if (!rangeStr) return "";
+  if (rangeStr.includes("_")) {
+    const [startStr, endStr] = rangeStr.split("_");
+    return `${startStr.split("-").reverse().join("-")} đến ${endStr.split("-").reverse().join("-")}`;
+  }
+  return rangeStr.split("-").reverse().join("-");
+};
 
 interface Category {
   id: string;
@@ -221,17 +240,161 @@ export default function KDSPage() {
     fetchMenuItems();
   }, []);
 
+  // Archive Filter States
+  const [rangeType, setRangeType] = useState<"today" | "yesterday" | "7days" | "30days" | "90days" | "custom">("today");
+  const [customDate, setCustomDate] = useState<string>(getLocalDateString());
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [tempCustomDateText, setTempCustomDateText] = useState<string>("");
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  const [rangeStartText, setRangeStartText] = useState<string>("");
+  const [rangeEndText, setRangeEndText] = useState<string>("");
+  const rangeStartInputRef = useRef<HTMLInputElement>(null);
+  const rangeEndInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = localStorage.getItem("kds_archived_orders") || "[]";
     try {
       const parsed = JSON.parse(stored) as ArchivedKdsOrder[];
-      setArchivedOrders(Array.isArray(parsed) ? parsed : []);
+      const validOrders = Array.isArray(parsed) ? parsed : [];
+      
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 95);
+
+      const filteredOrders = validOrders.filter(order => {
+        const orderDate = new Date(order.archivedAt);
+        return orderDate >= cutoffDate;
+      });
+
+      setArchivedOrders(filteredOrders);
+
+      if (filteredOrders.length !== validOrders.length) {
+        localStorage.setItem("kds_archived_orders", JSON.stringify(filteredOrders));
+      }
     } catch {
       setArchivedOrders([]);
     }
   }, []);
 
+  const handleRangeChange = (newRange: typeof rangeType) => {
+    setRangeType(newRange);
+    setIsDropdownOpen(false);
+    
+    let targetDate = customDate;
+    if (newRange === "today") {
+      targetDate = getLocalDateString(new Date());
+    } else if (newRange === "yesterday") {
+      targetDate = getLocalDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    }
+    
+    setCustomDate(targetDate);
+  };
+
+  const handleCustomDateApply = (dateStr: string) => {
+    setCustomDate(dateStr);
+    setRangeType("custom");
+    setIsDropdownOpen(false);
+  };
+
+  const handleNativeRangeStartChange = (ymdDate: string) => {
+    if (ymdDate) {
+      setRangeStartText(ymdDate.split("-").reverse().join("-"));
+    }
+  };
+
+  const handleNativeRangeEndChange = (ymdDate: string) => {
+    if (ymdDate) {
+      setRangeEndText(ymdDate.split("-").reverse().join("-"));
+    }
+  };
+
+  const handleRangeSubmit = () => {
+    const parsePart = (text: string) => {
+      const parts = text.split("-");
+      if (parts.length === 3) {
+        const day = parts[0].trim().padStart(2, '0');
+        const month = parts[1].trim().padStart(2, '0');
+        const year = parts[2].trim();
+        if (day.length === 2 && month.length === 2 && year.length === 4) {
+          const ymd = `${year}-${month}-${day}`;
+          const dateTest = new Date(ymd);
+          if (!isNaN(dateTest.getTime())) {
+            return ymd;
+          }
+        }
+      }
+      return null;
+    };
+
+    const startYmd = parsePart(rangeStartText);
+    const endYmd = parsePart(rangeEndText);
+
+    if (!startYmd || !endYmd) {
+      toast.error("Vui lòng nhập đúng định dạng dd-mm-yyyy");
+      return;
+    }
+
+    if (new Date(startYmd) > new Date(endYmd)) {
+      toast.error("Ngày bắt đầu không được lớn hơn ngày kết thúc");
+      return;
+    }
+
+    handleCustomDateApply(`${startYmd}_${endYmd}`);
+  };
+
+  useEffect(() => {
+    if (isDropdownOpen) {
+      if (customDate && customDate.includes("_")) {
+        const [s, e] = customDate.split("_");
+        setRangeStartText(s.split("-").reverse().join("-"));
+        setRangeEndText(e.split("-").reverse().join("-"));
+      } else {
+        const todayDmy = getLocalDateString().split("-").reverse().join("-");
+        setRangeStartText(todayDmy);
+        setRangeEndText(todayDmy);
+      }
+    }
+  }, [isDropdownOpen, customDate]);
+
+  const filteredArchivedOrders = useMemo(() => {
+    return archivedOrders.filter(order => {
+        const orderDate = new Date(order.archivedAt);
+        let startYmd = "";
+        let endYmd = "";
+        
+        if (rangeType === "today") {
+            startYmd = endYmd = getLocalDateString(new Date());
+        } else if (rangeType === "yesterday") {
+            const y = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            startYmd = endYmd = getLocalDateString(y);
+        } else if (rangeType === "7days") {
+            startYmd = getLocalDateString(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+            endYmd = getLocalDateString(new Date());
+        } else if (rangeType === "30days") {
+            startYmd = getLocalDateString(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+            endYmd = getLocalDateString(new Date());
+        } else if (rangeType === "90days") {
+            startYmd = getLocalDateString(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000));
+            endYmd = getLocalDateString(new Date());
+        } else if (rangeType === "custom") {
+            if (customDate.includes("_")) {
+                [startYmd, endYmd] = customDate.split("_");
+            } else {
+                startYmd = endYmd = customDate;
+            }
+        }
+
+        const sDate = new Date(startYmd);
+        const eDate = new Date(endYmd);
+        eDate.setHours(23, 59, 59, 999);
+        sDate.setHours(0, 0, 0, 0);
+
+        return orderDate >= sDate && orderDate <= eDate;
+    });
+  }, [archivedOrders, rangeType, customDate]);
+
+  // Listen
   useEffect(() => {
     if (!kitchenSocket || !isKitchenConnected) return;
 
@@ -484,12 +647,12 @@ export default function KDSPage() {
               <ChefHat className="h-3.5 w-3.5 animate-pulse" />
               Báo Hết Món
             </button>
-            <button
+            <button 
               onClick={() => setIsArchiveOpen(true)}
-              className="text-xs bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-zinc-300 font-medium transition-colors"
+              className="text-xs bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 text-zinc-300 font-bold transition-all shadow-md active:scale-95 cursor-pointer"
             >
               <Archive className="h-3.5 w-3.5" />
-              Lưu trữ
+              Lịch sử Giao món
             </button>
             <button 
               onClick={resetDemo}
@@ -929,84 +1092,200 @@ export default function KDSPage() {
           </div>
         </div>
 
-        {/* Sliding Drawer Lưu trữ */}
-        <div
-          className={`fixed inset-0 z-50 overflow-hidden transition-all duration-300 ${
-            isArchiveOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-          }`}
-        >
-          <div
-            onClick={() => setIsArchiveOpen(false)}
-            className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300"
-          />
-
-          <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-            <div
-              className={`w-screen max-w-lg transform transition-transform duration-300 ease-out bg-zinc-950 border-l border-zinc-900 flex flex-col shadow-2xl relative ${
-                isArchiveOpen ? "translate-x-0" : "translate-x-full"
-              }`}
-            >
-              <div className="px-6 py-5 border-b border-zinc-900 bg-zinc-900/20 flex items-center justify-between shrink-0 relative z-10">
-                <div>
-                  <h3 className="text-base font-black text-white">Lưu trữ đơn bếp</h3>
-                  <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">
-                    {archivedOrders.length} đơn đã hoàn tất
-                  </p>
+        {/* Archive Modal */}
+        {isArchiveOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setIsArchiveOpen(false)}
+            />
+            <div className="relative bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col h-[85vh]">
+              {/* Header */}
+              <div className="p-6 border-b border-zinc-900 bg-zinc-900/20 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400">
+                    <Archive className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white tracking-tight">Lịch sử Giao món</h2>
+                    <p className="text-sm text-zinc-400 font-medium">
+                      Các đơn hàng đã hoàn tất
+                    </p>
+                  </div>
                 </div>
-                <button
+                <button 
                   onClick={() => setIsArchiveOpen(false)}
-                  className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer transition-colors"
+                  className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white transition-all cursor-pointer"
                 >
-                  <X className="h-4.5 w-4.5" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-5 space-y-3 relative z-10">
-                {archivedOrders.length === 0 ? (
-                  <div className="text-center text-zinc-500 text-xs italic py-10">
-                    Chưa có đơn lưu trữ.
+              {/* Filter Area */}
+              <div className="p-4 border-b border-zinc-900 bg-zinc-900/50 flex flex-wrap gap-4 items-center justify-between shrink-0">
+                <div className="relative">
+                  <div 
+                    className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 px-4 py-2 rounded-xl cursor-pointer hover:bg-zinc-800 transition-colors"
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  >
+                    <Calendar className="h-4 w-4 text-orange-500" />
+                    <span className="text-sm font-semibold text-zinc-200">
+                      {rangeType === "today" && "Hôm nay"}
+                      {rangeType === "yesterday" && "Hôm qua"}
+                      {rangeType === "7days" && "7 ngày qua"}
+                      {rangeType === "30days" && "30 ngày qua"}
+                      {rangeType === "90days" && "90 ngày qua"}
+                      {rangeType === "custom" && (customDate ? formatHeaderDate(customDate) : "Tùy chỉnh")}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-zinc-400 ml-2" />
                   </div>
-                ) : (
-                  archivedOrders.map((order) => {
-                    const doneCount = order.items.filter(item => item.status === "DONE").length;
-                    const voidCount = order.items.filter(item => item.status === "VOID").length;
-                    const isCancelled = voidCount === order.items.length;
-                    return (
-                      <div key={order.id} className="rounded-2xl border border-zinc-900 bg-zinc-900/30 px-4 py-3">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-bold text-zinc-100">{order.orderNo}</div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-bold ${isCancelled ? "text-rose-400" : "text-emerald-400"}`}>
-                              {isCancelled ? "CANCELLED" : "DONE"}
-                            </span>
-                            <span className="text-[10px] text-zinc-500 font-mono">
-                              {new Date(order.archivedAt).toLocaleString("vi-VN")}
+
+                  {isDropdownOpen && (
+                    <div className="absolute top-full mt-2 left-0 w-80 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-xl z-50 overflow-hidden max-h-[65vh] overflow-y-auto">
+                      <div className="p-2 space-y-1">
+                        <button onClick={() => handleRangeChange("today")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "today" ? "bg-orange-500/10 text-orange-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
+                          Hôm nay
+                        </button>
+                        <button onClick={() => handleRangeChange("yesterday")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "yesterday" ? "bg-orange-500/10 text-orange-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
+                          Hôm qua
+                        </button>
+                        <button onClick={() => handleRangeChange("7days")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "7days" ? "bg-orange-500/10 text-orange-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
+                          7 ngày qua
+                        </button>
+                        <button onClick={() => handleRangeChange("30days")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "30days" ? "bg-orange-500/10 text-orange-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
+                          30 ngày qua
+                        </button>
+                        <button onClick={() => handleRangeChange("90days")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "90days" ? "bg-orange-500/10 text-orange-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
+                          90 ngày qua
+                        </button>
+                      </div>
+
+                      <div className="border-t border-zinc-800 p-4">
+                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">Khoảng thời gian tùy chỉnh</label>
+                        <div className="space-y-4 mt-3">
+                          <div>
+                            <span className="text-xs text-zinc-400 mb-1 block">Từ ngày</span>
+                            <div className="flex gap-2">
+                              <input 
+                                type="text"
+                                placeholder="dd-mm-yyyy"
+                                className="flex-1 bg-zinc-900 border border-zinc-700 text-sm px-3 py-2 rounded-xl focus:outline-none focus:border-orange-500 text-white font-mono"
+                                value={rangeStartText}
+                                onChange={(e) => setRangeStartText(e.target.value)}
+                              />
+                              <input 
+                                ref={rangeStartInputRef}
+                                type="date"
+                                className="w-10 opacity-0 absolute pointer-events-none"
+                                onChange={(e) => handleNativeRangeStartChange(e.target.value)}
+                              />
+                              <button 
+                                onClick={() => rangeStartInputRef.current?.showPicker()}
+                                className="bg-zinc-800 hover:bg-zinc-700 p-2 rounded-xl border border-zinc-700 text-zinc-300"
+                              >
+                                <Calendar className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-xs text-zinc-400 mb-1 block">Đến ngày</span>
+                            <div className="flex gap-2">
+                              <input 
+                                type="text"
+                                placeholder="dd-mm-yyyy"
+                                className="flex-1 bg-zinc-900 border border-zinc-700 text-sm px-3 py-2 rounded-xl focus:outline-none focus:border-orange-500 text-white font-mono"
+                                value={rangeEndText}
+                                onChange={(e) => setRangeEndText(e.target.value)}
+                              />
+                              <input 
+                                ref={rangeEndInputRef}
+                                type="date"
+                                className="w-10 opacity-0 absolute pointer-events-none"
+                                onChange={(e) => handleNativeRangeEndChange(e.target.value)}
+                              />
+                              <button 
+                                onClick={() => rangeEndInputRef.current?.showPicker()}
+                                className="bg-zinc-800 hover:bg-zinc-700 p-2 rounded-xl border border-zinc-700 text-zinc-300"
+                              >
+                                <Calendar className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={handleRangeSubmit}
+                            className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 rounded-xl transition-colors"
+                          >
+                            Áp dụng khoảng thời gian
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+                {filteredArchivedOrders.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredArchivedOrders.map((order) => {
+                      const doneCount = order.items.filter(item => item.status === "DONE").length;
+                      const voidCount = order.items.filter(item => item.status === "VOID").length;
+                      const isCancelled = voidCount === order.items.length;
+                      return (
+                      <div key={order.id} className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-5 flex flex-col hover:border-zinc-700 transition-colors">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="font-mono font-bold text-sm text-zinc-100">{order.orderNo}</span>
+                          <span className={`text-[10px] px-2.5 py-1 rounded-lg border font-bold uppercase tracking-wider ${isCancelled ? "bg-rose-500/10 text-rose-400 border-rose-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20"}`}>
+                            {isCancelled ? "Đã huỷ" : "Đã giao"}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-1.5 mb-4 border-b border-zinc-800/50 pb-4">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-zinc-500 font-medium">Bàn:</span>
+                            <span className="text-zinc-200 font-semibold">{order.tableNo}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-zinc-500 font-medium">Thời gian hoàn tất:</span>
+                            <span className="text-zinc-300 font-mono text-xs">
+                              {new Date(order.archivedAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                              {" - "}
+                              {new Date(order.archivedAt).toLocaleDateString("vi-VN")}
                             </span>
                           </div>
                         </div>
-                        <div className="text-[11px] text-zinc-400 mt-1">{order.tableNo}</div>
-                        <div className="mt-2 flex items-center gap-3 text-[10px] text-zinc-400">
-                          <span>Hoàn tất: {doneCount}</span>
-                          <span className={voidCount > 0 ? "text-rose-400" : ""}>Huỷ: {voidCount}</span>
-                        </div>
-                        <div className="mt-3 space-y-1">
-                          {order.items.map((item) => (
-                            <div key={item.id} className="flex items-center justify-between text-[11px]">
-                              <span className={`text-zinc-400 ${item.status === "VOID" ? "line-through" : ""}`}>
-                                {item.name}
-                              </span>
-                              <span className="text-zinc-500 font-mono">x{item.quantity}</span>
-                            </div>
-                          ))}
+
+                        <div>
+                          <div className="flex justify-between items-center mb-2">
+                            <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Món ăn:</h4>
+                            <span className="text-[10px] text-zinc-500">Hoàn tất: {doneCount} | Huỷ: {voidCount}</span>
+                          </div>
+                          <ul className="space-y-1.5">
+                            {order.items.map((item, idx) => (
+                              <li key={idx} className="flex justify-between items-center text-sm">
+                                <span className={`text-zinc-300 ${item.status === 'VOID' ? 'line-through opacity-50' : ''}`}>{item.name}</span>
+                                <span className="font-mono font-bold text-zinc-400 bg-zinc-800/60 px-1.5 py-0.5 rounded text-xs">
+                                  x{item.quantity}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       </div>
-                    );
-                  })
+                    )})}
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 py-12">
+                    <Archive className="h-16 w-16 mb-6 opacity-20" />
+                    <h3 className="text-xl font-bold text-zinc-400 mb-2">Không có dữ liệu</h3>
+                    <p className="text-sm">Chưa có đơn hàng nào trong khoảng thời gian này.</p>
+                  </div>
                 )}
               </div>
             </div>
           </div>
-        </div>
+        )}
 
       </div>
     </div>
