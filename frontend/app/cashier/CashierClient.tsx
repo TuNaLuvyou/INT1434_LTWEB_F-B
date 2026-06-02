@@ -1071,7 +1071,7 @@ export default function CashierClient({
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-semibold hover:text-white hover:border-zinc-700 hover:bg-zinc-900 transition-all cursor-pointer shadow-lg active:scale-95"
                   >
-                    <Calendar className="h-3.5 w-3.5 text-violet-400 animate-pulse" />
+                    <Calendar className="h-3.5 w-3.5 text-blue-400 animate-pulse" />
                     <span>
                       {rangeType === "today" && `Hôm nay: ${formatDateToDDMMYYYY(new Date())}`}
                       {rangeType === "yesterday" && `Hôm qua: ${formatDateToDDMMYYYY(new Date(Date.now() - 24 * 60 * 60 * 1000))}`}
@@ -1100,7 +1100,7 @@ export default function CashierClient({
                                     handleTextInputSubmit();
                                   }
                                 }}
-                                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-3 pr-8 py-1.5 text-[11px] text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-all font-mono text-center cursor-text"
+                                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-3 pr-8 py-1.5 text-[11px] text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition-all font-mono text-center cursor-text"
                               />
                               <button 
                                 type="button"
@@ -1121,7 +1121,7 @@ export default function CashierClient({
                             <button
                               type="button"
                               onClick={handleTextInputSubmit}
-                              className="w-full bg-violet-600 hover:bg-violet-500 text-white rounded-xl py-1.5 text-[11px] font-bold transition-all cursor-pointer active:scale-95 shadow-md shadow-violet-900/10"
+                              className="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-1.5 text-[11px] font-bold transition-all cursor-pointer active:scale-95 shadow-md shadow-blue-900/10"
                             >
                               Áp dụng ngày
                             </button>
@@ -1139,7 +1139,7 @@ export default function CashierClient({
                                   placeholder="dd-mm-yyyy"
                                   value={rangeStartText}
                                   onChange={(e) => setRangeStartText(e.target.value)}
-                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-3 pr-8 py-1.5 text-[11px] text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-all font-mono text-center cursor-text"
+                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-3 pr-8 py-1.5 text-[11px] text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition-all font-mono text-center cursor-text"
                                 />
                                 <button 
                                   type="button"
@@ -1166,7 +1166,7 @@ export default function CashierClient({
                                   placeholder="dd-mm-yyyy"
                                   value={rangeEndText}
                                   onChange={(e) => setRangeEndText(e.target.value)}
-                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-3 pr-8 py-1.5 text-[11px] text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-all font-mono text-center cursor-text"
+                                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-3 pr-8 py-1.5 text-[11px] text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition-all font-mono text-center cursor-text"
                                 />
                                 <button 
                                   type="button"
@@ -1188,7 +1188,7 @@ export default function CashierClient({
                             <button
                               type="button"
                               onClick={handleRangeSubmit}
-                              className="w-full bg-violet-600 hover:bg-violet-500 text-white rounded-xl py-1.5 text-[11px] font-bold transition-all cursor-pointer active:scale-95 shadow-md shadow-violet-900/10 mt-1"
+                              className="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-1.5 text-[11px] font-bold transition-all cursor-pointer active:scale-95 shadow-md shadow-blue-900/10 mt-1"
                             >
                               Áp dụng khoảng ngày
                             </button>
@@ -1201,7 +1201,7 @@ export default function CashierClient({
                           <button 
                             onClick={() => handleRangeChange("today")}
                             className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                              rangeType === "today" ? "bg-violet-600/10 text-violet-400 border border-violet-500/20" : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
+                              rangeType === "today" ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
                             }`}
                           >
                             Hôm nay
@@ -1210,7 +1210,7 @@ export default function CashierClient({
                           <button 
                             onClick={() => handleRangeChange("yesterday")}
                             className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                              rangeType === "yesterday" ? "bg-violet-600/10 text-violet-400 border border-violet-500/20" : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
+                              rangeType === "yesterday" ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
                             }`}
                           >
                             Hôm qua
@@ -1219,7 +1219,7 @@ export default function CashierClient({
                           <button 
                             onClick={() => handleRangeChange("7days")}
                             className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                              rangeType === "7days" ? "bg-violet-600/10 text-violet-400 border border-violet-500/20" : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
+                              rangeType === "7days" ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
                             }`}
                           >
                             7 ngày gần nhất
@@ -1228,7 +1228,7 @@ export default function CashierClient({
                           <button 
                             onClick={() => handleRangeChange("30days")}
                             className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                              rangeType === "30days" ? "bg-violet-600/10 text-violet-400 border border-violet-500/20" : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
+                              rangeType === "30days" ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
                             }`}
                           >
                             30 ngày gần nhất
@@ -1237,7 +1237,7 @@ export default function CashierClient({
                           <button 
                             onClick={() => handleRangeChange("90days")}
                             className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                              rangeType === "90days" ? "bg-violet-600/10 text-violet-400 border border-violet-500/20" : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
+                              rangeType === "90days" ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" : "text-zinc-400 hover:text-white hover:bg-zinc-900 border border-transparent"
                             }`}
                           >
                             90 ngày gần nhất
@@ -1506,7 +1506,7 @@ export default function CashierClient({
                   <button
                     type="button"
                     onClick={handlePaySession}
-                    className="w-full rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-3.5 font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.2)] hover:shadow-[0_0_25px_rgba(99,102,241,0.4)] disabled:from-zinc-900 disabled:to-zinc-900 disabled:text-zinc-600 disabled:border-zinc-800 disabled:shadow-none cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white py-3.5 font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-[0_0_20px_rgba(99,102,241,0.2)] hover:shadow-[0_0_25px_rgba(99,102,241,0.4)] disabled:from-zinc-900 disabled:to-zinc-900 disabled:text-zinc-600 disabled:border-zinc-800 disabled:shadow-none cursor-pointer flex items-center justify-center gap-2"
                     disabled={!selectedTable.session?.isLocked || hasPendingOrPreparing || isPaying}
                     title={
                       !selectedTable.session?.isLocked
@@ -1717,7 +1717,7 @@ export default function CashierClient({
                 type="button"
                 onClick={handleConfirmPayment}
                 disabled={!paymentMethod || isPaying}
-                className="flex-[2] rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white py-3 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(99,102,241,0.25)] disabled:from-zinc-900 disabled:to-zinc-900 disabled:text-zinc-500 disabled:shadow-none flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-[2] rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white py-3 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(99,102,241,0.25)] disabled:from-zinc-900 disabled:to-zinc-900 disabled:text-zinc-500 disabled:shadow-none flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isPaying ? (
                   <>
