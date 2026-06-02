@@ -16,7 +16,7 @@ const ingredientSchema = z.object({
 
 const stockAdjSchema = z.object({
   delta:  z.number().refine(v => v !== 0, 'delta không được = 0'),
-  reason: z.enum(['MANUAL_IMPORT', 'ADJUSTMENT']),
+  reason: z.enum(['MANUAL_IMPORT', 'ADJUSTMENT', 'MANUAL_EXPORT']),
   note:   z.string().optional(),
 });
 
@@ -41,7 +41,7 @@ export const reverseStock = async (req: Request, res: Response): Promise<void> =
     const authReq = req as AuthenticatedRequest;
     const reversedBy = authReq.user?.userId;
 
-    const reversed = await svc.reverseStockByOrderItem(orderItemId, reversedBy);
+    const reversed = await svc.reverseInventory(orderItemId, reversedBy);
 
     res.json({
       success: true,
@@ -54,6 +54,8 @@ export const reverseStock = async (req: Request, res: Response): Promise<void> =
     } else if (e?.code === 'NOT_FOUND') {
       res.status(404).json({ success: false, message: e.message });
     } else if (e?.code === 'INVALID_STATUS') {
+      res.status(409).json({ success: false, message: e.message });
+    } else if (e?.code === 'ALREADY_REVERSED') {
       res.status(409).json({ success: false, message: e.message });
     } else {
       res.status(500).json({ success: false, message: 'Lỗi server' });
@@ -142,9 +144,13 @@ export const adjustStock = async (req: Request, res: Response): Promise<void> =>
       res.status(400).json({ success: false, message: 'MANUAL_IMPORT yêu cầu delta > 0' });
       return;
     }
+    if (reason === 'MANUAL_EXPORT' && delta >= 0) {
+      res.status(400).json({ success: false, message: 'MANUAL_EXPORT yêu cầu delta < 0' });
+      return;
+    }
 
     const result = await svc.adjustStock(
-      id, delta, reason, req.user!.userId, note
+      id, delta, reason as any, req.user!.userId, note
     );
     res.json({ success: true, data: result });
   } catch (e: any) {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthInit from "@/components/auth/AuthInit";
+import { Toaster } from "react-hot-toast";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -31,6 +32,19 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthInit />
         {children}
+        <Toaster 
+          position="top-right" 
+          toastOptions={{ 
+            style: { 
+              background: '#18181b', 
+              color: '#fff', 
+              border: '1px solid #27272a',
+              borderRadius: '12px',
+              fontSize: '13px',
+              fontWeight: 500
+            } 
+          }} 
+        />
       </body>
     </html>
   );

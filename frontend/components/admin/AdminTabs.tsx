@@ -11,6 +11,10 @@ const tabs = [
   { name: 'Lịch làm việc', href: '/admin/schedule' },
   { name: 'Thiết bị tin cậy', href: '/admin/devices' },
   { name: 'Duyệt Hồ Sơ', href: '/admin/profile-requests' },
+  { name: 'Khuyến mãi (Voucher)', href: '/admin/vouchers' },
+  // managerOnly: hiển thị cho cả ADMIN và MANAGER
+  { name: 'Z-Report', href: '/admin/z-report', managerOnly: true },
+  // adminOnly: chỉ hiển thị cho ADMIN
   { name: 'Phân Quyền', href: '/admin/roles', adminOnly: true },
 ];
 
@@ -20,6 +24,8 @@ export default function AdminTabs() {
 
   const visibleTabs = tabs.filter(tab => {
     if (tab.adminOnly && user?.role !== 'ADMIN') return false;
+    // managerOnly: yêu cầu ADMIN hoặc MANAGER
+    if (tab.managerOnly && user?.role !== 'ADMIN' && user?.role !== 'MANAGER') return false;
     return true;
   });
 

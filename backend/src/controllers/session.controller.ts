@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import * as sessionService from '../services/session.service';
 import { AppError } from '../utils/app-error';
 import { emitCartUpdated } from '../socket/emit.helpers';
+import { InsufficientStockError } from '../services/inventory.service';
 
 // ─── POST /api/sessions/join ──────────────────────────────────────────────────
 /**
@@ -11,14 +12,15 @@ import { emitCartUpdated } from '../socket/emit.helpers';
  */
 export async function joinSession(req: Request, res: Response): Promise<void> {
   try {
-    const { tableId } = req.body as { tableId?: string };
+    const { tableId, source } = req.body as { tableId?: string; source?: string };
 
     if (!tableId || typeof tableId !== 'string' || tableId.trim() === '') {
       res.status(400).json({ success: false, message: 'tableId là bắt buộc' });
       return;
     }
 
-    const { session, isNew } = await sessionService.joinOrCreateSession(tableId.trim());
+    const createdViaPos = source === 'POS';
+    const { session, isNew } = await sessionService.joinOrCreateSession(tableId.trim(), createdViaPos);
 
     res.status(isNew ? 201 : 200).json({
       success: true,
@@ -80,7 +82,7 @@ export async function getActiveSession(req: Request, res: Response): Promise<voi
 export async function updateSessionStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const { sessionId } = req.params as { sessionId: string };
-    const { status } = req.body as { status?: string };
+    const { status, keepOccupied } = req.body as { status?: string; keepOccupied?: boolean };
 
     if (!status || !['PAID', 'CANCELLED'].includes(status)) {
       res.status(400).json({
@@ -92,7 +94,8 @@ export async function updateSessionStatus(req: AuthenticatedRequest, res: Respon
 
     const updatedSession = await sessionService.updateSessionStatus(
       sessionId,
-      status as 'PAID' | 'CANCELLED'
+      status as 'PAID' | 'CANCELLED',
+      keepOccupied
     );
 
     res.status(200).json({
@@ -100,6 +103,18 @@ export async function updateSessionStatus(req: AuthenticatedRequest, res: Respon
       data: { session: updatedSession },
     });
   } catch (error: any) {
+    // ── Xử lý đặc biệt: Tồn kho không đủ ────────────────────────────────────
+    // HTTP 422 Unprocessable Entity — request hợp lệ nhưng không thể thực thi
+    // vì điều kiện nghiệp vụ không thỏa mãn (thiếu nguyên liệu).
+    if (error instanceof InsufficientStockError) {
+      res.status(422).json({
+        success:  false,
+        code:     'INSUFFICIENT_STOCK',
+        message:  error.message,
+        shortages: error.shortages, // [{ingredientName, required, available, shortage, unit}]
+      });
+      return;
+    }
     const status = error.statusCode ?? 500;
     res.status(status).json({ success: false, message: error.message ?? 'Internal server error' });
   }

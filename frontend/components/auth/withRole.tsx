@@ -1,37 +1,34 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRole } from '@/hooks/useRole';
+import type { ComponentType } from 'react';
+import type { Role } from '@/hooks/useRole';
 
-// Hook hỗ trợ bóc payload JWT ở Client
-export const useUserRole = () => {
-  const [role, setRole] = useState<string | null>(null);
+/**
+ * Higher-Order Component để bảo vệ một Component dựa trên Role.
+ * @param allowedRoles Danh sách các Role được phép truy cập Component
+ * @param WrappedComponent Component gốc cần bảo vệ
+ * @param fallback UI thay thế nếu không có quyền (mặc định: null)
+ */
+export function withRole<P extends object>(
+  allowedRoles: Role[],
+  WrappedComponent: ComponentType<P>,
+  fallback: React.ReactNode = null
+) {
+  function RoleGuardedComponent(props: P) {
+    const role = useRole();
+    const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    const match = document.cookie.match(/(^| )access_token=([^;]+)/);
-    if (match) {
-      try {
-        const payload = JSON.parse(atob(match[2].split('.')[1]));
-        setRole(payload.role);
-      } catch (e) {
-        setRole(null);
-      }
-    }
-  }, []);
+    useEffect(() => {
+      setMounted(true);
+    }, []);
 
-  return role;
-};
+    if (!mounted) return null; // Prevent hydration mismatch
 
-export function withRole(allowedRoles: string[], Component: React.ComponentType<any>) {
-  return function WrappedComponent(props: any) {
-    const role = useUserRole();
-    
-    // Đợi hydrate / đọc cookie
-    if (!role) return null;
-
-    if (!allowedRoles.includes(role)) {
-      return null;
-    }
-    
-    return <Component {...props} />;
+    if (!role || !allowedRoles.includes(role)) return <>{fallback}</>;
+    return <WrappedComponent {...props} />;
   }
+  RoleGuardedComponent.displayName = `withRole(${WrappedComponent.displayName || WrappedComponent.name || 'Component'})`;
+  return RoleGuardedComponent;
 }
