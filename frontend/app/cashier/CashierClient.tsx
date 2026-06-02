@@ -237,7 +237,21 @@ export default function CashierClient({
     const stored = localStorage.getItem("cashier_archived_sessions") || "[]";
     try {
       const parsed = JSON.parse(stored) as ArchivedCashierSession[];
-      setArchivedSessions(Array.isArray(parsed) ? parsed : []);
+      const validData = Array.isArray(parsed) ? parsed : [];
+      
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 95);
+      
+      const filteredData = validData.filter(session => {
+        const sessionDate = new Date(session.closedAt);
+        return sessionDate >= cutoffDate;
+      });
+
+      setArchivedSessions(filteredData);
+
+      if (filteredData.length !== validData.length) {
+        localStorage.setItem("cashier_archived_sessions", JSON.stringify(filteredData));
+      }
     } catch {
       setArchivedSessions([]);
     }
