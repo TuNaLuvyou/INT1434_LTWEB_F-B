@@ -155,37 +155,47 @@ export default function AdminMenuPage() {
 
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-orange-500 selection:text-white">
+    <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
       {/* Background Glow effects */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-amber-600/5 blur-[120px] pointer-events-none" />
 
-      <div className="max-w-6xl mx-auto relative z-10">
+      {/* Header */}
+      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
+        <div className="max-w-7xl mx-auto px-6 pl-16 lg:pl-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="font-bold tracking-tight text-lg text-white">Quản lý Món ăn</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 font-semibold tracking-wider uppercase">Menu</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Content Area */}
+      <main className="flex-1 overflow-hidden flex flex-col p-6 space-y-4 max-w-7xl w-full mx-auto relative z-10">
         {/* Header Dashboard */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-medium mb-2.5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-medium mb-2">
               <Utensils size={13} className="stroke-[2.5]" />
               <span>Hệ thống RestoFlow • Admin Panel</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
-              Quản lý Món ăn
+            <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
+              Danh Sách Thực Đơn
             </h1>
-            <p className="text-xs text-zinc-400 font-semibold mt-1">
-              Thêm mới, điều chỉnh, cập nhật trạng thái hoạt động và quản trị lưu trữ thực đơn.
-            </p>
           </div>
           
           <button
             onClick={handleAddNew}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-500 text-white px-5 py-3 rounded-xl text-sm font-black hover:from-orange-500 hover:to-amber-400 active:scale-98 shadow-lg shadow-orange-500/15 cursor-pointer transition-all self-start sm:self-center"
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:from-orange-500 hover:to-amber-400 active:scale-98 shadow-lg shadow-orange-500/15 cursor-pointer transition-all self-start sm:self-center"
           >
-            <Plus size={16} className="stroke-[3]" /> Thêm món mới
+            <Plus size={14} className="stroke-[3]" /> Thêm món mới
           </button>
         </div>
 
         {/* Thanh lọc & tìm kiếm */}
-        <div className="bg-zinc-900/40 border border-zinc-900 p-4 mb-6 flex flex-col md:flex-row gap-4 rounded-2xl shadow-xl backdrop-blur-md">
+        <div className="bg-zinc-900/40 border border-zinc-900 p-4 shrink-0 flex flex-col md:flex-row gap-4 rounded-2xl shadow-xl backdrop-blur-md">
           {/* Ô tìm kiếm */}
           <div className="relative flex-grow">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
@@ -218,12 +228,12 @@ export default function AdminMenuPage() {
 
         {/* Trạng thái Loading / Lỗi */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl">
+          <div className="flex-1 flex flex-col items-center justify-center py-20 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl">
             <Loader2 className="animate-spin text-orange-500 mb-3" size={32} />
             <p className="text-sm font-bold text-zinc-400">Đang tải danh sách món ăn...</p>
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-16 bg-red-950/10 rounded-2xl border border-red-900/30 p-6 text-center">
+          <div className="flex-1 flex flex-col items-center justify-center py-16 bg-red-950/10 rounded-2xl border border-red-900/30 p-6 text-center">
             <AlertTriangle className="text-red-500 mb-3" size={36} />
             <p className="text-sm font-black text-red-400 mb-2">Đã xảy ra lỗi</p>
             <p className="text-xs text-zinc-400 max-w-md mb-4 leading-relaxed">{error}</p>
@@ -235,7 +245,7 @@ export default function AdminMenuPage() {
             </button>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl text-center px-4">
+          <div className="flex-1 flex flex-col items-center justify-center py-20 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl text-center px-4">
             <div className="p-4.5 bg-orange-500/10 rounded-full text-orange-500 mb-4 border border-orange-500/20 animate-pulse">
               <Utensils size={32} />
             </div>
@@ -248,17 +258,17 @@ export default function AdminMenuPage() {
           </div>
         ) : (
           /* Bảng dữ liệu */
-          <div className="bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="flex-1 min-h-0 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl overflow-hidden flex flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
               <table className="w-full min-w-[700px] border-collapse text-left">
                 <thead>
                   <tr className="bg-zinc-950/80 border-b border-zinc-900">
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-24">Hình ảnh</th>
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest">Tên món & Mô tả</th>
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-40">Danh mục</th>
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-36">Giá bán</th>
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-36">Trạng thái</th>
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-28 text-right">Thao tác</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-24 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Hình ảnh</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Tên món & Mô tả</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-40 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Danh mục</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-36 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Giá bán</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-36 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Trạng thái</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-28 text-right sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900/60">
@@ -352,7 +362,7 @@ export default function AdminMenuPage() {
             </div>
           </div>
         )}
-      </div>
+      </main>
 
       {/* Modal Form Thêm/Sửa */}
       {isFormOpen && (

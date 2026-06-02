@@ -169,7 +169,7 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
   };
 
   return (
-    <div className="space-y-8 select-none">
+    <div className="flex-1 min-h-0 flex flex-col space-y-4 select-none">
       
       {/* ─── TOAST NOTIFICATION ─── */}
       {toast && (
@@ -186,7 +186,7 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
       )}
 
       {/* ─── HEADER ─── */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-900 pb-6">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-900 pb-3 shrink-0">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-950/25">
             <TableIcon className="text-white h-6 w-6" />
@@ -227,8 +227,8 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
       </header>
 
       {/* ─── QUICK METRICS STATS BAR ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-900 shadow-sm flex items-center gap-4 hover:border-zinc-800 transition-all">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 shrink-0">
+        <div className="bg-zinc-900/40 p-4 rounded-3xl border border-zinc-900 shadow-sm flex items-center gap-4 hover:border-zinc-800 transition-all">
           <div className="h-12 w-12 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-zinc-400 shrink-0 shadow-inner">
             <span className="font-mono font-bold text-base text-white">{totalCount}</span>
           </div>
@@ -238,7 +238,7 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
           </div>
         </div>
 
-        <div className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-900 shadow-sm flex items-center gap-4 hover:border-zinc-800 transition-all">
+        <div className="bg-zinc-900/40 p-4 rounded-3xl border border-zinc-900 shadow-sm flex items-center gap-4 hover:border-zinc-800 transition-all">
           <div className="h-12 w-12 rounded-2xl bg-emerald-950/60 border border-emerald-900 text-emerald-400 flex items-center justify-center shrink-0 shadow-md">
             <CheckCircle2 className="h-6 w-6" />
           </div>
@@ -248,7 +248,7 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
           </div>
         </div>
 
-        <div className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-900 shadow-sm flex items-center gap-4 hover:border-zinc-800 transition-all">
+        <div className="bg-zinc-900/40 p-4 rounded-3xl border border-zinc-900 shadow-sm flex items-center gap-4 hover:border-zinc-800 transition-all">
           <div className="h-12 w-12 rounded-2xl bg-red-950/60 border border-red-900 text-red-400 flex items-center justify-center shrink-0 shadow-md">
             <Users className="h-6 w-6" />
           </div>
@@ -258,7 +258,7 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
           </div>
         </div>
 
-        <div className="bg-zinc-900/40 p-5 rounded-3xl border border-zinc-900 shadow-sm flex items-center gap-4 hover:border-zinc-800 transition-all">
+        <div className="bg-zinc-900/40 p-4 rounded-3xl border border-zinc-900 shadow-sm flex items-center gap-4 hover:border-zinc-800 transition-all">
           <div className="h-12 w-12 rounded-2xl bg-amber-950/60 border border-amber-900 text-amber-400 flex items-center justify-center shrink-0 shadow-md">
             <Clock className="h-6 w-6" />
           </div>
@@ -270,7 +270,7 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
       </div>
 
       {/* ─── FILTERS & SEARCH BOX ─── */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-zinc-900/20 p-4 rounded-2xl border border-zinc-900/80">
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-zinc-900/20 p-4 rounded-2xl border border-zinc-900/80 shrink-0">
         
         {/* Status Filters */}
         <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
@@ -356,7 +356,7 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
 
       {/* ─── GRID TABLE MAP ─── */}
       {!loading && !error && filteredTables.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
           {filteredTables.map((table) => {
             const badge = statusBadges[table.status];
             
@@ -365,7 +365,7 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
                 key={table.id}
                 onClick={() => handleOpenViewModal(table)}
                 aria-label={`Bàn số ${table.tableNumber} - ${badge.label}`}
-                className="group relative text-left block w-full overflow-hidden rounded-3xl border border-zinc-900 bg-zinc-900/40 p-8 transition-all duration-300 hover:scale-[1.01] hover:border-zinc-800 hover:bg-zinc-900/60 shadow-xl cursor-pointer"
+                className="group relative text-left block w-full overflow-hidden rounded-3xl border border-zinc-900 bg-zinc-900/40 p-6 transition-all duration-300 hover:scale-[1.01] hover:border-zinc-800 hover:bg-zinc-900/60 shadow-xl cursor-pointer"
               >
                 {/* Visual Glow Highlight */}
                 <div className={`absolute -right-24 -top-24 h-48 w-48 rounded-full opacity-0 blur-[60px] transition-all duration-500 group-hover:opacity-15 group-hover:-translate-x-6 group-hover:translate-y-6 ${
@@ -385,7 +385,7 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
 
                   {/* Table Label */}
                   <div className="space-y-1.5">
-                    <h3 className="text-xl font-extrabold tracking-tight text-white group-hover:text-emerald-400 transition-colors">
+                    <h3 className="text-lg font-extrabold tracking-tight text-white group-hover:text-emerald-400 transition-colors">
                       {table.label}
                     </h3>
                     
@@ -406,7 +406,7 @@ export default function FloorPlanClient({ initialTables, errorMsg: initialError 
       )}
 
       {/* Legend bar */}
-      <div className="flex flex-wrap items-center justify-center gap-6 pt-6 border-t border-zinc-900 text-xs font-semibold text-zinc-500">
+      <div className="flex flex-wrap items-center justify-center gap-6 pt-3 border-t border-zinc-900 text-xs font-semibold text-zinc-500 shrink-0">
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-full bg-emerald-500/20 border border-emerald-500/40" />
           <span>Xanh lá: Còn trống</span>
