@@ -1103,7 +1103,7 @@ export default function KDSPage() {
               {/* Header */}
               <div className="p-6 border-b border-zinc-900 bg-zinc-900/20 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <div className="p-2.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400">
                     <Archive className="h-6 w-6" />
                   </div>
                   <div>
@@ -1128,7 +1128,7 @@ export default function KDSPage() {
                     className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 px-4 py-2 rounded-xl cursor-pointer hover:bg-zinc-800 transition-colors"
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   >
-                    <Calendar className="h-4 w-4 text-emerald-500" />
+                    <Calendar className="h-4 w-4 text-orange-500" />
                     <span className="text-sm font-semibold text-zinc-200">
                       {rangeType === "today" && "Hôm nay"}
                       {rangeType === "yesterday" && "Hôm qua"}
@@ -1143,19 +1143,19 @@ export default function KDSPage() {
                   {isDropdownOpen && (
                     <div className="absolute top-full mt-2 left-0 w-80 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-xl z-50 overflow-hidden max-h-[65vh] overflow-y-auto">
                       <div className="p-2 space-y-1">
-                        <button onClick={() => handleRangeChange("today")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "today" ? "bg-emerald-500/10 text-emerald-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
+                        <button onClick={() => handleRangeChange("today")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "today" ? "bg-orange-500/10 text-orange-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
                           Hôm nay
                         </button>
-                        <button onClick={() => handleRangeChange("yesterday")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "yesterday" ? "bg-emerald-500/10 text-emerald-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
+                        <button onClick={() => handleRangeChange("yesterday")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "yesterday" ? "bg-orange-500/10 text-orange-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
                           Hôm qua
                         </button>
-                        <button onClick={() => handleRangeChange("7days")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "7days" ? "bg-emerald-500/10 text-emerald-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
+                        <button onClick={() => handleRangeChange("7days")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "7days" ? "bg-orange-500/10 text-orange-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
                           7 ngày qua
                         </button>
-                        <button onClick={() => handleRangeChange("30days")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "30days" ? "bg-emerald-500/10 text-emerald-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
+                        <button onClick={() => handleRangeChange("30days")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "30days" ? "bg-orange-500/10 text-orange-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
                           30 ngày qua
                         </button>
-                        <button onClick={() => handleRangeChange("90days")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "90days" ? "bg-emerald-500/10 text-emerald-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
+                        <button onClick={() => handleRangeChange("90days")} className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-colors ${rangeType === "90days" ? "bg-orange-500/10 text-orange-400" : "text-zinc-300 hover:bg-zinc-900"}`}>
                           90 ngày qua
                         </button>
                       </div>
@@ -1169,7 +1169,7 @@ export default function KDSPage() {
                               <input 
                                 type="text"
                                 placeholder="dd-mm-yyyy"
-                                className="flex-1 bg-zinc-900 border border-zinc-700 text-sm px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 text-white font-mono"
+                                className="flex-1 bg-zinc-900 border border-zinc-700 text-sm px-3 py-2 rounded-xl focus:outline-none focus:border-orange-500 text-white font-mono"
                                 value={rangeStartText}
                                 onChange={(e) => setRangeStartText(e.target.value)}
                               />
@@ -1193,7 +1193,7 @@ export default function KDSPage() {
                               <input 
                                 type="text"
                                 placeholder="dd-mm-yyyy"
-                                className="flex-1 bg-zinc-900 border border-zinc-700 text-sm px-3 py-2 rounded-xl focus:outline-none focus:border-emerald-500 text-white font-mono"
+                                className="flex-1 bg-zinc-900 border border-zinc-700 text-sm px-3 py-2 rounded-xl focus:outline-none focus:border-orange-500 text-white font-mono"
                                 value={rangeEndText}
                                 onChange={(e) => setRangeEndText(e.target.value)}
                               />
@@ -1213,7 +1213,7 @@ export default function KDSPage() {
                           </div>
                           <button 
                             onClick={handleRangeSubmit}
-                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-xl transition-colors"
+                            className="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 rounded-xl transition-colors"
                           >
                             Áp dụng khoảng thời gian
                           </button>
@@ -1236,7 +1236,7 @@ export default function KDSPage() {
                       <div key={order.id} className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-5 flex flex-col hover:border-zinc-700 transition-colors">
                         <div className="flex items-center justify-between mb-4">
                           <span className="font-mono font-bold text-sm text-zinc-100">{order.orderNo}</span>
-                          <span className={`text-[10px] px-2.5 py-1 rounded-lg border font-bold uppercase tracking-wider ${isCancelled ? "bg-rose-500/10 text-rose-400 border-rose-500/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"}`}>
+                          <span className={`text-[10px] px-2.5 py-1 rounded-lg border font-bold uppercase tracking-wider ${isCancelled ? "bg-rose-500/10 text-rose-400 border-rose-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20"}`}>
                             {isCancelled ? "Đã huỷ" : "Đã giao"}
                           </span>
                         </div>
