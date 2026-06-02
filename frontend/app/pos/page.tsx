@@ -522,7 +522,7 @@ export default function POSPage() {
                 </select>
               )}
             </div>
-            <Link href="/pos/cashier" className="ml-4 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+            <Link href="/cashier" className="ml-4 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
               <CreditCard className="h-4 w-4" />
               Thu ngân
             </Link>
@@ -1071,3 +1071,4 @@ export default function POSPage() {
     </div>
   );
 }
+
