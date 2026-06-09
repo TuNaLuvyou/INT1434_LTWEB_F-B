@@ -67,6 +67,8 @@ export default function AdminMenuPage() {
   // Trạng thái modal xóa
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<MenuItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteInfoMessage, setDeleteInfoMessage] = useState<string | null>(null);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
 
   // Load dữ liệu
   const fetchData = async () => {
@@ -122,12 +124,18 @@ export default function AdminMenuPage() {
       // Reload dữ liệu
       await fetchData();
       setDeleteConfirmItem(null);
+
+      // Hiển thị thông báo phù hợp
+      if (result.deleted === false) {
+        setDeleteInfoMessage(`"${deleteConfirmItem.name}" đã được ẩn khỏi thực đơn (không thể xóa hẳn vì đã phát sinh trong đơn hàng).`);
+      }
     } catch (err: any) {
-      alert(err.message || "Đã có lỗi xảy ra");
+      setDeleteErrorMessage(err.message || "Đã có lỗi xảy ra");
     } finally {
       setIsDeleting(false);
     }
   };
+
 
   // Mở modal thêm mới
   const handleAddNew = () => {
@@ -197,7 +205,21 @@ export default function AdminMenuPage() {
           </button>
         </div>
 
-        {/* Thanh lọc & tìm kiếm */}
+        {/* Banner thông báo sau khi xóa */}
+        {deleteInfoMessage && (
+          <div className="flex items-start gap-3 p-3.5 bg-amber-950/20 border border-amber-500/20 rounded-xl text-amber-300 text-xs font-semibold">
+            <span className="text-lg leading-none mt-0.5">&#9432;</span>
+            <span className="flex-1">{deleteInfoMessage}</span>
+            <button onClick={() => setDeleteInfoMessage(null)} className="text-amber-400 hover:text-white transition-colors shrink-0">&#10005;</button>
+          </div>
+        )}
+        {deleteErrorMessage && (
+          <div className="flex items-start gap-3 p-3.5 bg-red-950/20 border border-red-500/20 rounded-xl text-red-400 text-xs font-semibold">
+            <span className="text-lg leading-none mt-0.5">&#9888;</span>
+            <span className="flex-1">{deleteErrorMessage}</span>
+            <button onClick={() => setDeleteErrorMessage(null)} className="text-red-400 hover:text-white transition-colors shrink-0">&#10005;</button>
+          </div>
+        )}
         <div className="bg-zinc-900/40 border border-zinc-900 p-4 shrink-0 flex flex-col md:flex-row gap-4 rounded-2xl shadow-xl backdrop-blur-md">
           {/* Ô tìm kiếm */}
           <div className="relative flex-grow">
@@ -207,7 +229,7 @@ export default function AdminMenuPage() {
               placeholder="Tìm kiếm theo tên món, mô tả..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-zinc-950/80 border border-zinc-800 text-sm font-semibold rounded-xl focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all text-zinc-100 placeholder-zinc-500 shadow-sm"
+              className="w-full pl-10 pr-4 py-2.5 bg-zinc-950/80 border border-zinc-800 text-sm font-semibold rounded-xl focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 transition-all text-zinc-100 placeholder-zinc-500 shadow-sm"
             />
           </div>
 
