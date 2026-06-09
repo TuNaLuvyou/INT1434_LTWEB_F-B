@@ -58,7 +58,6 @@ export default function MenuItemForm({
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<MenuItemFormValues>({
     resolver: zodResolver(menuItemSchema),
@@ -72,7 +71,6 @@ export default function MenuItemForm({
     },
   });
 
-  // Hủy Preview URL cũ để giải phóng bộ nhớ khi Component bị unmount hoặc đổi file
   useEffect(() => {
     return () => {
       if (previewUrl && previewUrl.startsWith("blob:")) {
@@ -85,13 +83,11 @@ export default function MenuItemForm({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Chỉ cho phép ảnh dưới 5MB
     if (file.size > 5 * 1024 * 1024) {
       setSubmitError("Kích thước file ảnh vượt quá giới hạn 5MB");
       return;
     }
 
-    // Chỉ cho phép định dạng PNG, JPG, WEBP
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       setSubmitError("Định dạng ảnh không hợp lệ (Chỉ nhận JPG, PNG, WEBP)");
@@ -100,8 +96,6 @@ export default function MenuItemForm({
 
     setSubmitError(null);
     setSelectedFile(file);
-    
-    // Tạo Object URL cho ảnh preview
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
   };
@@ -128,8 +122,8 @@ export default function MenuItemForm({
         formData.append("image", selectedFile);
       }
 
-      const url = initialData 
-        ? `${API_URL}/api/admin/menu-items/${initialData.id}` 
+      const url = initialData
+        ? `${API_URL}/api/admin/menu-items/${initialData.id}`
         : `${API_URL}/api/admin/menu-items`;
 
       const method = initialData ? "PUT" : "POST";
@@ -159,9 +153,9 @@ export default function MenuItemForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 text-zinc-300">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 text-zinc-300">
       {submitError && (
-        <div className="p-3.5 bg-red-950/20 text-red-400 rounded-lg text-xs font-bold border border-red-900/30 animate-pulse">
+        <div className="p-3 bg-red-950/20 text-red-400 rounded-lg text-xs font-bold border border-red-900/30">
           ⚠️ {submitError}
         </div>
       )}
@@ -175,26 +169,25 @@ export default function MenuItemForm({
           type="text"
           {...register("name")}
           placeholder="Ví dụ: Cà phê sữa đá, Bún bò Huế..."
-          className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-zinc-100 bg-zinc-900/60 shadow-inner ${
-            errors.name ? "border-red-500/50 bg-red-950/20 text-red-200" : "border-zinc-800 focus:border-orange-500/40"
+          className={`w-full px-3.5 py-2.5 rounded-lg border text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 text-zinc-100 bg-zinc-900/60 shadow-inner ${
+            errors.name ? "border-red-500/50 bg-red-950/20 text-red-200" : "border-zinc-800 focus:border-violet-500/40"
           }`}
         />
         {errors.name && (
-          <p className="text-[11px] text-red-400 font-extrabold mt-1">{errors.name.message}</p>
+          <p className="text-[11px] text-red-400 font-bold mt-1">{errors.name.message}</p>
         )}
       </div>
 
       {/* Danh mục và Giá */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Danh mục */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
             Danh mục <span className="text-red-500">*</span>
           </label>
           <select
             {...register("categoryId")}
-            className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-zinc-100 bg-zinc-900/60 shadow-inner ${
-              errors.categoryId ? "border-red-500/50 bg-red-950/20 text-red-200" : "border-zinc-800 focus:border-orange-500/40"
+            className={`w-full px-3.5 py-2.5 rounded-lg border text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-violet-500/20 text-zinc-100 bg-zinc-900/60 shadow-inner ${
+              errors.categoryId ? "border-red-500/50 bg-red-950/20 text-red-200" : "border-zinc-800 focus:border-violet-500/40"
             }`}
           >
             <option value="" className="bg-zinc-950 text-zinc-400">-- Chọn danh mục --</option>
@@ -205,11 +198,10 @@ export default function MenuItemForm({
             ))}
           </select>
           {errors.categoryId && (
-            <p className="text-[11px] text-red-400 font-extrabold mt-1">{errors.categoryId.message}</p>
+            <p className="text-[11px] text-red-400 font-bold mt-1">{errors.categoryId.message}</p>
           )}
         </div>
 
-        {/* Giá tiền */}
         <div>
           <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
             Giá bán (VND) <span className="text-red-500">*</span>
@@ -218,26 +210,27 @@ export default function MenuItemForm({
             type="number"
             {...register("price", { valueAsNumber: true })}
             placeholder="Ví dụ: 35000"
-            className={`w-full px-4 py-2.5 rounded-lg border text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-zinc-100 bg-zinc-900/60 shadow-inner ${
-              errors.price ? "border-red-500/50 bg-red-950/20 text-red-200" : "border-zinc-800 focus:border-orange-500/40"
+            className={`w-full px-3.5 py-2.5 rounded-lg border text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-violet-500/20 text-zinc-100 bg-zinc-900/60 shadow-inner ${
+              errors.price ? "border-red-500/50 bg-red-950/20 text-red-200" : "border-zinc-800 focus:border-violet-500/40"
             }`}
           />
           {errors.price && (
-            <p className="text-[11px] text-red-400 font-extrabold mt-1">{errors.price.message}</p>
+            <p className="text-[11px] text-red-400 font-bold mt-1">{errors.price.message}</p>
           )}
         </div>
       </div>
 
-      {/* Mô tả ngắn */}
+      {/* Mô tả */}
       <div>
         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
           Mô tả món ăn
         </label>
         <textarea
           {...register("description")}
-          rows={3}
+          rows={2}
           placeholder="Mô tả thành phần, độ cay, hương vị..."
-          className="w-full px-4 py-2.5 rounded-lg border border-zinc-800 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-zinc-900/60 text-zinc-100 placeholder-zinc-500 shadow-inner"
+          className="w-full px-3.5 py-2.5 rounded-lg border border-zinc-800 text-sm font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500/40 bg-zinc-900/60 text-zinc-100 placeholder-zinc-500 shadow-inner resize-none overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent"
+          style={{ maxHeight: "80px" }}
         />
       </div>
 
@@ -246,69 +239,59 @@ export default function MenuItemForm({
         <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
           Hình ảnh món ăn
         </label>
-        
+
         {previewUrl ? (
-          <div className="relative w-full h-44 rounded-xl overflow-hidden group border border-zinc-800 bg-zinc-950 shadow-inner">
+          <div className="relative w-full h-36 rounded-xl overflow-hidden group border border-zinc-800 bg-zinc-950 shadow-inner">
             <Image
               src={previewUrl}
               alt="Món ăn preview"
               fill
-              className="object-cover transition-transform group-hover:scale-102"
+              className="object-cover transition-transform group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-              <label className="p-2 bg-zinc-900 text-zinc-200 rounded-full hover:bg-orange-500 hover:text-white transition-colors cursor-pointer shadow-md border border-zinc-800">
-                <Upload size={16} />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
+              <label className="p-2 bg-zinc-900 text-zinc-200 rounded-full hover:bg-violet-600 hover:text-white transition-colors cursor-pointer shadow-md border border-zinc-800">
+                <Upload size={15} />
+                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
               </label>
               <button
                 type="button"
                 onClick={handleRemoveImage}
                 className="p-2 bg-zinc-900 text-red-400 rounded-full hover:bg-red-600 hover:text-white transition-colors shadow-md border border-zinc-800"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
             {selectedFile && (
-              <span className="absolute bottom-2.5 left-2.5 bg-orange-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-md flex items-center gap-1">
-                <Sparkles size={10} /> Sẵn sàng upload
+              <span className="absolute bottom-2 left-2 bg-violet-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-md flex items-center gap-1">
+                <Sparkles size={9} /> Sẵn sàng upload
               </span>
             )}
           </div>
         ) : (
-          <label className="flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-zinc-800 rounded-xl cursor-pointer bg-zinc-900/20 hover:bg-orange-500/5 hover:border-orange-500/40 transition-all group">
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-              <div className="p-3 bg-orange-500/10 rounded-full text-orange-500 group-hover:scale-110 transition-transform mb-3 border border-orange-500/20 bg-orange-500/10">
-                <Upload size={22} className="stroke-[2.5]" />
+          <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-zinc-800 rounded-xl cursor-pointer bg-zinc-900/20 hover:bg-violet-500/5 hover:border-violet-500/40 transition-all group">
+            <div className="flex flex-col items-center">
+              <div className="p-2.5 bg-violet-500/10 rounded-full text-violet-400 group-hover:scale-110 transition-transform mb-2 border border-violet-500/20">
+                <Upload size={18} className="stroke-[2.5]" />
               </div>
               <p className="text-xs font-extrabold text-zinc-300">Tải ảnh lên Cloudinary</p>
-              <p className="text-[10px] text-zinc-500 mt-1 font-semibold">Định dạng JPG, PNG, WEBP (Max 5MB)</p>
+              <p className="text-[10px] text-zinc-500 mt-0.5 font-semibold">JPG, PNG, WEBP (Max 5MB)</p>
             </div>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
+            <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
           </label>
         )}
       </div>
 
-      {/* Trạng thái Món ăn (Hoạt động / Hết món) */}
-      <div className="grid grid-cols-2 gap-4 p-4.5 bg-zinc-900/40 rounded-xl border border-zinc-900">
+      {/* Trạng thái */}
+      <div className="grid grid-cols-2 gap-3 p-3.5 bg-zinc-900/40 rounded-xl border border-zinc-900">
         <label className="flex items-center gap-2.5 cursor-pointer select-none">
           <input
             type="checkbox"
             {...register("isActive")}
-            className="w-4 h-4 rounded text-orange-500 border-zinc-800 focus:ring-orange-500/40 cursor-pointer bg-zinc-950"
+            className="w-4 h-4 rounded text-violet-500 border-zinc-800 focus:ring-violet-500/40 cursor-pointer bg-zinc-950"
           />
           <div>
             <p className="text-xs font-extrabold text-zinc-200">Hoạt động</p>
-            <p className="text-[10px] text-zinc-450 font-semibold mt-0.5">Cho phép hiển thị trên Menu</p>
+            <p className="text-[10px] text-zinc-500 font-semibold mt-0.5">Hiển thị trên Menu</p>
           </div>
         </label>
 
@@ -316,17 +299,17 @@ export default function MenuItemForm({
           <input
             type="checkbox"
             {...register("isSoldOut")}
-            className="w-4 h-4 rounded text-orange-500 border-zinc-800 focus:ring-orange-500/40 cursor-pointer bg-zinc-950"
+            className="w-4 h-4 rounded text-violet-500 border-zinc-800 focus:ring-violet-500/40 cursor-pointer bg-zinc-950"
           />
           <div>
             <p className="text-xs font-extrabold text-zinc-200">Hết món</p>
-            <p className="text-[10px] text-zinc-450 font-semibold mt-0.5">Hiển thị nhãn hết món</p>
+            <p className="text-[10px] text-zinc-500 font-semibold mt-0.5">Hiển thị nhãn hết món</p>
           </div>
         </label>
       </div>
 
       {/* Nút hành động */}
-      <div className="flex gap-3 justify-end border-t border-zinc-900/60 pt-4 mt-2">
+      <div className="flex gap-3 justify-end border-t border-zinc-900/60 pt-4">
         <button
           type="button"
           onClick={onCancel}
@@ -338,11 +321,11 @@ export default function MenuItemForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 text-white rounded-lg text-sm font-black hover:from-orange-500 hover:to-amber-400 active:scale-98 disabled:opacity-50 shadow-lg shadow-orange-500/15 flex items-center justify-center gap-2 transition-all cursor-pointer min-w-32"
+          className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-500 text-white rounded-lg text-sm font-black hover:from-violet-500 hover:to-indigo-400 active:scale-98 disabled:opacity-50 shadow-lg shadow-violet-500/15 flex items-center justify-center gap-2 transition-all cursor-pointer min-w-28"
         >
           {isSubmitting ? (
             <>
-              <Loader2 size={16} className="animate-spin" /> Tải lên...
+              <Loader2 size={15} className="animate-spin" /> Tải lên...
             </>
           ) : initialData ? (
             "Cập nhật"

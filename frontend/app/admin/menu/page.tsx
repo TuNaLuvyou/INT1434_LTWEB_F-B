@@ -169,7 +169,7 @@ export default function AdminMenuPage() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-lg text-white">Quản lý Món ăn</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 font-semibold tracking-wider uppercase">Menu</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">Menu</span>
             </div>
           </div>
         </div>
@@ -180,7 +180,7 @@ export default function AdminMenuPage() {
         {/* Header Dashboard */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-medium mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-medium mb-2">
               <Utensils size={13} className="stroke-[2.5]" />
               <span>Hệ thống RestoFlow • Admin Panel</span>
             </div>
@@ -191,7 +191,7 @@ export default function AdminMenuPage() {
           
           <button
             onClick={handleAddNew}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:from-orange-500 hover:to-amber-400 active:scale-98 shadow-lg shadow-orange-500/15 cursor-pointer transition-all self-start sm:self-center"
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:from-violet-500 hover:to-indigo-400 active:scale-98 shadow-lg shadow-violet-500/15 cursor-pointer transition-all self-start sm:self-center"
           >
             <Plus size={14} className="stroke-[3]" /> Thêm món mới
           </button>
@@ -303,7 +303,7 @@ export default function AdminMenuPage() {
 
                       {/* Danh mục */}
                       <td className="p-4">
-                        <span className="text-xs font-extrabold bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20">
+                        <span className="text-xs font-extrabold bg-violet-500/10 text-violet-400 px-3 py-1 rounded-full border border-violet-500/20">
                           {item.category?.name || "Không rõ"}
                         </span>
                       </td>
