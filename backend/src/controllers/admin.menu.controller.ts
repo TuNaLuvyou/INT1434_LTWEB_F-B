@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import prisma from '../config/prisma';
+import { Prisma } from '@prisma/client';
 import cloudinary from '../config/cloudinary';
 
 /**
@@ -264,9 +265,9 @@ export const deleteMenuItem = async (req: AuthenticatedRequest, res: Response) =
         message: 'Đã xóa vĩnh viễn món ăn thành công.',
       });
 
-    } catch (deleteError: any) {
+    } catch (deleteError) {
       // Nếu bị chặn do khóa ngoại (P2003) → chuyển sang Soft Delete
-      if (deleteError?.code === 'P2003' || deleteError?.message?.includes('Foreign key constraint')) {
+      if (deleteError instanceof Prisma.PrismaClientKnownRequestError && deleteError.code === 'P2003') {
         await prisma.menuItem.update({
           where: { id },
           data: { isActive: false },
@@ -276,7 +277,7 @@ export const deleteMenuItem = async (req: AuthenticatedRequest, res: Response) =
         return res.json({
           success: true,
           deleted: false,
-          message: 'Món ăn đã được ẩn khỏi thực đơn (đã từng phát sinh trong đơn hàng nên không thể xóa hẳn).',
+          message: 'Món ăn đã được ẩn khỏi thực đơn (vì đã từng phát sinh trong đơn hàng củ khách).',
         });
       }
 
