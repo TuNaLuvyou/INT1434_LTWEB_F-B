@@ -291,7 +291,7 @@ export default function AdminMenuPage() {
 
                       {/* Tên món và Mô tả */}
                       <td className="p-4">
-                        <h4 className="text-sm font-black text-zinc-100 line-clamp-1 hover:text-orange-400 transition-colors cursor-default">{item.name}</h4>
+                        <h4 className="text-sm font-black text-zinc-100 line-clamp-1 hover:text-violet-400 transition-colors cursor-default">{item.name}</h4>
                         {item.description ? (
                           <p className="text-[11px] text-zinc-400 line-clamp-2 mt-1 leading-relaxed max-w-md font-semibold">
                             {item.description}
