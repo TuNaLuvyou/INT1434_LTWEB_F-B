@@ -344,7 +344,7 @@ export default function AdminMenuPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => handleEdit(item)}
-                            className="p-2 bg-zinc-950 text-zinc-400 hover:text-orange-400 hover:border-orange-500/50 rounded-lg cursor-pointer transition-all border border-zinc-800 shadow-sm"
+                            className="p-2 bg-zinc-950 text-zinc-400 hover:text-violet-400 hover:border-violet-500/50 rounded-lg cursor-pointer transition-all border border-zinc-800 shadow-sm"
                             title="Chỉnh sửa món"
                           >
                             <Edit3 size={14} className="stroke-[2.5]" />
