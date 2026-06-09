@@ -12,7 +12,6 @@ import {
   AlertTriangle, 
   Activity,
   Archive,
-  RotateCcw,
   X,
   Search,
   Loader2,
@@ -597,13 +596,6 @@ export default function KDSPage() {
     }
   };
 
-  const resetDemo = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem("kds_archived_item_ids");
-    }
-    fetchKdsOrders();
-  };
-
   const formatTimer = (seconds: number) => {
     const min = Math.floor(seconds / 60);
     const sec = seconds % 60;
@@ -653,13 +645,6 @@ export default function KDSPage() {
             >
               <Archive className="h-3.5 w-3.5" />
               Lịch sử Giao món
-            </button>
-            <button 
-              onClick={resetDemo}
-              className="text-xs bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-zinc-300 font-medium transition-colors"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset Demo
             </button>
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-xs text-zinc-400 font-mono">BẾP CHÍNH</span>
