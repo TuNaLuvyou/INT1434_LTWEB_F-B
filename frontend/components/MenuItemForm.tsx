@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Upload, X, Loader2, Sparkles } from "lucide-react";
 import Image from "next/image";
+import { getAccessTokenFromCookie } from "@/lib/auth/client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -133,11 +134,12 @@ export default function MenuItemForm({
 
       const method = initialData ? "PUT" : "POST";
 
+      const accessToken = getAccessTokenFromCookie();
       const response = await fetch(url, {
         method,
         body: formData,
         headers: {
-          "x-mock-role": "ADMIN"
+          "Authorization": `Bearer ${accessToken || ""}`
         }
       });
 

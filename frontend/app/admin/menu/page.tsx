@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { getAccessTokenFromCookie } from "@/lib/auth/client";
 import { 
   Plus, 
   Search, 
@@ -80,8 +81,9 @@ export default function AdminMenuPage() {
       }
 
       // 2. Fetch danh sách món quản lý (bao gồm các món ẩn)
+      const accessToken = getAccessTokenFromCookie();
       const adminRes = await fetch(`${API_URL}/api/admin/menu-items`, {
-        headers: { "x-mock-role": "ADMIN" }
+        headers: { "Authorization": `Bearer ${accessToken || ""}` }
       });
       const adminResult = await adminRes.json();
       if (adminRes.ok && adminResult.success) {
@@ -106,9 +108,10 @@ export default function AdminMenuPage() {
     if (!deleteConfirmItem) return;
     setIsDeleting(true);
     try {
+      const accessToken = getAccessTokenFromCookie();
       const response = await fetch(`${API_URL}/api/admin/menu-items/${deleteConfirmItem.id}`, {
         method: "DELETE",
-        headers: { "x-mock-role": "ADMIN" }
+        headers: { "Authorization": `Bearer ${accessToken || ""}` }
       });
       
       const result = await response.json();
