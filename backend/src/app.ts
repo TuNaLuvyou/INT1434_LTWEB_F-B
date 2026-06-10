@@ -6,6 +6,7 @@ import 'dotenv/config';
 import authRoutes from './routes/auth.routes';
 import menuRoutes from './routes/menu.routes';
 import adminMenuRoutes from './routes/admin.menu.routes';
+import adminCategoryRoutes from './routes/admin.category.routes';
 import adminUserRoutes from './routes/admin.user.routes';
 import systemRoutes from './routes/system.routes';
 import soldOutRoutes from './routes/sold-out.routes';
@@ -75,6 +76,7 @@ app.use('/api/admin/menu-items', soldOutRoutes);
 
 // Đăng ký route quản lý admin (yêu cầu ADMIN/MANAGER cho các thao tác CRUD)
 app.use('/api/admin/menu-items', adminMenuRoutes);
+app.use('/api/admin/categories', adminCategoryRoutes);
 app.use('/api/admin/users', adminUserRoutes);
 
 // System routes
