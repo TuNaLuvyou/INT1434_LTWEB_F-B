@@ -13,7 +13,7 @@ let io: SocketIOServer;
 interface JwtPayload {
   id: string;
   email: string;
-  role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN';
+  role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN' | 'CASHIER';
 }
 
 function verifyToken(token: string): JwtPayload | null {

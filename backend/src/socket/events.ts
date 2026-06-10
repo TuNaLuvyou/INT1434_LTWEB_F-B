@@ -87,6 +87,6 @@ export const AUTH_REQUIRED_ROOMS = [
 /** Roles được phép join từng room */
 export const ROOM_ALLOWED_ROLES: Record<string, string[]> = {
   [SOCKET_ROOMS.KITCHEN]:    ['ADMIN', 'MANAGER', 'KITCHEN'],
-  [SOCKET_ROOMS.CASHIER]:    ['ADMIN', 'MANAGER', 'STAFF'],
-  [SOCKET_ROOMS.FLOOR_PLAN]: ['ADMIN', 'MANAGER'],
+  [SOCKET_ROOMS.CASHIER]:    ['ADMIN', 'MANAGER', 'CASHIER'],
+  [SOCKET_ROOMS.FLOOR_PLAN]: ['ADMIN', 'MANAGER', 'CASHIER'],
 };
