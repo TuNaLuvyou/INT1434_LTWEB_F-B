@@ -339,7 +339,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   };
 
   // ── Giao diện danh sách món ăn trong Giỏ hàng ──
-  const CartItemList = ({ entries, showActions = true }: { entries: CartItemEntry[]; showActions?: boolean }) => (
+  const renderCartItems = (entries: CartItemEntry[], showActions: boolean = true) => (
     <div className="space-y-3 overflow-y-auto flex-1 pr-1 scrollbar-hide py-1">
       {entries.map((item) => (
         <div
@@ -797,7 +797,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                       <div className="text-[11px] font-black text-gray-400 tracking-wider uppercase">
                         Món đang chọn ({totalItems} món)
                       </div>
-                      <CartItemList entries={cartItems} showActions={true} />
+                      {renderCartItems(cartItems, true)}
                     </div>
                   )}
 
@@ -814,7 +814,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                           <p className="font-normal opacity-90 mt-0.5">Món ăn sẽ sớm được phục vụ tại bàn của bạn.</p>
                         </div>
                       </div>
-                      <CartItemList entries={lastOrder} showActions={false} />
+                      {renderCartItems(lastOrder, false)}
                     </div>
                   )}
                 </>

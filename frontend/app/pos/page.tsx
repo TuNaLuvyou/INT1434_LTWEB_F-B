@@ -537,8 +537,8 @@ export default function POSPage() {
         {/* Left Section: Menu Catalog */}
         <div className="flex-1 flex flex-col gap-6">
           {/* Search and Categories Bar */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-            <div className="relative w-full sm:max-w-xs">
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between w-full">
+            <div className="relative w-full sm:max-w-xs shrink-0">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
               <input 
                 type="text" 
@@ -550,7 +550,7 @@ export default function POSPage() {
             </div>
 
             {/* Category Selectors */}
-            <div className="flex gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 scrollbar-none">
+            <div className="flex gap-2 overflow-x-auto w-full flex-1 min-w-0 pb-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
               <button
                 onClick={() => setSelectedCategory("all")}
                 className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 cursor-pointer ${
@@ -581,7 +581,7 @@ export default function POSPage() {
           </div>
 
           {/* Menu Items Grid */}
-          <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-start" style={{ maxHeight: "calc(100vh - 200px)" }}>
+          <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 auto-rows-max pb-10" style={{ maxHeight: "calc(100vh - 200px)" }}>
             {loading ? (
               <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 text-zinc-500 font-light">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -605,7 +605,7 @@ export default function POSPage() {
                       addToCart(item);
                     }
                   }}
-                  className={`group relative flex flex-col justify-between bg-zinc-900/40 border rounded-2xl transition-all duration-300 hover:translate-y-[-2px] overflow-hidden cursor-pointer ${
+                  className={`group relative flex flex-col justify-between h-full bg-zinc-900/40 border rounded-2xl transition-all duration-300 hover:translate-y-[-2px] overflow-hidden cursor-pointer ${
                     item.isSoldOut ? "border-red-950/60 opacity-60 hover:translate-y-0" : "border-zinc-900 hover:border-zinc-800"
                   }`}
                 >

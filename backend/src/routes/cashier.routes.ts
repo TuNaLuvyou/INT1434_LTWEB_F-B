@@ -4,7 +4,7 @@ import { getCashierOverview, getCashierSessionItems, approveCashierSessionItems,
 
 const router = Router();
 
-router.use(authMiddleware, requireRole(['STAFF', 'ADMIN', 'MANAGER']));
+router.use(authMiddleware, requireRole(['STAFF', 'ADMIN', 'MANAGER', 'CASHIER']));
 
 router.get('/overview', getCashierOverview);
 router.get('/sessions/:sessionId/items', getCashierSessionItems);
