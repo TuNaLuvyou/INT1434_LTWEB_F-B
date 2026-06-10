@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Filter,
   Utensils,
-  X
+  X,
+  FolderOpen
 } from "lucide-react";
 import Image from "next/image";
 
@@ -27,6 +28,10 @@ const MenuItemForm = dynamic(() => import("@/components/MenuItemForm"), {
       Đang tải form...
     </div>
   ),
+});
+
+const CategoryManagerModal = dynamic(() => import("@/components/CategoryManagerModal"), {
+  ssr: false
 });
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -63,6 +68,7 @@ export default function AdminMenuPage() {
   // Trạng thái modal
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   
   // Trạng thái modal xóa
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<MenuItem | null>(null);
@@ -75,15 +81,18 @@ export default function AdminMenuPage() {
     setLoading(true);
     setError(null);
     try {
-      // 1. Fetch categories từ api public menu
-      const menuRes = await fetch(`${API_URL}/api/menu`);
-      const menuResult = await menuRes.json();
-      if (menuRes.ok && menuResult.success) {
-        setCategories(menuResult.data.categories || []);
+      const accessToken = getAccessTokenFromCookie();
+
+      // 1. Fetch toàn bộ danh mục từ api admin (bao gồm cả danh mục rỗng)
+      const categoryRes = await fetch(`${API_URL}/api/admin/categories`, {
+        headers: { "Authorization": `Bearer ${accessToken || ""}` }
+      });
+      const categoryResult = await categoryRes.json();
+      if (categoryRes.ok && categoryResult.success) {
+        setCategories(categoryResult.data || []);
       }
 
       // 2. Fetch danh sách món quản lý (bao gồm các món ẩn)
-      const accessToken = getAccessTokenFromCookie();
       const adminRes = await fetch(`${API_URL}/api/admin/menu-items`, {
         headers: { "Authorization": `Bearer ${accessToken || ""}` }
       });
@@ -197,12 +206,20 @@ export default function AdminMenuPage() {
             </h1>
           </div>
           
-          <button
-            onClick={handleAddNew}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:from-violet-500 hover:to-indigo-400 active:scale-98 shadow-lg shadow-violet-500/15 cursor-pointer transition-all self-start sm:self-center"
-          >
-            <Plus size={14} className="stroke-[3]" /> Thêm món mới
-          </button>
+          <div className="flex gap-2 self-start sm:self-center">
+            <button
+              onClick={() => setIsCategoryManagerOpen(true)}
+              className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-300 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 hover:text-white transition-all shadow-sm cursor-pointer"
+            >
+              <FolderOpen size={14} className="stroke-[2.5]" /> Danh mục
+            </button>
+            <button
+              onClick={handleAddNew}
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:from-violet-500 hover:to-indigo-400 active:scale-98 shadow-lg shadow-violet-500/15 cursor-pointer transition-all"
+            >
+              <Plus size={14} className="stroke-[3]" /> Thêm món mới
+            </button>
+          </div>
         </div>
 
         {/* Banner thông báo sau khi xóa */}
@@ -459,6 +476,14 @@ export default function AdminMenuPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Quản lý Danh mục */}
+      {isCategoryManagerOpen && (
+        <CategoryManagerModal 
+          onClose={() => setIsCategoryManagerOpen(false)} 
+          onCategoryChanged={() => fetchData()} // reload danh sách dropdown khi có danh mục mới
+        />
       )}
     </div>
   );

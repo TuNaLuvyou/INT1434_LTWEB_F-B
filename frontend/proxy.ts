@@ -23,26 +23,9 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
 const PUBLIC_ROUTES = ['/login', '/expired'];
 
 // 3. MIDDLEWARE LOGIC
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Step A: Check license
-  try {
-    const origin = request.nextUrl.origin;
-    const licenseRes = await fetch(`${origin}/api/system/license-status`, {
-      cache: 'force-cache',
-      next: { revalidate: 60 } // Revalidate every 60s
-    });
-    
-    if (licenseRes.ok) {
-      const { isExpired } = await licenseRes.json();
-      if (isExpired && pathname !== '/expired') {
-        return NextResponse.redirect(new URL('/expired', request.url));
-      }
-    }
-  } catch (error) {
-    console.error('[Middleware] License check failed:', error);
-  }
 
   // Step B: Skip middleware cho public routes
   // Chỉ các trang /table/[id] (ví dụ: /table/1) là public cho thực khách.
