@@ -62,16 +62,7 @@ export default function Home() {
       metrics: { label: "Doanh thu hôm nay", value: "+24.5%" },
       visible: !user || user.role === "ADMIN" || user.role === "MANAGER"
     },
-    {
-      title: "Cổng Nhân Viên",
-      description: "Giao diện dành riêng cho nhân viên. Thực hiện chấm công hàng ngày (Check-in/Check-out) và theo dõi lịch trực cá nhân.",
-      href: "/attendance",
-      icon: UserCheck,
-      color: "from-teal-600 to-emerald-500",
-      accent: "teal",
-      metrics: { label: "Trạng thái", value: "Sẵn sàng" },
-      visible: !!user && user.role === "STAFF"
-    },
+
     {
       title: "Table",
       description: "Danh sách các bàn trong nhà hàng — giao diện nội bộ (quản lý, POS, KDS).",

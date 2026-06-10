@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 const schema = z.object({
   email: z.string().email('Email không hợp lệ'),
   name: z.string().min(2, 'Tên quá ngắn'),
-  role: z.enum(['ADMIN', 'MANAGER', 'STAFF', 'KITCHEN', 'CASHIER']),
+  role: z.enum(['ADMIN', 'MANAGER', 'KITCHEN', 'CASHIER']),
   password: z.string()
     .min(8, 'Mật khẩu phải từ 8 ký tự')
     .regex(/^(?=.*[A-Z])(?=.*\d)/, 'Cần 1 chữ hoa và 1 số')
@@ -27,7 +27,7 @@ export default function AccountModal({ isOpen, onClose, user, onSuccess }: { isO
     values: {
       email: user?.email || '',
       name: user?.name || '',
-      role: user?.role || 'STAFF',
+      role: user?.role || 'CASHIER',
       password: '',
     }
   });
@@ -109,7 +109,7 @@ export default function AccountModal({ isOpen, onClose, user, onSuccess }: { isO
               {...register('role')} 
               className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-blue-500"
             >
-              <option value="STAFF">Nhân viên (STAFF)</option>
+
               <option value="CASHIER">Thu ngân (CASHIER)</option>
               <option value="KITCHEN">Bếp (KITCHEN)</option>
               <option value="MANAGER">Quản lý (MANAGER)</option>

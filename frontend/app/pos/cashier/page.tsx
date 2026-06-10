@@ -9,11 +9,11 @@ export async function generateMetadata() {
   return { title: 'Thu ngân | RestoFlow (POS)' };
 }
 
-type Role = 'ADMIN' | 'MANAGER' | 'STAFF' | 'CASHIER';
+type Role = 'ADMIN' | 'MANAGER' | 'CASHIER';
 
 export default async function PosCashierPage() {
   const user = await getCurrentUser();
-  if (!user || !['ADMIN', 'MANAGER', 'STAFF', 'CASHIER'].includes(user.role)) {
+  if (!user || !['ADMIN', 'MANAGER', 'CASHIER'].includes(user.role)) {
     redirect('/login?redirect=/pos/cashier&reason=forbidden');
   }
 

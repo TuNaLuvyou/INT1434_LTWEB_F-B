@@ -10,7 +10,7 @@ import { getAccessTokenFromCookie } from "@/lib/auth/client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-type Role = "ADMIN" | "MANAGER" | "STAFF" | "CASHIER";
+type Role = "ADMIN" | "MANAGER" | "CASHIER";
 
 export interface CashierOverviewTable {
   tableId: string;
