@@ -38,7 +38,6 @@ export default function SettingsClient({ initialConfig }: { initialConfig: any }
     e.preventDefault();
     setIsSavingConfig(true);
     const formData = new FormData(e.currentTarget);
-    const licenseKeyInput = formData.get('licenseKey')?.toString().trim();
     try {
       const res = await fetch(`${API}/api/system/config`, {
         method: 'PUT',
@@ -48,8 +47,7 @@ export default function SettingsClient({ initialConfig }: { initialConfig: any }
         },
         body: JSON.stringify({
           restaurantName: formData.get('restaurantName'),
-          managerEmail: formData.get('managerEmail'),
-          ...(licenseKeyInput ? { licenseKey: licenseKeyInput } : {})
+          managerEmail: formData.get('managerEmail')
         })
       });
       if (res.ok) {
@@ -57,9 +55,6 @@ export default function SettingsClient({ initialConfig }: { initialConfig: any }
         toast.success('Đã lưu cấu hình hệ thống');
         if (result.success && result.data) {
           setConfig(result.data);
-          // Xóa chữ trong ô nhập key sau khi lưu thành công
-          const keyInput = e.currentTarget.querySelector<HTMLInputElement>('input[name="licenseKey"]');
-          if (keyInput) keyInput.value = '';
         }
       } else {
         toast.error('Lỗi lưu cấu hình');
@@ -94,10 +89,10 @@ export default function SettingsClient({ initialConfig }: { initialConfig: any }
         
         {/* TAB 1: SYSTEM CONFIG */}
         {activeTab === 'system' && config && (
-          <form onSubmit={handleSaveConfig} className="max-w-5xl mx-auto w-full pt-4 space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
-              {/* Left Column: Restaurant Info */}
-              <div className="space-y-6">
+          <form onSubmit={handleSaveConfig} className="max-w-2xl mx-auto w-full pt-4 space-y-6">
+            <div className="flex flex-col gap-10 items-start">
+              {/* Restaurant Info */}
+              <div className="space-y-6 w-full">
                 <div>
                   <h2 className="text-base font-extrabold text-white tracking-tight">Cấu hình Nhà hàng</h2>
                   <p className="text-xs text-zinc-500 font-light mt-0.5">Thay đổi tên thương hiệu hiển thị trên Menu và Email liên hệ.</p>
@@ -119,51 +114,6 @@ export default function SettingsClient({ initialConfig }: { initialConfig: any }
                   <button type="submit" disabled={isSavingConfig} className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl transition-all shadow-[0_0_20px_rgba(124,58,237,0.3)] active:scale-95 disabled:opacity-50">
                     {isSavingConfig ? 'Đang lưu...' : 'Lưu cấu hình nhà hàng'}
                   </button>
-                </div>
-              </div>
-
-              {/* Right Column: License Management */}
-              <div className="space-y-6 lg:border-l lg:border-zinc-800/80 lg:pl-10">
-                <div>
-                  <h2 className="text-base font-extrabold text-white tracking-tight">Kích hoạt & Bản quyền</h2>
-                  <p className="text-xs text-zinc-500 font-light mt-0.5">Quản lý và kích hoạt Key bản quyền để gia hạn hệ thống RestoFlow.</p>
-                </div>
-
-                <div className="space-y-5">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Kích hoạt License Key mới</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-                          const segment = (len: number) => Array.from({length: len}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-                          const newKey = `RF-${segment(4)}-${segment(4)}-${segment(4)}`;
-                          const input = document.querySelector<HTMLInputElement>('input[name="licenseKey"]');
-                          if (input) {
-                            input.value = newKey;
-                          }
-                        }}
-                        className="text-[10px] font-extrabold text-violet-400 hover:text-violet-300 transition-colors uppercase tracking-wider cursor-pointer"
-                      >
-                        ⚡ Tạo Key Demo
-                      </button>
-                    </div>
-                    <input name="licenseKey" type="text" placeholder="Nhập key mới để gia hạn thêm 1 năm (Ví dụ: RF-ULTRA-2026)" className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl px-4 py-3 text-xs text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/10 transition-all font-mono tracking-wider" />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="bg-violet-500/5 border border-violet-500/10 p-4 rounded-2xl flex flex-col justify-between h-20">
-                      <p className="text-[9px] font-bold text-violet-400 uppercase tracking-wider">License Key đang dùng</p>
-                      <p className="font-mono text-zinc-300 text-xs font-bold tracking-wider mt-1">{config.licenseKey}</p>
-                    </div>
-                    <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-2xl flex flex-col justify-between h-20">
-                      <p className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Ngày hết hạn</p>
-                      <p className="font-bold text-zinc-300 text-xs mt-1">
-                        {config.licenseExpiredAt ? format(new Date(config.licenseExpiredAt), 'dd/MM/yyyy', { locale: vi }) : 'Vô thời hạn'}
-                      </p>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
