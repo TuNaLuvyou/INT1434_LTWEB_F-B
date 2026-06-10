@@ -35,6 +35,103 @@ export default function CheckInClient({ user }: { user: any }) {
   const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' });
   const [myProfileRequests, setMyProfileRequests] = useState<any[]>([]);
 
+  const [selectedAttendanceMonth, setSelectedAttendanceMonth] = useState<string>(
+    `${new Date().getMonth() + 1}/${new Date().getFullYear()}`
+  );
+  const [selectedScheduleMonth, setSelectedScheduleMonth] = useState<string>(
+    `${new Date().getMonth() + 1}/${new Date().getFullYear()}`
+  );
+  const [scheduleFilterType, setScheduleFilterType] = useState<'month' | 'week'>('week');
+
+  const getInitialWeekValue = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now);
+    monday.setDate(diff);
+    monday.setHours(0, 0, 0, 0);
+    
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    
+    return `${monday.toISOString()}_${sunday.toISOString()}`;
+  };
+
+  const [selectedScheduleWeek, setSelectedScheduleWeek] = useState<string>(getInitialWeekValue());
+
+  const getMonthOptions = () => {
+    const months = [];
+    const d = new Date();
+    for (let i = 0; i < 3; i++) {
+      months.push(`${d.getMonth() + 1}/${d.getFullYear()}`);
+      d.setMonth(d.getMonth() - 1);
+    }
+    return months;
+  };
+
+  const getWeekOptions = () => {
+    const options = [];
+    const now = new Date();
+    
+    const currentMonday = new Date(now);
+    const day = currentMonday.getDay();
+    const diff = currentMonday.getDate() - day + (day === 0 ? -6 : 1);
+    currentMonday.setDate(diff);
+    currentMonday.setHours(0, 0, 0, 0);
+
+    for (let i = -2; i <= 4; i++) {
+      const monday = new Date(currentMonday);
+      monday.setDate(currentMonday.getDate() + i * 7);
+      
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      
+      const label = `Tuần ${monday.getDate()}/${monday.getMonth() + 1} - ${sunday.getDate()}/${sunday.getMonth() + 1}`;
+      let labelSuffix = '';
+      if (i === 0) labelSuffix = ' (Tuần này)';
+      if (i === 1) labelSuffix = ' (Tuần sau)';
+      if (i === -1) labelSuffix = ' (Tuần trước)';
+
+      options.push({
+        label: `${label}${labelSuffix}`,
+        value: `${monday.toISOString()}_${sunday.toISOString()}`
+      });
+    }
+    
+    return options;
+  };
+
+  const filteredAttendanceHistory = myAttendanceHistory.filter(h => {
+    const d = new Date(h.checkInAt);
+    if (isNaN(d.getTime())) return false;
+    const monthStr = `${d.getMonth() + 1}/${d.getFullYear()}`;
+    return monthStr === selectedAttendanceMonth;
+  });
+
+  const filteredSchedules = schedules.filter(s => {
+    const d = new Date(s.date);
+    if (isNaN(d.getTime())) return false;
+
+    if (scheduleFilterType === 'week') {
+      const [startStr, endStr] = selectedScheduleWeek.split('_');
+      const start = new Date(startStr);
+      const end = new Date(endStr);
+      
+      const dateToCheck = new Date(d);
+      dateToCheck.setHours(12, 0, 0, 0);
+      const startDate = new Date(start);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(end);
+      endDate.setHours(23, 59, 59, 999);
+      
+      return dateToCheck >= startDate && dateToCheck <= endDate;
+    } else {
+      const monthStr = `${d.getMonth() + 1}/${d.getFullYear()}`;
+      return monthStr === selectedScheduleMonth;
+    }
+  });
+
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -431,7 +528,17 @@ export default function CheckInClient({ user }: { user: any }) {
           <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-4 w-full">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-white uppercase tracking-wider">Lịch Sử Chấm Công Của Tôi</h3>
-              <span className="text-[10px] text-zinc-500 font-light font-mono">Tất cả ca làm</span>
+              <select
+                value={selectedAttendanceMonth}
+                onChange={(e) => setSelectedAttendanceMonth(e.target.value)}
+                className="bg-zinc-950 border border-zinc-800 px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-zinc-300 focus:outline-none focus:border-teal-500 transition-all font-sans cursor-pointer"
+              >
+                {getMonthOptions().map(m => (
+                  <option key={m} value={m} className="bg-zinc-950 text-zinc-300 text-xs">
+                    Tháng {m}
+                  </option>
+                ))}
+              </select>
             </div>
             
             <div className="overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20">
@@ -445,13 +552,13 @@ export default function CheckInClient({ user }: { user: any }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900 text-xs">
-                  {myAttendanceHistory.length === 0 ? (
+                  {filteredAttendanceHistory.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-4 py-6 text-center text-zinc-600 font-light">
-                        Chưa có lịch sử chấm công nào được ghi nhận.
+                        Chưa có lịch sử chấm công nào được ghi nhận trong tháng này.
                       </td>
                     </tr>
-                  ) : myAttendanceHistory.map(h => (
+                  ) : filteredAttendanceHistory.map(h => (
                     <tr key={h.id} className="hover:bg-zinc-900/20 transition-all">
                       <td className="px-4 py-3 font-mono text-zinc-300">
                         {new Date(h.checkInAt).toLocaleDateString("vi-VN")}
@@ -485,7 +592,45 @@ export default function CheckInClient({ user }: { user: any }) {
         {/* Tab Content 2: MY SCHEDULE */}
         {activeSubTab === 'schedule' && (
           <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-6 space-y-4">
-            <h3 className="text-sm font-bold text-white">Lịch Trực Ca Của Tôi</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Lịch Trực Ca Của Tôi</h3>
+              <div className="flex items-center gap-2">
+                <select
+                  value={scheduleFilterType}
+                  onChange={(e) => setScheduleFilterType(e.target.value as 'month' | 'week')}
+                  className="bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-zinc-300 focus:outline-none focus:border-teal-500 transition-all font-sans cursor-pointer"
+                >
+                  <option value="week">Lọc theo Tuần</option>
+                  <option value="month">Lọc theo Tháng</option>
+                </select>
+
+                {scheduleFilterType === 'week' ? (
+                  <select
+                    value={selectedScheduleWeek}
+                    onChange={(e) => setSelectedScheduleWeek(e.target.value)}
+                    className="bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-zinc-300 focus:outline-none focus:border-teal-500 transition-all font-sans cursor-pointer animate-in fade-in duration-200"
+                  >
+                    {getWeekOptions().map(w => (
+                      <option key={w.value} value={w.value} className="bg-zinc-950 text-zinc-300 text-xs">
+                        {w.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select
+                    value={selectedScheduleMonth}
+                    onChange={(e) => setSelectedScheduleMonth(e.target.value)}
+                    className="bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-zinc-300 focus:outline-none focus:border-teal-500 transition-all font-sans cursor-pointer animate-in fade-in duration-200"
+                  >
+                    {getMonthOptions().map(m => (
+                      <option key={m} value={m} className="bg-zinc-950 text-zinc-300 text-xs">
+                        Tháng {m}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
             
             <div className="overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20">
               <table className="w-full text-left border-collapse">
@@ -504,13 +649,13 @@ export default function CheckInClient({ user }: { user: any }) {
                         Đang tải lịch trực...
                       </td>
                     </tr>
-                  ) : schedules.length === 0 ? (
+                  ) : filteredSchedules.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-5 py-8 text-center text-zinc-600 font-light">
-                        Bạn chưa được xếp lịch ca trực nào.
+                        Bạn chưa được xếp lịch ca trực nào trong {scheduleFilterType === 'week' ? 'tuần' : 'tháng'} này.
                       </td>
                     </tr>
-                  ) : schedules.map(sch => (
+                  ) : filteredSchedules.map(sch => (
                     <tr key={sch.id} className="hover:bg-zinc-900/20 transition-all">
                       <td className="px-5 py-3.5 font-mono text-zinc-200">
                         {new Date(sch.date).toLocaleDateString("vi-VN", { weekday: 'short', day: '2-digit', month: '2-digit' })}
