@@ -83,7 +83,7 @@ export const createCategory = async (req: AuthenticatedRequest, res: Response) =
 // 3. PUT /api/admin/categories/:id - Cập nhật danh mục
 export const updateCategory = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const id = req.params.id;
+    const id = req.params.id as string;
     const { name, sortOrder } = req.body;
 
     const existingCategory = await prisma.category.findUnique({ where: { id } });
@@ -129,7 +129,7 @@ export const updateCategory = async (req: AuthenticatedRequest, res: Response) =
 // 4. DELETE /api/admin/categories/:id - Xóa danh mục
 export const deleteCategory = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const id = req.params.id;
+    const id = req.params.id as string;
 
     const existingCategory = await prisma.category.findUnique({ where: { id } });
     if (!existingCategory) {

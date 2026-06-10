@@ -17,7 +17,7 @@ router.get('/', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'CASHIER']), ge
 router.post('/', authMiddleware, requireRole(['ADMIN']), createVoucherHandler);
 
 // Validate voucher — phải đặt TRƯỚC /:id để tránh bị capture nhầm
-router.post('/validate', authMiddleware, requireRole(['STAFF', 'ADMIN', 'MANAGER', 'CASHIER']), validateVoucherHandler);
+router.post('/validate', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'CASHIER']), validateVoucherHandler);
 
 // Sửa voucher (ADMIN only)
 router.put('/:id', authMiddleware, requireRole(['ADMIN']), updateVoucherHandler);

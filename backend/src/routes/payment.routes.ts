@@ -4,8 +4,8 @@ import { validateVoucherHandler, processPaymentHandler } from '../controllers/pa
 
 const router = Router();
 
-// Bat buoc phai dang nhap va co quyen STAFF/CASHIER/MANAGER/ADMIN
-router.use(authMiddleware, requireRole(['STAFF', 'CASHIER', 'MANAGER', 'ADMIN']));
+// Bat buoc phai dang nhap va co quyen CASHIER/MANAGER/ADMIN
+router.use(authMiddleware, requireRole(['CASHIER', 'MANAGER', 'ADMIN']));
 
 /**
  * GET /api/payment/validate-voucher?code=SUMMER20&subtotal=225000
