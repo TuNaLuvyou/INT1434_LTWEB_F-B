@@ -9,7 +9,6 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
         data: {
           id: 'singleton',
           restaurantName: 'RestoFlow POS',
-          managerEmail: 'admin@restoflow.com',
           licenseKey: 'RF-TRIAL-2025',
           licenseExpiredAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
         }
@@ -34,9 +33,9 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
 
 export const updateConfig = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { restaurantName, managerEmail, licenseKey } = req.body;
+    const { restaurantName, licenseKey } = req.body;
     
-    if (!restaurantName || !managerEmail) {
+    if (!restaurantName) {
       res.status(400).json({ success: false, message: 'Thiếu thông tin cấu hình' });
       return;
     }
@@ -53,13 +52,11 @@ export const updateConfig = async (req: Request, res: Response): Promise<void> =
       where: { id: 'singleton' },
       update: { 
         restaurantName, 
-        managerEmail,
         ...(licenseKey ? { licenseKey, licenseExpiredAt } : {})
       },
       create: {
         id: 'singleton',
         restaurantName,
-        managerEmail,
         licenseKey: licenseKey || 'RF-TRIAL-2025',
         licenseExpiredAt: licenseExpiredAt || new Date(new Date().setFullYear(new Date().getFullYear() + 1))
       }

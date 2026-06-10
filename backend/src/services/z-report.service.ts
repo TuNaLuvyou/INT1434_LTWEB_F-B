@@ -65,11 +65,11 @@ export async function getZReportData(from: string, to: string): Promise<ZReportD
 
   // ── 1. Lấy config nhà hàng ─────────────────────────────────────────────────
   const sysConfig = await prisma.systemConfig.findFirst({
-    select: { restaurantName: true, managerEmail: true },
+    select: { restaurantName: true },
   });
 
   const restaurantName = sysConfig?.restaurantName ?? 'RestoFlow Restaurant';
-  const managerEmail = sysConfig?.managerEmail ?? process.env.MANAGER_EMAIL ?? 'manager@restaurant.com';
+  const managerEmail = process.env.MANAGER_EMAIL ?? 'manager@restaurant.com';
 
   // ── 2. KPI tổng quan ───────────────────────────────────────────────────────
   const kpiQuery: Array<{
