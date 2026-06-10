@@ -17,7 +17,8 @@ import {
   Filter,
   Utensils,
   X,
-  FolderOpen
+  FolderOpen,
+  Scale
 } from "lucide-react";
 import Image from "next/image";
 
@@ -32,6 +33,15 @@ const MenuItemForm = dynamic(() => import("@/components/MenuItemForm"), {
 
 const CategoryManagerModal = dynamic(() => import("@/components/CategoryManagerModal"), {
   ssr: false
+});
+
+const BomEditor = dynamic(() => import("@/components/inventory/BomEditor"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-12 text-sm font-semibold text-zinc-400">
+      Đang tải định lượng...
+    </div>
+  ),
 });
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -69,6 +79,7 @@ export default function AdminMenuPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [bomItem, setBomItem] = useState<MenuItem | null>(null);
   
   // Trạng thái modal xóa
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<MenuItem | null>(null);
@@ -382,6 +393,13 @@ export default function AdminMenuPage() {
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => setBomItem(item)}
+                            className="p-2 bg-zinc-950 text-zinc-400 hover:text-amber-400 hover:border-amber-500/50 rounded-lg cursor-pointer transition-all border border-zinc-800 shadow-sm"
+                            title="Công thức định lượng (BOM)"
+                          >
+                            <Scale size={14} className="stroke-[2.5]" />
+                          </button>
+                          <button
                             onClick={() => handleEdit(item)}
                             className="p-2 bg-zinc-950 text-zinc-400 hover:text-violet-400 hover:border-violet-500/50 rounded-lg cursor-pointer transition-all border border-zinc-800 shadow-sm"
                             title="Chỉnh sửa món"
@@ -484,6 +502,21 @@ export default function AdminMenuPage() {
           onClose={() => setIsCategoryManagerOpen(false)} 
           onCategoryChanged={() => fetchData()} // reload danh sách dropdown khi có danh mục mới
         />
+      )}
+
+      {/* Modal Công thức định lượng (BOM) */}
+      {bomItem && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-zinc-900 shadow-2xl max-w-xl w-full overflow-hidden rounded-2xl animate-in fade-in zoom-in-95 duration-150 relative">
+            <div className="p-6">
+              <BomEditor
+                menuItemId={bomItem.id}
+                menuItemName={bomItem.name}
+                onClose={() => setBomItem(null)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
