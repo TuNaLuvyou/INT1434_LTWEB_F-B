@@ -103,3 +103,19 @@ export const exportExcel = async (req: Request, res: Response): Promise<void> =>
     }
   }
 };
+
+/**
+ * GET /api/analytics/today-overview
+ */
+export const getTodayOverview = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rangeType = req.query.rangeType as string || 'today';
+    const customDate = req.query.customDate as string || undefined;
+    const data = await svc.getTodayOverview(rangeType, customDate);
+    res.json({ success: true, data });
+  } catch (e: any) {
+    console.error('[AnalyticsController] getTodayOverview error:', e);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+

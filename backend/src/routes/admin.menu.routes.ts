@@ -17,6 +17,6 @@ router.use(requireRole(['ADMIN', 'MANAGER']));
 router.get('/', getAdminMenuItems as any);
 router.post('/', upload.single('image'), createMenuItem as any);
 router.put('/:id', upload.single('image'), updateMenuItem as any);
-router.delete('/:id', requireRole(['ADMIN']), deleteMenuItem as any);
+router.delete('/:id', deleteMenuItem as any);
 
 export default router;

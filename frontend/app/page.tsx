@@ -55,7 +55,7 @@ export default function Home() {
     {
       title: "Admin Analytics",
       description: "Trình quản trị và phân tích dữ liệu kinh doanh. Theo dõi doanh thu, số lượng đơn hàng, lịch sử giao dịch và biểu đồ tăng trưởng.",
-      href: "/admin",
+      href: "/admin/dashboard",
       icon: BarChart3,
       color: "from-violet-600 to-purple-500",
       accent: "violet",

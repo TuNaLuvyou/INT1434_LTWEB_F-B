@@ -24,10 +24,12 @@ import {
   Sparkles,
   ArrowLeft,
   Settings,
+  Utensils,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { name: "Dashboard", href: "/admin", icon: LayoutDashboard, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
+  { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
+  { name: "Quản lý Món ăn", href: "/admin/menu", icon: Utensils, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
   { name: "Nguyên liệu", href: "/admin/inventory", icon: Database, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
   { name: "Chấm công", href: "/admin/attendance", icon: ClipboardCheck, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
   { name: "Lịch làm việc", href: "/admin/schedule", icon: CalendarDays, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },

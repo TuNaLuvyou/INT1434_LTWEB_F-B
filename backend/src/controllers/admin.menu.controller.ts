@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import prisma from '../config/prisma';
+import { Prisma } from '@prisma/client';
 import cloudinary from '../config/cloudinary';
 
 /**
@@ -228,7 +229,7 @@ export const updateMenuItem = async (req: AuthenticatedRequest, res: Response) =
   }
 };
 
-// 4. DELETE /api/admin/menu-items/:id - Xóa món ăn
+// 4. DELETE /api/admin/menu-items/:id - Xóa món ăn (Smart Delete)
 export const deleteMenuItem = async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
 
@@ -241,30 +242,51 @@ export const deleteMenuItem = async (req: AuthenticatedRequest, res: Response) =
       return res.status(404).json({ success: false, message: 'Món ăn không tồn tại' });
     }
 
-    // 1. Xóa ảnh trên Cloudinary trước
-    if (existingItem.imageUrl) {
-      const publicId = getPublicIdFromUrl(existingItem.imageUrl);
-      if (publicId) {
-        try {
-          await cloudinary.uploader.destroy(publicId);
-          console.log('[Cloudinary] Đã xóa ảnh món ăn trên Cloudinary trước khi xóa DB:', publicId);
-        } catch (delError) {
-          console.error('[Cloudinary] Lỗi xóa ảnh khi xóa món ăn:', delError);
+    // Thử xóa vĩnh viễn (Hard Delete) trước
+    try {
+      await prisma.menuItem.delete({ where: { id } });
+
+      // Nếu xóa DB thành công → mới xóa ảnh trên Cloudinary
+      if (existingItem.imageUrl) {
+        const publicId = getPublicIdFromUrl(existingItem.imageUrl);
+        if (publicId) {
+          try {
+            await cloudinary.uploader.destroy(publicId);
+            console.log('[Cloudinary] Đã xóa ảnh:', publicId);
+          } catch (delError) {
+            console.error('[Cloudinary] Lỗi xóa ảnh:', delError);
+          }
         }
       }
+
+      return res.json({
+        success: true,
+        deleted: true,
+        message: 'Đã xóa vĩnh viễn món ăn thành công.',
+      });
+
+    } catch (deleteError) {
+      // Nếu bị chặn do khóa ngoại (P2003) → chuyển sang Soft Delete
+      if (deleteError instanceof Prisma.PrismaClientKnownRequestError && deleteError.code === 'P2003') {
+        await prisma.menuItem.update({
+          where: { id },
+          data: { isActive: false },
+        });
+
+        console.log(`[Admin Menu] Soft-delete món ăn id=${id} vì có lịch sử đơn hàng.`);
+        return res.json({
+          success: true,
+          deleted: false,
+          message: 'Món ăn đã được ẩn khỏi thực đơn (vì đã từng phát sinh trong đơn hàng củ khách).',
+        });
+      }
+
+      // Lỗi khác thì trả về 500
+      throw deleteError;
     }
 
-    // 2. Xóa bản ghi trong DB
-    await prisma.menuItem.delete({
-      where: { id },
-    });
-
-    return res.json({
-      success: true,
-      message: 'Xóa món ăn thành công',
-    });
   } catch (error) {
     console.error('[Admin Menu CRUD] Lỗi xóa món ăn:', error);
-    return res.status(500).json({ success: false, message: 'Lỗi server khi xóa món ăn. Món ăn này có thể đã được gọi trong hóa đơn của khách.' });
+    return res.status(500).json({ success: false, message: 'Lỗi server khi xóa món ăn.' });
   }
 };
