@@ -9,7 +9,6 @@ datasource db {
 model SystemConfig {
   id               String   @id @default("singleton")
   restaurantName   String
-  managerEmail     String
   licenseKey       String   @unique
   licenseExpiredAt DateTime
   updatedAt        DateTime @updatedAt
