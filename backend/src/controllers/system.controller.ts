@@ -94,3 +94,35 @@ export const syncMenu = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ success: false, message: 'Lỗi đồng bộ menu' });
   }
 };
+
+import { cleanupOldSessions } from '../services/cleanup.service';
+
+export const cleanupHistory = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await cleanupOldSessions();
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Đã dọn dẹp thành công lịch sử đơn hàng cũ hơn 95 ngày',
+        data: {
+          deletedSessions: result.deletedSessions,
+          deletedPayments: result.deletedPayments,
+          deletedOrderItems: result.deletedOrderItems
+        }
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Lỗi khi dọn dẹp lịch sử đơn hàng',
+        error: result.error
+      });
+    }
+  } catch (error: any) {
+    console.error('cleanupHistory error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi server', 
+      error: error.message || String(error) 
+    });
+  }
+};
