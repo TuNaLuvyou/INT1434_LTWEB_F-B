@@ -22,7 +22,7 @@ interface UserItem {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN' | 'CASHIER';
+  role: 'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER';
 }
 
 export default function RolesPage() {
@@ -42,7 +42,7 @@ export default function RolesPage() {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN' | 'CASHIER'>('STAFF');
+  const [newRole, setNewRole] = useState<'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER'>('CASHIER');
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -162,7 +162,7 @@ export default function RolesPage() {
         setNewName('');
         setNewEmail('');
         setNewPassword('');
-        setNewRole('STAFF');
+        setNewRole('CASHIER');
         fetchUsers();
       } else {
         setErrorMessage(data.message || 'Lỗi khi tạo tài khoản.');
@@ -265,7 +265,7 @@ export default function RolesPage() {
                 <option value="ALL">Tất cả vai trò</option>
                 <option value="ADMIN">ADMIN</option>
                 <option value="MANAGER">MANAGER</option>
-                <option value="STAFF">STAFF</option>
+
                 <option value="KITCHEN">KITCHEN</option>
                 <option value="CASHIER">CASHIER</option>
               </select>
@@ -330,7 +330,7 @@ export default function RolesPage() {
                           >
                             <option value="ADMIN">ADMIN</option>
                             <option value="MANAGER">MANAGER</option>
-                            <option value="STAFF">STAFF</option>
+
                             <option value="KITCHEN">KITCHEN</option>
                             <option value="CASHIER">CASHIER</option>
                           </select>
@@ -433,7 +433,7 @@ export default function RolesPage() {
                     onChange={(e) => setNewRole(e.target.value as any)}
                     className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-100 focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/10 transition-all cursor-pointer font-medium appearance-none"
                   >
-                    <option value="STAFF">STAFF (Nhân viên thường)</option>
+
                     <option value="CASHIER">CASHIER (Thu ngân)</option>
                     <option value="KITCHEN">KITCHEN (Đầu bếp)</option>
                     <option value="MANAGER">MANAGER (Quản lý)</option>

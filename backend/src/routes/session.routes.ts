@@ -56,7 +56,7 @@ router.delete('/:sessionId/cart/:menuItemId', handleDeleteCartItem);
 router.patch(
   '/:sessionId/status',
   authMiddleware,
-  requireRole(['ADMIN', 'MANAGER', 'STAFF', 'CASHIER']),
+  requireRole(['ADMIN', 'MANAGER', 'CASHIER']),
   updateSessionStatus as any
 );
 

@@ -13,9 +13,7 @@ import soldOutRoutes from './routes/sold-out.routes';
 import tableRoutes from './routes/table.routes';
 import sessionRoutes from './routes/session.routes';
 import ingredientRoutes, { reverseRouter } from './routes/ingredient.routes';
-import deviceRoutes from './routes/device.routes';
-import attendanceRoutes from './routes/attendance.routes';
-import scheduleRoutes from './routes/schedule.routes';
+
 import kdsRoutes from './routes/kds.routes';
 import cashierRoutes from './routes/cashier.routes';
 import analyticsRoutes from './routes/analytics.routes';
@@ -60,9 +58,7 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/ingredients', ingredientRoutes);
 app.use('/api/inventory', reverseRouter);   // POST /reverse — phân quyền CASHIER
 app.use('/api/inventory', ingredientRoutes); // /logs alias — phân quyền ADMIN/MANAGER
-app.use('/api/devices', deviceRoutes);
-app.use('/api/attendance', attendanceRoutes);
-app.use('/api/schedules', scheduleRoutes);
+
 app.use('/api/kds', kdsRoutes);
 app.use('/api/cashier', cashierRoutes);
 app.use('/api/analytics', analyticsRoutes);
