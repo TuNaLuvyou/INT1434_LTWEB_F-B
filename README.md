@@ -120,11 +120,11 @@ npm run dev
 
 | Role | Email | Mật khẩu |
 |------|-------|---------|
-| ADMIN | `admin@restoflow.demo` | `Admin@123` |
-| MANAGER | `manager@restoflow.demo` | `Manager@123` |
-| CASHIER | `cashier@restoflow.demo` | `Cashier@123` |
-| KITCHEN | `kitchen@restoflow.demo` | `Kitchen@123` |
-| STAFF | `staff@restoflow.demo` | `Staff@123` |
+| ADMIN | `admin@restoflow.demo` | `Demo@1234` |
+| MANAGER | `manager@restoflow.demo` | `Demo@1234` |
+| CASHIER | `cashier@restoflow.demo` | `Demo@1234` |
+| KITCHEN | `kitchen@restoflow.demo` | `Demo@1234` |
+| STAFF | `staff@restoflow.demo` | `Demo@1234` |
 
 ---
 
