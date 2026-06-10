@@ -289,8 +289,20 @@ export default function AdminVouchersPage() {
                 <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
                   Ngày hết hạn (Bỏ trống = Không hết hạn)
                 </label>
-                <div className="relative w-full bg-zinc-950 border border-zinc-900 rounded-xl px-3.5 py-2.5 text-xs focus-within:border-violet-500 transition-all cursor-pointer flex items-center justify-between">
-                  <span className="text-zinc-100 font-mono">
+                <div 
+                  onClick={(e) => {
+                    const input = e.currentTarget.querySelector('input[type="date"]') as HTMLInputElement | null;
+                    if (input) {
+                      try {
+                        input.showPicker();
+                      } catch (err) {
+                        input.focus();
+                      }
+                    }
+                  }}
+                  className="relative w-full bg-zinc-950 border border-zinc-900 rounded-xl px-3.5 py-2.5 text-xs focus-within:border-violet-500 transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <span className="text-zinc-100 font-mono select-none">
                     {expiredAt ? formatDateString(expiredAt) : "dd/mm/yyyy"}
                   </span>
                   <Calendar className="h-4 w-4 text-zinc-500" />
@@ -298,7 +310,7 @@ export default function AdminVouchersPage() {
                     type="date"
                     value={expiredAt}
                     onChange={(e) => setExpiredAt(e.target.value)}
-                    className="absolute inset-0 opacity-0 cursor-pointer [color-scheme:dark]"
+                    className="absolute inset-0 opacity-0 w-full h-full pointer-events-none"
                   />
                 </div>
               </div>

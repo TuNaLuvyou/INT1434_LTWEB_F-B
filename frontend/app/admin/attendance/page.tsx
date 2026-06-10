@@ -157,16 +157,30 @@ export default function AdminAttendancePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-medium cursor-pointer hover:border-violet-500/50 transition-all group">
+            <div 
+              onClick={(e) => {
+                if ((e.target as HTMLElement).tagName !== 'BUTTON') {
+                  const input = e.currentTarget.querySelector('input[type="date"]') as HTMLInputElement | null;
+                  if (input) {
+                    try {
+                      input.showPicker();
+                    } catch (err) {
+                      input.focus();
+                    }
+                  }
+                }
+              }}
+              className="relative hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-medium cursor-pointer hover:border-violet-500/50 transition-all group"
+            >
               <Calendar className="h-3.5 w-3.5 text-zinc-500 group-hover:text-violet-400 transition-colors" />
-              <span className="text-zinc-300 text-xs font-mono">
+              <span className="text-zinc-300 text-xs font-mono select-none">
                 {filterDate ? formatDateString(filterDate) : "dd/mm/yyyy"}
               </span>
               <input
                 type="date"
                 value={filterDate}
                 onChange={(e) => setFilterDate(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer [color-scheme:dark]"
+                className="absolute inset-0 opacity-0 w-full h-full pointer-events-none"
               />
               {filterDate && (
                 <button

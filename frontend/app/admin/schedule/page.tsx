@@ -174,16 +174,30 @@ export default function AdminSchedulePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-medium cursor-pointer hover:border-violet-500/50 transition-all group">
+            <div 
+              onClick={(e) => {
+                if ((e.target as HTMLElement).tagName !== 'BUTTON') {
+                  const input = e.currentTarget.querySelector('input[type="date"]') as HTMLInputElement | null;
+                  if (input) {
+                    try {
+                      input.showPicker();
+                    } catch (err) {
+                      input.focus();
+                    }
+                  }
+                }
+              }}
+              className="relative hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-medium cursor-pointer hover:border-violet-500/50 transition-all group"
+            >
               <Calendar className="h-3.5 w-3.5 text-zinc-500 group-hover:text-violet-400 transition-colors" />
-              <span className="text-zinc-300 text-xs font-mono">
+              <span className="text-zinc-300 text-xs font-mono select-none">
                 {filterDate ? formatDateString(filterDate) : "dd/mm/yyyy"}
               </span>
               <input
                 type="date"
                 value={filterDate}
                 onChange={(e) => setFilterDate(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer [color-scheme:dark]"
+                className="absolute inset-0 opacity-0 w-full h-full pointer-events-none"
               />
               {filterDate && (
                 <button
@@ -357,15 +371,27 @@ export default function AdminSchedulePage() {
 
               <div>
                 <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Ngày Làm</label>
-                <div className="relative w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs focus-within:border-violet-500 transition-all cursor-pointer flex items-center justify-between">
-                  <span className="text-white font-mono">
+                <div 
+                  onClick={(e) => {
+                    const input = e.currentTarget.querySelector('input[type="date"]') as HTMLInputElement | null;
+                    if (input) {
+                      try {
+                        input.showPicker();
+                      } catch (err) {
+                        input.focus();
+                      }
+                    }
+                  }}
+                  className="relative w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs focus-within:border-violet-500 transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <span className="text-white font-mono select-none">
                     {modalDateValue ? formatDateString(modalDateValue) : "dd/mm/yyyy"}
                   </span>
                   <Calendar className="h-3.5 w-3.5 text-zinc-500" />
                   <input
                     type="date"
                     {...register("date")}
-                    className="absolute inset-0 opacity-0 cursor-pointer [color-scheme:dark]"
+                    className="absolute inset-0 opacity-0 w-full h-full pointer-events-none"
                   />
                 </div>
                 {errors.date?.message && (
@@ -379,7 +405,12 @@ export default function AdminSchedulePage() {
                   <input
                     type="time"
                     {...register("shiftStart")}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark]"
+                    onClick={(e) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark] cursor-pointer"
                   />
                   {errors.shiftStart?.message && (
                     <p className="text-rose-500 text-[10px] mt-1">{String(errors.shiftStart.message)}</p>
@@ -390,7 +421,12 @@ export default function AdminSchedulePage() {
                   <input
                     type="time"
                     {...register("shiftEnd")}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark]"
+                    onClick={(e) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark] cursor-pointer"
                   />
                   {errors.shiftEnd?.message && (
                     <p className="text-rose-500 text-[10px] mt-1">{String(errors.shiftEnd.message)}</p>
