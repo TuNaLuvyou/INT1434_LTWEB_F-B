@@ -81,15 +81,18 @@ export default function AdminMenuPage() {
     setLoading(true);
     setError(null);
     try {
-      // 1. Fetch categories từ api public menu
-      const menuRes = await fetch(`${API_URL}/api/menu`);
-      const menuResult = await menuRes.json();
-      if (menuRes.ok && menuResult.success) {
-        setCategories(menuResult.data.categories || []);
+      const accessToken = getAccessTokenFromCookie();
+
+      // 1. Fetch toàn bộ danh mục từ api admin (bao gồm cả danh mục rỗng)
+      const categoryRes = await fetch(`${API_URL}/api/admin/categories`, {
+        headers: { "Authorization": `Bearer ${accessToken || ""}` }
+      });
+      const categoryResult = await categoryRes.json();
+      if (categoryRes.ok && categoryResult.success) {
+        setCategories(categoryResult.data || []);
       }
 
       // 2. Fetch danh sách món quản lý (bao gồm các món ẩn)
-      const accessToken = getAccessTokenFromCookie();
       const adminRes = await fetch(`${API_URL}/api/admin/menu-items`, {
         headers: { "Authorization": `Bearer ${accessToken || ""}` }
       });
