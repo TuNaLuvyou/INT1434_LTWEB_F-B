@@ -64,7 +64,7 @@ export default function RolesPage() {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/devices/users`, {
+      const res = await fetch(`${API_URL}/api/admin/users`, {
         headers: getHeaders({
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache'
@@ -95,8 +95,8 @@ export default function RolesPage() {
   const handleRoleChange = async (userId: string, newRole: string) => {
     setUpdatingUserId(userId);
     try {
-      const res = await fetch(`${API_URL}/api/devices/users/${userId}/role`, {
-        method: 'PUT',
+      const res = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+        method: 'PATCH',
         headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ role: newRole }),
         credentials: 'include'
@@ -142,7 +142,7 @@ export default function RolesPage() {
 
     setIsCreating(true);
     try {
-      const res = await fetch(`${API_URL}/api/devices/users`, {
+      const res = await fetch(`${API_URL}/api/admin/users`, {
         method: 'POST',
         headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
