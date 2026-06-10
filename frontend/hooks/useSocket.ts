@@ -90,11 +90,16 @@ export function useSocket({
    * Join room sau khi kết nối — gọi lại sau mỗi lần reconnect
    */
   const joinRoom = useCallback((socket: Socket) => {
+    const r = roomRef.current;
+    if (!r || r === 'table:' || r === 'table:null' || r === 'table:undefined') {
+      console.log(`[useSocket] Bỏ qua emit join-room vì room không hợp lệ hoặc trống: "${r}"`);
+      return;
+    }
     socket.emit('join-room', {
-      room: roomRef.current,
+      room: r,
       token: tokenRef.current,
     });
-    console.log(`[useSocket] Đã emit join-room: "${roomRef.current}"`);
+    console.log(`[useSocket] Đã emit join-room: "${r}"`);
   }, []);
 
   const connect = useCallback(() => {

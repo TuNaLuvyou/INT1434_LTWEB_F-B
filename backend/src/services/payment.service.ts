@@ -1,7 +1,8 @@
 import prisma from '../config/prisma';
 import { PaymentMethod } from '@prisma/client';
 import { AppError } from '../utils/app-error';
-import { emitTableStatusChanged, emitSessionClosed } from '../socket/emit.helpers';
+import { emitTableStatusChanged, emitSessionClosed, emitKitchenNewTicket } from '../socket/emit.helpers';
+import { deductInventory } from './inventory.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -116,10 +117,25 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
 }> {
   const { sessionId, cashierId, method, voucherId, subtotal, discountAmount, total, keepOccupied } = input;
 
-  // 1. Validate session
+  // 1. Validate session (include orderItems and menuItem details)
   const session = await prisma.tableSession.findUnique({
     where: { id: sessionId },
-    include: { table: true },
+    include: {
+      table: true,
+      orderItems: {
+        include: {
+          menuItem: {
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              imageUrl: true,
+              isSoldOut: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!session) {
@@ -135,6 +151,15 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
 
   // 3. Transaction
   const paidAt = new Date();
+
+  // Lay cac mon CART va PENDING chua gui bep de gui cho bep sau khi thanh toan thanh cong
+  const cartItems = session.orderItems.filter(item => item.status === 'CART');
+  const pendingItems = session.orderItems.filter(item => item.status === 'PENDING');
+
+  const itemsToSendToKitchen = [
+    ...cartItems,
+    ...(!session.lockedAt ? pendingItems : [])
+  ];
 
   const payment = await prisma.$transaction(async (tx) => {
     // Tao ban ghi thanh toan
@@ -159,12 +184,35 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
       });
     }
 
-    // Dong session -> PAID
+    // 1. Chuyen tat ca CART thanh PENDING
+    if (cartItems.length > 0) {
+      await tx.orderItem.updateMany({
+        where: { sessionId, status: 'CART' },
+        data: { status: 'PENDING' },
+      });
+    }
+
+    // 2. AUTO-DEDUCTION: Tru ton kho nguyen lieu theo BOM (non-blocking)
+    const itemsToDeduct = session.orderItems
+      .filter(i => i.status === 'CART' || i.status === 'PENDING')
+      .map(i => ({ menuItemId: i.menuItemId, qty: i.qty }));
+
+    if (itemsToDeduct.length > 0) {
+      try {
+        await deductInventory(itemsToDeduct, sessionId, 'SYSTEM_CASHIER', tx as any);
+      } catch (deductErr: any) {
+        // Khong co BOM hoac thieu stock → bo qua, khong fail payment
+        console.warn('[processPayment] deductInventory skip:', deductErr?.message);
+      }
+    }
+
+    // Dong session -> PAID va set lockedAt (quan trong de KDS bep hien thi)
     await tx.tableSession.update({
       where: { id: sessionId },
       data: {
         status: 'PAID',
         closedAt: paidAt,
+        lockedAt: session.lockedAt || paidAt,
       },
     });
 
@@ -175,6 +223,9 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
     });
 
     return newPayment;
+  }, {
+    timeout: 15_000,
+    maxWait: 5_000,
   });
 
   // 4. Emit socket events
@@ -191,6 +242,24 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
     tableNumber: session.table.tableNumber,
     label: session.table.label,
   });
+
+  // 5. Gui mon den bep (KDS) realtime
+  if (itemsToSendToKitchen.length > 0) {
+    emitKitchenNewTicket({
+      sessionId,
+      tableId: session.tableId,
+      tableNumber: session.table.tableNumber,
+      items: itemsToSendToKitchen.map(item => ({
+        orderItemId: item.id,
+        menuItemId: item.menuItemId,
+        menuItemName: item.menuItem.name,
+        qty: item.qty,
+        note: item.note || undefined,
+        status: 'PENDING',
+      })),
+      createdAt: paidAt.toISOString(),
+    });
+  }
 
   return {
     paymentId: payment.id,
