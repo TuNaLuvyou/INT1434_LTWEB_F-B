@@ -1,0 +1,66 @@
+import { redirect } from 'next/navigation';
+import { getCurrentUser } from '@/lib/auth/getCurrentUser';
+import SettingsClient from './SettingsClient';
+import { cookies } from 'next/headers';
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+export const metadata = {
+  title: 'Cài đặt hệ thống | RestoFlow',
+};
+
+async function fetchSettingsData() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('access_token')?.value;
+  
+  if (!token) return { config: null };
+
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  };
+
+  try {
+    const configRes = await fetch(`${API}/api/system/config`, { headers, cache: 'no-store' });
+    const config = configRes.ok ? await configRes.json() : { data: null };
+    return { config: config.data || null };
+  } catch (err) {
+    console.error('Error fetching settings config:', err);
+    return { config: null };
+  }
+}
+
+export default async function SettingsPage() {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== 'ADMIN') {
+    redirect('/login?reason=forbidden');
+  }
+
+  const { config } = await fetchSettingsData();
+
+  return (
+    <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
+      {/* Background Glow */}
+      <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-900/10 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-teal-900/10 blur-[130px] pointer-events-none" />
+
+      {/* Header */}
+      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
+        <div className="max-w-7xl mx-auto px-6 pl-16 lg:pl-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="font-bold tracking-tight text-lg text-white">Cài đặt Hệ thống</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-semibold tracking-wider uppercase">ADMIN ONLY</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Content Area */}
+      <main className="flex-1 overflow-hidden flex flex-col p-6 max-w-7xl w-full mx-auto relative z-10">
+        <SettingsClient initialConfig={config} />
+      </main>
+    </div>
+  );
+}
