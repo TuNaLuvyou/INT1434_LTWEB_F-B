@@ -42,33 +42,14 @@ export default function CheckInClient({ user }: { user: any }) {
     `${new Date().getMonth() + 1}/${new Date().getFullYear()}`
   );
 
-  const getMonthOptions = (dataList: any[], dateField: string) => {
-    const months = new Set<string>();
-    
-    // Add current month and past 5 months to ensure there are always standard options
+  const getMonthOptions = () => {
+    const months = [];
     const d = new Date();
-    for (let i = 0; i < 6; i++) {
-      months.add(`${d.getMonth() + 1}/${d.getFullYear()}`);
+    for (let i = 0; i < 3; i++) {
+      months.push(`${d.getMonth() + 1}/${d.getFullYear()}`);
       d.setMonth(d.getMonth() - 1);
     }
-    
-    // Add any months from the actual data list
-    dataList.forEach(item => {
-      const dateVal = item[dateField];
-      if (dateVal) {
-        const dateObj = new Date(dateVal);
-        if (!isNaN(dateObj.getTime())) {
-          months.add(`${dateObj.getMonth() + 1}/${dateObj.getFullYear()}`);
-        }
-      }
-    });
-    
-    // Sort descending
-    return Array.from(months).sort((a, b) => {
-      const [mA, yA] = a.split('/').map(Number);
-      const [mB, yB] = b.split('/').map(Number);
-      return yB !== yA ? yB - yA : mB - mA;
-    });
+    return months;
   };
 
   const filteredAttendanceHistory = myAttendanceHistory.filter(h => {
@@ -486,7 +467,7 @@ export default function CheckInClient({ user }: { user: any }) {
                 onChange={(e) => setSelectedAttendanceMonth(e.target.value)}
                 className="bg-zinc-950 border border-zinc-800 px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-zinc-300 focus:outline-none focus:border-teal-500 transition-all font-sans cursor-pointer"
               >
-                {getMonthOptions(myAttendanceHistory, 'checkInAt').map(m => (
+                {getMonthOptions().map(m => (
                   <option key={m} value={m} className="bg-zinc-950 text-zinc-300 text-xs">
                     Tháng {m}
                   </option>
@@ -552,7 +533,7 @@ export default function CheckInClient({ user }: { user: any }) {
                 onChange={(e) => setSelectedScheduleMonth(e.target.value)}
                 className="bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-[10px] font-bold text-zinc-300 focus:outline-none focus:border-teal-500 transition-all font-sans cursor-pointer"
               >
-                {getMonthOptions(schedules, 'date').map(m => (
+                {getMonthOptions().map(m => (
                   <option key={m} value={m} className="bg-zinc-950 text-zinc-300 text-xs">
                     Tháng {m}
                   </option>
