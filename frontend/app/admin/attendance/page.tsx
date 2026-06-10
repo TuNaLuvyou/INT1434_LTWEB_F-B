@@ -35,6 +35,14 @@ export default function AdminAttendancePage() {
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "approved" | "pending">("all");
+  const [filterDate, setFilterDate] = useState("");
+
+  const formatDateString = (dateStr: string) => {
+    if (!dateStr) return "dd/mm/yyyy";
+    const [year, month, day] = dateStr.split("-");
+    return `${day}/${month}/${year}`;
+  };
 
   const loadToday = useCallback(async () => {
     setLoading(true);
@@ -113,21 +121,24 @@ export default function AdminAttendancePage() {
   };
 
   // Filter logic
-  const filteredToday = todayData.filter(rec => 
-    rec.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    rec.device?.label?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const applyFilters = (data: any[]) => {
+    return data.filter(rec => {
+      const matchSearch =
+        rec.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        rec.device?.label?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchStatus =
+        filterStatus === "all" ? true :
+        filterStatus === "approved" ? rec.isApproved :
+        !rec.isApproved;
+      const matchDate = !filterDate ? true :
+        new Date(rec.checkInAt).toLocaleDateString("en-CA") === filterDate;
+      return matchSearch && matchStatus && matchDate;
+    });
+  };
 
-  const filteredHistory = historyData.filter(rec => 
-    rec.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    rec.device?.label?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const pendingApprovals = historyData.filter(rec => 
-    !rec.isApproved && 
-    (rec.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     rec.device?.label?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredToday = applyFilters(todayData);
+  const filteredHistory = applyFilters(historyData);
+  const pendingApprovals = applyFilters(historyData.filter(r => !r.isApproved));
 
   return (
     <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
@@ -146,9 +157,39 @@ export default function AdminAttendancePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-medium">
-              <Calendar className="h-3.5 w-3.5 text-zinc-500" />
-              <span>Hôm nay, 19 Tháng 5</span>
+            <div 
+              onClick={(e) => {
+                if ((e.target as HTMLElement).tagName !== 'BUTTON') {
+                  const input = e.currentTarget.querySelector('input[type="date"]') as HTMLInputElement | null;
+                  if (input) {
+                    try {
+                      input.showPicker();
+                    } catch (err) {
+                      input.focus();
+                    }
+                  }
+                }
+              }}
+              className="relative hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-medium cursor-pointer hover:border-violet-500/50 transition-all group"
+            >
+              <Calendar className="h-3.5 w-3.5 text-zinc-500 group-hover:text-violet-400 transition-colors" />
+              <span className="text-zinc-300 text-xs font-mono select-none">
+                {filterDate ? formatDateString(filterDate) : "dd/mm/yyyy"}
+              </span>
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="absolute inset-0 opacity-0 w-full h-full pointer-events-none"
+              />
+              {filterDate && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setFilterDate(""); }}
+                  className="text-zinc-500 hover:text-rose-400 transition-colors ml-1 z-10 font-bold"
+                >
+                  ×
+                </button>
+              )}
             </div>
             <button onClick={loadActiveTabData} className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
               <RefreshCw className="h-4 w-4" />
@@ -207,15 +248,47 @@ export default function AdminAttendancePage() {
             </div>
 
             {activeTab !== SubTab.Report && (
-              <div className="relative w-full sm:max-w-xs">
-                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
-                <input 
-                  type="text" 
-                  placeholder="Tìm nhân viên, thiết bị..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-900 rounded-xl py-1.5 pl-8 pr-4 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-all"
-                />
+              <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+                {/* Search */}
+                <div className="relative flex-1 min-w-[180px] sm:max-w-xs">
+                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
+                  <input
+                    type="text"
+                    placeholder="Tìm nhân viên, thiết bị..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-900 rounded-xl py-1.5 pl-8 pr-4 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-all"
+                  />
+                </div>
+
+                {/* Status filter pills */}
+                {activeTab !== SubTab.Approve && (
+                  <div className="flex gap-1 border border-zinc-900 bg-zinc-950/60 rounded-xl p-0.5">
+                    {(["all", "approved", "pending"] as const).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setFilterStatus(s)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                          filterStatus === s
+                            ? "bg-violet-600 text-white shadow-[0_0_8px_rgba(124,58,237,0.3)]"
+                            : "text-zinc-500 hover:text-white hover:bg-zinc-900"
+                        }`}
+                      >
+                        {s === "all" ? "Tất cả" : s === "approved" ? "Đã duyệt" : "Chờ duyệt"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Reset filters */}
+                {(searchQuery || filterDate || filterStatus !== "all") && (
+                  <button
+                    onClick={() => { setSearchQuery(""); setFilterDate(""); setFilterStatus("all"); }}
+                    className="text-[10px] px-2.5 py-1.5 rounded-xl border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-rose-500/30 transition-all font-semibold"
+                  >
+                    Xóa filter
+                  </button>
+                )}
               </div>
             )}
           </div>

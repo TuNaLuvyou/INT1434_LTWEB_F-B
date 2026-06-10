@@ -35,14 +35,24 @@ export default function AdminSchedulePage() {
   const [staffUsers, setStaffUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterPosition, setFilterPosition] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+
+  const formatDateString = (dateStr: string) => {
+    if (!dateStr) return "dd/mm/yyyy";
+    const [year, month, day] = dateStr.split("-");
+    return `${day}/${month}/${year}`;
+  };
   
   // Modals
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<any | null>(null);
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<any>({
+  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<any>({
     resolver: zodResolver(scheduleSchema),
   });
+
+  const modalDateValue = watch("date");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -138,10 +148,14 @@ export default function AdminSchedulePage() {
     }
   };
 
-  const filteredSchedules = schedules.filter(sch => 
-    sch.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    sch.userId?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSchedules = schedules.filter(sch => {
+    const matchSearch =
+      sch.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sch.userId?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchPosition = !filterPosition ? true : sch.user?.role === filterPosition;
+    const matchDate = !filterDate ? true : sch.date === filterDate;
+    return matchSearch && matchPosition && matchDate;
+  });
 
   return (
     <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
@@ -160,9 +174,39 @@ export default function AdminSchedulePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-medium">
-              <Calendar className="h-3.5 w-3.5 text-zinc-500" />
-              <span>Hôm nay, 19 Tháng 5</span>
+            <div 
+              onClick={(e) => {
+                if ((e.target as HTMLElement).tagName !== 'BUTTON') {
+                  const input = e.currentTarget.querySelector('input[type="date"]') as HTMLInputElement | null;
+                  if (input) {
+                    try {
+                      input.showPicker();
+                    } catch (err) {
+                      input.focus();
+                    }
+                  }
+                }
+              }}
+              className="relative hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-medium cursor-pointer hover:border-violet-500/50 transition-all group"
+            >
+              <Calendar className="h-3.5 w-3.5 text-zinc-500 group-hover:text-violet-400 transition-colors" />
+              <span className="text-zinc-300 text-xs font-mono select-none">
+                {filterDate ? formatDateString(filterDate) : "dd/mm/yyyy"}
+              </span>
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="absolute inset-0 opacity-0 w-full h-full pointer-events-none"
+              />
+              {filterDate && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setFilterDate(""); }}
+                  className="text-zinc-500 hover:text-rose-400 transition-colors ml-1 z-10 font-bold"
+                >
+                  ×
+                </button>
+              )}
             </div>
             <button onClick={loadData} className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
               <RefreshCw className="h-4 w-4" />
@@ -182,21 +226,44 @@ export default function AdminSchedulePage() {
               <p className="text-xs text-zinc-400 font-light mt-0.5">Lên kế hoạch ca làm, giờ bắt đầu và giờ kết thúc của toàn bộ nhân viên.</p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto items-center">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
               {/* Search Bar */}
-              <div className="relative w-full sm:max-w-xs">
+              <div className="relative flex-1 min-w-[180px] sm:max-w-xs">
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
-                <input 
-                  type="text" 
-                  placeholder="Tìm nhân viên..." 
+                <input
+                  type="text"
+                  placeholder="Tìm nhân viên..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-zinc-950 border border-zinc-900 rounded-xl py-1.5 pl-8 pr-4 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-all"
                 />
               </div>
 
+              {/* Position filter */}
+              <select
+                value={filterPosition}
+                onChange={(e) => setFilterPosition(e.target.value)}
+                className="bg-zinc-950 border border-zinc-900 rounded-xl py-1.5 px-3 text-xs text-zinc-300 focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark] cursor-pointer"
+              >
+                <option value="">Tất cả vị trí</option>
+                <option value="Staff">Staff</option>
+                <option value="Manager">Manager</option>
+                <option value="Kitchen">Kitchen</option>
+                <option value="Cashier">Cashier</option>
+              </select>
+
+              {/* Reset */}
+              {(searchQuery || filterDate || filterPosition) && (
+                <button
+                  onClick={() => { setSearchQuery(""); setFilterDate(""); setFilterPosition(""); }}
+                  className="text-[10px] px-2.5 py-1.5 rounded-xl border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-rose-500/30 transition-all font-semibold"
+                >
+                  Xóa filter
+                </button>
+              )}
+
               {/* Add New Button */}
-              <button 
+              <button
                 onClick={() => setModalOpen(true)}
                 className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] shrink-0"
               >
@@ -304,11 +371,29 @@ export default function AdminSchedulePage() {
 
               <div>
                 <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Ngày Làm</label>
-                <input
-                  type="date"
-                  {...register("date")}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark]"
-                />
+                <div 
+                  onClick={(e) => {
+                    const input = e.currentTarget.querySelector('input[type="date"]') as HTMLInputElement | null;
+                    if (input) {
+                      try {
+                        input.showPicker();
+                      } catch (err) {
+                        input.focus();
+                      }
+                    }
+                  }}
+                  className="relative w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs focus-within:border-violet-500 transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <span className="text-white font-mono select-none">
+                    {modalDateValue ? formatDateString(modalDateValue) : "dd/mm/yyyy"}
+                  </span>
+                  <Calendar className="h-3.5 w-3.5 text-zinc-500" />
+                  <input
+                    type="date"
+                    {...register("date")}
+                    className="absolute inset-0 opacity-0 w-full h-full pointer-events-none"
+                  />
+                </div>
                 {errors.date?.message && (
                   <p className="text-rose-500 text-[10px] mt-1">{String(errors.date.message)}</p>
                 )}
@@ -320,7 +405,12 @@ export default function AdminSchedulePage() {
                   <input
                     type="time"
                     {...register("shiftStart")}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark]"
+                    onClick={(e) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark] cursor-pointer"
                   />
                   {errors.shiftStart?.message && (
                     <p className="text-rose-500 text-[10px] mt-1">{String(errors.shiftStart.message)}</p>
@@ -331,7 +421,12 @@ export default function AdminSchedulePage() {
                   <input
                     type="time"
                     {...register("shiftEnd")}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark]"
+                    onClick={(e) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {}
+                    }}
+                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-violet-500 transition-all [color-scheme:dark] cursor-pointer"
                   />
                   {errors.shiftEnd?.message && (
                     <p className="text-rose-500 text-[10px] mt-1">{String(errors.shiftEnd.message)}</p>

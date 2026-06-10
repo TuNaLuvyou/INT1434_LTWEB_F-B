@@ -45,6 +45,12 @@ export default function AdminVouchersPage() {
   const [maxUsage, setMaxUsage] = useState("");
   const [expiredAt, setExpiredAt] = useState("");
 
+  const formatDateString = (dateStr: string) => {
+    if (!dateStr) return "dd/mm/yyyy";
+    const [year, month, day] = dateStr.split("-");
+    return `${day}/${month}/${year}`;
+  };
+
   const fetchVouchers = async () => {
     setLoading(true);
     setErrorMsg(null);
@@ -283,12 +289,28 @@ export default function AdminVouchersPage() {
                 <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
                   Ngày hết hạn (Bỏ trống = Không hết hạn)
                 </label>
-                <div className="relative">
+                <div 
+                  onClick={(e) => {
+                    const input = e.currentTarget.querySelector('input[type="date"]') as HTMLInputElement | null;
+                    if (input) {
+                      try {
+                        input.showPicker();
+                      } catch (err) {
+                        input.focus();
+                      }
+                    }
+                  }}
+                  className="relative w-full bg-zinc-950 border border-zinc-900 rounded-xl px-3.5 py-2.5 text-xs focus-within:border-violet-500 transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <span className="text-zinc-100 font-mono select-none">
+                    {expiredAt ? formatDateString(expiredAt) : "dd/mm/yyyy"}
+                  </span>
+                  <Calendar className="h-4 w-4 text-zinc-500" />
                   <input
                     type="date"
                     value={expiredAt}
                     onChange={(e) => setExpiredAt(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-900 rounded-xl px-3.5 py-2.5 text-xs text-zinc-100 focus:outline-none focus:border-violet-500 transition-all font-mono cursor-pointer"
+                    className="absolute inset-0 opacity-0 w-full h-full pointer-events-none"
                   />
                 </div>
               </div>
