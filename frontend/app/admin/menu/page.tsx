@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { getAccessTokenFromCookie } from "@/lib/auth/client";
 import { 
   Plus, 
   Search, 
@@ -66,6 +67,8 @@ export default function AdminMenuPage() {
   // Trạng thái modal xóa
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<MenuItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteInfoMessage, setDeleteInfoMessage] = useState<string | null>(null);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
 
   // Load dữ liệu
   const fetchData = async () => {
@@ -80,8 +83,9 @@ export default function AdminMenuPage() {
       }
 
       // 2. Fetch danh sách món quản lý (bao gồm các món ẩn)
+      const accessToken = getAccessTokenFromCookie();
       const adminRes = await fetch(`${API_URL}/api/admin/menu-items`, {
-        headers: { "x-mock-role": "ADMIN" }
+        headers: { "Authorization": `Bearer ${accessToken || ""}` }
       });
       const adminResult = await adminRes.json();
       if (adminRes.ok && adminResult.success) {
@@ -106,9 +110,10 @@ export default function AdminMenuPage() {
     if (!deleteConfirmItem) return;
     setIsDeleting(true);
     try {
+      const accessToken = getAccessTokenFromCookie();
       const response = await fetch(`${API_URL}/api/admin/menu-items/${deleteConfirmItem.id}`, {
         method: "DELETE",
-        headers: { "x-mock-role": "ADMIN" }
+        headers: { "Authorization": `Bearer ${accessToken || ""}` }
       });
       
       const result = await response.json();
@@ -119,12 +124,18 @@ export default function AdminMenuPage() {
       // Reload dữ liệu
       await fetchData();
       setDeleteConfirmItem(null);
+
+      // Hiển thị thông báo phù hợp
+      if (result.deleted === false) {
+        setDeleteInfoMessage(`"${deleteConfirmItem.name}" đã được ẩn khỏi thực đơn (không thể xóa hẳn vì đã phát sinh trong đơn hàng).`);
+      }
     } catch (err: any) {
-      alert(err.message || "Đã có lỗi xảy ra");
+      setDeleteErrorMessage(err.message || "Đã có lỗi xảy ra");
     } finally {
       setIsDeleting(false);
     }
   };
+
 
   // Mở modal thêm mới
   const handleAddNew = () => {
@@ -166,7 +177,7 @@ export default function AdminMenuPage() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-lg text-white">Quản lý Món ăn</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 font-semibold tracking-wider uppercase">Menu</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">Menu</span>
             </div>
           </div>
         </div>
@@ -177,7 +188,7 @@ export default function AdminMenuPage() {
         {/* Header Dashboard */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-medium mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-medium mb-2">
               <Utensils size={13} className="stroke-[2.5]" />
               <span>Hệ thống RestoFlow • Admin Panel</span>
             </div>
@@ -188,13 +199,27 @@ export default function AdminMenuPage() {
           
           <button
             onClick={handleAddNew}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:from-orange-500 hover:to-amber-400 active:scale-98 shadow-lg shadow-orange-500/15 cursor-pointer transition-all self-start sm:self-center"
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:from-violet-500 hover:to-indigo-400 active:scale-98 shadow-lg shadow-violet-500/15 cursor-pointer transition-all self-start sm:self-center"
           >
             <Plus size={14} className="stroke-[3]" /> Thêm món mới
           </button>
         </div>
 
-        {/* Thanh lọc & tìm kiếm */}
+        {/* Banner thông báo sau khi xóa */}
+        {deleteInfoMessage && (
+          <div className="flex items-start gap-3 p-3.5 bg-amber-950/20 border border-amber-500/20 rounded-xl text-amber-300 text-xs font-semibold">
+            <span className="text-lg leading-none mt-0.5">&#9432;</span>
+            <span className="flex-1">{deleteInfoMessage}</span>
+            <button onClick={() => setDeleteInfoMessage(null)} className="text-amber-400 hover:text-white transition-colors shrink-0">&#10005;</button>
+          </div>
+        )}
+        {deleteErrorMessage && (
+          <div className="flex items-start gap-3 p-3.5 bg-red-950/20 border border-red-500/20 rounded-xl text-red-400 text-xs font-semibold">
+            <span className="text-lg leading-none mt-0.5">&#9888;</span>
+            <span className="flex-1">{deleteErrorMessage}</span>
+            <button onClick={() => setDeleteErrorMessage(null)} className="text-red-400 hover:text-white transition-colors shrink-0">&#10005;</button>
+          </div>
+        )}
         <div className="bg-zinc-900/40 border border-zinc-900 p-4 shrink-0 flex flex-col md:flex-row gap-4 rounded-2xl shadow-xl backdrop-blur-md">
           {/* Ô tìm kiếm */}
           <div className="relative flex-grow">
@@ -204,7 +229,7 @@ export default function AdminMenuPage() {
               placeholder="Tìm kiếm theo tên món, mô tả..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-zinc-950/80 border border-zinc-800 text-sm font-semibold rounded-xl focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all text-zinc-100 placeholder-zinc-500 shadow-sm"
+              className="w-full pl-10 pr-4 py-2.5 bg-zinc-950/80 border border-zinc-800 text-sm font-semibold rounded-xl focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 transition-all text-zinc-100 placeholder-zinc-500 shadow-sm"
             />
           </div>
 
@@ -288,7 +313,7 @@ export default function AdminMenuPage() {
 
                       {/* Tên món và Mô tả */}
                       <td className="p-4">
-                        <h4 className="text-sm font-black text-zinc-100 line-clamp-1 hover:text-orange-400 transition-colors cursor-default">{item.name}</h4>
+                        <h4 className="text-sm font-black text-zinc-100 line-clamp-1 hover:text-violet-400 transition-colors cursor-default">{item.name}</h4>
                         {item.description ? (
                           <p className="text-[11px] text-zinc-400 line-clamp-2 mt-1 leading-relaxed max-w-md font-semibold">
                             {item.description}
@@ -300,7 +325,7 @@ export default function AdminMenuPage() {
 
                       {/* Danh mục */}
                       <td className="p-4">
-                        <span className="text-xs font-extrabold bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20">
+                        <span className="text-xs font-extrabold bg-violet-500/10 text-violet-400 px-3 py-1 rounded-full border border-violet-500/20">
                           {item.category?.name || "Không rõ"}
                         </span>
                       </td>
@@ -341,7 +366,7 @@ export default function AdminMenuPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => handleEdit(item)}
-                            className="p-2 bg-zinc-950 text-zinc-400 hover:text-orange-400 hover:border-orange-500/50 rounded-lg cursor-pointer transition-all border border-zinc-800 shadow-sm"
+                            className="p-2 bg-zinc-950 text-zinc-400 hover:text-violet-400 hover:border-violet-500/50 rounded-lg cursor-pointer transition-all border border-zinc-800 shadow-sm"
                             title="Chỉnh sửa món"
                           >
                             <Edit3 size={14} className="stroke-[2.5]" />
