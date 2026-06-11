@@ -32,14 +32,11 @@ export default function CartItemRow({
   onRemove,
 }: CartItemRowProps) {
   const [noteOpen, setNoteOpen] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleNoteChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleNoteBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    if (value !== item.note) {
       onNoteChange(item.menuItemId, value);
-    }, 300);
+    }
   };
 
   const handleDecrement = () => {
@@ -136,7 +133,7 @@ export default function CartItemRow({
           <textarea
             rows={2}
             defaultValue={item.note}
-            onChange={handleNoteChange}
+            onBlur={handleNoteBlur}
             placeholder="VD: không cay, ít muối, không hành..."
             maxLength={200}
             className="mt-1.5 w-full text-xs px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 placeholder-gray-400 focus:outline-none focus:border-amber-400 focus:bg-white resize-none transition-all"

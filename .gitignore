@@ -13,17 +13,11 @@ node_modules/
 
 # Environment Variables & Secrets
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 **/.env
-**/.env.local
-**/.env.development.local
-**/.env.test.local
-**/.env.production.local
-**/.env.example.local
-**/.env*.local
+**/.env.*
+!**/.env.example
 
 # Next.js Build Outputs & Production Artifacts
 .next/
