@@ -352,7 +352,7 @@ export default function AdminVouchersPage() {
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent" style={{ maxHeight: '65vh' }}>
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse whitespace-nowrap">
                   <thead>
                     <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
                       <th className="px-4 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Mã Code</th>

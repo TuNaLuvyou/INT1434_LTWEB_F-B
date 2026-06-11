@@ -71,13 +71,14 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
   const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
   const isDev = process.env.NODE_ENV !== 'production';
 
-  console.log(`[Socket.io] Khởi tạo... CORS origin: ${isDev ? '*' : allowedOrigin}`);
+  // QUAN TRỌNG: Không dùng '*' khi credentials: true — browser sẽ từ chối gửi cookie.
+  // Dev dùng 'http://localhost:3000', Prod dùng FRONTEND_URL.
+  const corsOrigin = isDev ? (process.env.FRONTEND_URL || 'http://localhost:3000') : allowedOrigin;
+  console.log(`[Socket.io] Khởi tạo... CORS origin: ${corsOrigin}`);
 
   io = new SocketIOServer(httpServer, {
     cors: {
-      // Dev: allow all origins để tránh lỗi CORS handshake
-      // Prod: chỉ cho phép FRONTEND_URL
-      origin: isDev ? '*' : allowedOrigin,
+      origin: corsOrigin,
       methods: ['GET', 'POST'],
       credentials: true,
     },

@@ -20,7 +20,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
 };
 
 // 2. PUBLIC ROUTES
-const PUBLIC_ROUTES = ['/login', '/expired'];
+const PUBLIC_ROUTES = ['/login'];
 
 // 3. MIDDLEWARE LOGIC
 export async function proxy(request: NextRequest) {

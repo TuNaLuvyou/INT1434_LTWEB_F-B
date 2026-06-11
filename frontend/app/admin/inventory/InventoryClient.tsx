@@ -171,7 +171,7 @@ export default function InventoryClient() {
                 <div className="py-12 text-center text-gray-400">Đang tải...</div>
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm whitespace-nowrap">
                     <thead className="bg-gray-50">
                       <tr>
                         {['Tên nguyên liệu','Đơn vị','Tồn kho','Ngưỡng cảnh báo','Trạng thái','Dùng trong','Thao tác'].map(h => (
@@ -240,7 +240,7 @@ export default function InventoryClient() {
             <div className="space-y-4">
               <h2 className="font-semibold text-gray-700">Lịch sử xuất / nhập kho</h2>
               <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <table className="min-w-full divide-y divide-gray-200 text-sm whitespace-nowrap">
                   <thead className="bg-gray-50">
                     <tr>
                       {['Thời gian','Nguyên liệu','Biến động','Lý do','Thực hiện bởi'].map(h => (

@@ -450,7 +450,7 @@ export default function ZReportPage() {
                 <p className="text-xs text-zinc-500">Không có ca làm việc nào trong kỳ.</p>
               ) : (
                 <div className="overflow-x-auto border border-zinc-900 rounded-xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent" style={{ maxHeight: '65vh' }}>
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full text-left text-xs whitespace-nowrap">
                     <thead>
                       <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/60">
                         <th className="px-4 py-3">Thu Ngân</th>

@@ -21,12 +21,15 @@ const loginSchema = z.object({
 });
 
 const setRefreshTokenCookie = (res: Response, token: string) => {
+  const isProd = process.env.NODE_ENV === 'production';
   res.cookie('refresh_token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProd,
+    // Dev: 'lax' cho phép cross-origin fetch gửi cookie (localhost:3000 → 127.0.0.1:5001)
+    // Prod: 'strict' khi cùng domain, hoặc 'none' nếu khác domain (cần secure: true)
+    sameSite: isProd ? 'strict' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: '/api/auth',
+    path: '/', // '/' để cookie được gửi cho mọi endpoint, không chỉ /api/auth
   });
 };
 
@@ -119,7 +122,7 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const logout = async (req: Request, res: Response): Promise<void> => {
-  res.clearCookie('refresh_token', { path: '/api/auth' });
+  res.clearCookie('refresh_token', { path: '/' });
   res.status(200).json({ success: true, message: 'Logged out successfully' });
 };
 
