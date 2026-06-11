@@ -478,61 +478,60 @@ export default function POSPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
-      {/* Glow Effects */}
+    <div className="min-h-screen bg-zinc-950 flex flex-col font-sans relative">
+      {/* Background Glow */}
       <div className="absolute top-[20%] left-[-5%] w-[40%] h-[40%] rounded-full bg-blue-900/10 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[20%] right-[-5%] w-[40%] h-[40%] rounded-full bg-indigo-900/10 blur-[100px] pointer-events-none" />
 
       {/* Navigation Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link href="/" className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Link>
-            <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-lg text-white">POS Cashier</span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wider uppercase border ${
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="font-bold tracking-tight text-sm sm:text-lg text-white">POS Cashier</span>
+              <span className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold tracking-wider uppercase border ${
                 isCashierConnected 
                   ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
                   : 'bg-zinc-950 text-zinc-500 border-zinc-800 animate-pulse'
               }`}>
-                {isCashierConnected ? 'Live Counter' : 'Offline'}
+                {isCashierConnected ? 'Live' : 'Offline'}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-4">
             {/* Table Selector Dropdown */}
-            <div className="flex items-center gap-2">
-              <TableIcon className="h-4 w-4 text-blue-400" />
+            <div className="flex items-center gap-1 sm:gap-2">
+              <TableIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400 shrink-0" />
               {actionLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
               ) : (
                 <select
                   value={selectedTableId}
                   onChange={(e) => handleTableChange(e.target.value)}
-                  className="bg-zinc-900 border border-zinc-800 text-xs font-bold text-zinc-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  className="bg-zinc-900 border border-zinc-800 text-[10px] sm:text-xs font-bold text-zinc-200 rounded-xl px-2 sm:px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer max-w-[110px] sm:max-w-none"
                 >
-                  <option value="">-- Chọn Bàn Phục Vụ --</option>
+                  <option value="">-- Chọn Bàn --</option>
                   {tables.map(table => (
                     <option key={table.id} value={table.id} disabled={table.status === 'OCCUPIED'}>
-                      {table.label} ({table.status === 'OCCUPIED' ? 'Đang hoạt động' : 'Còn trống'})
+                      {table.label} ({table.status === 'OCCUPIED' ? 'Đang HĐ' : 'Trống'})
                     </option>
                   ))}
                 </select>
               )}
             </div>
-            <Link href="/cashier" className="ml-4 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
-              <CreditCard className="h-4 w-4" />
-              Thu ngân
+            <Link href="/cashier" className="inline-flex items-center gap-1 sm:gap-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-xs font-semibold px-2 sm:px-3 py-1.5 rounded-lg">
+              <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Thu ngân</span>
             </Link>
-            <span className="text-xs text-zinc-400 font-mono hidden sm:inline">COUNTER: THU NGÂN</span>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden max-w-7xl w-full mx-auto p-4 gap-6">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-x-hidden max-w-7xl w-full mx-auto p-3 sm:p-4 gap-4 sm:gap-6">
         
         {/* Left Section: Menu Catalog */}
         <div className="flex-1 flex flex-col gap-6">
@@ -581,7 +580,7 @@ export default function POSPage() {
           </div>
 
           {/* Menu Items Grid */}
-          <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 auto-rows-max pb-10" style={{ maxHeight: "calc(100vh - 200px)" }}>
+          <div className="flex-1 lg:overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5 auto-rows-max pb-10 lg:max-h-[calc(100vh-200px)]">
             {loading ? (
               <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 text-zinc-500 font-light">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -669,7 +668,7 @@ export default function POSPage() {
         <aside
           aria-label="Đơn hàng hiện tại"
           className="w-full lg:w-96 shrink-0 flex flex-col bg-zinc-900/50 border border-zinc-800/60 rounded-3xl overflow-hidden"
-          style={{ maxHeight: 'calc(100vh - 100px)', position: 'sticky', top: '80px' }}
+          style={{ maxHeight: 'calc(100vh - 80px)', position: 'sticky', top: '60px' }}
         >
           {/* Header */}
           <div className="flex items-center gap-2.5 px-5 py-4 border-b border-zinc-800/60 bg-zinc-900/60 shrink-0">
