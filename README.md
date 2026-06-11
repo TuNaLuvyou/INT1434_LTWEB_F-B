@@ -124,7 +124,6 @@ npm run dev
 | MANAGER | `manager@restoflow.demo` | `Demo@1234` |
 | CASHIER | `cashier@restoflow.demo` | `Demo@1234` |
 | KITCHEN | `kitchen@restoflow.demo` | `Demo@1234` |
-| STAFF | `staff@restoflow.demo` | `Demo@1234` |
 
 ---
 
