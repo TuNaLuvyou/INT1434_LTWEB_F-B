@@ -435,9 +435,13 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             <input
               type="text"
               placeholder="Ghi chú (ít cay, không hành...)"
-              value={item.note || ''}
+              defaultValue={item.note || ''}
               disabled={loadingItemIds[item.menuItemId]}
-              onChange={(e) => handleUpdateNote(item.menuItemId, e.target.value)}
+              onBlur={(e) => {
+                if (e.target.value !== (item.note || '')) {
+                  handleUpdateNote(item.menuItemId, e.target.value);
+                }
+              }}
               className="w-full bg-white border border-gray-200 hover:border-gray-300 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 rounded-lg px-2.5 py-1 text-[11px] text-gray-700 placeholder-gray-400 focus:outline-none transition-all disabled:opacity-50 disabled:bg-gray-50"
             />
           )}
