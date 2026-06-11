@@ -123,3 +123,31 @@ export const cleanupHistory = async (req: Request, res: Response): Promise<void>
     });
   }
 };
+
+export const getOverviewStats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const pendingOrdersCount = await prisma.orderItem.count({
+      where: { status: { in: ['PENDING', 'PREPARING'] } }
+    });
+
+    const occupiedTablesCount = await prisma.table.count({
+      where: { status: 'OCCUPIED' }
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const revenueAgg = await prisma.payment.aggregate({
+      _sum: { total: true },
+      where: { paidAt: { gte: today } }
+    });
+    const todayRevenue = revenueAgg._sum.total ? Number(revenueAgg._sum.total) : 0;
+
+    res.json({
+      success: true,
+      data: { pendingOrdersCount, occupiedTablesCount, todayRevenue }
+    });
+  } catch (error) {
+    console.error('getOverviewStats error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};

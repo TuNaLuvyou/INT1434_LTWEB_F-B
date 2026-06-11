@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, Loader2, AlertTriangle, Layers, Scale, Info } from 'lucide-react';
+import { getAccessTokenFromCookie } from '@/lib/auth/client';
 
 const schema = z.object({
   name:     z.string().min(1, 'Tên nguyên liệu không được để trống'),
@@ -38,9 +39,14 @@ export default function IngredientModal({ ingredient, onClose, onSaved }: Props)
     const url = isEdit ? `${API}/api/ingredients/${ingredient.id}` : `${API}/api/ingredients`;
     const method = isEdit ? 'PATCH' : 'POST';
 
+    const token = getAccessTokenFromCookie();
+
     const res = await fetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       body: JSON.stringify(values),
       credentials: 'include',
     });

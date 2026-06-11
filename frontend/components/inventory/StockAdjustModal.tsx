@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, Loader2, ChevronDown, Package, Clipboard, AlertTriangle } from 'lucide-react';
+import { getAccessTokenFromCookie } from '@/lib/auth/client';
 
 const schema = z.object({
   delta:  z.coerce.number().refine(v => v !== 0, 'Số lượng không được = 0'),
@@ -43,9 +44,13 @@ export default function StockAdjustModal({ ingredient, onClose, onSaved }: Props
       finalDelta = -Math.abs(finalDelta);
     }
 
+    const token = getAccessTokenFromCookie();
     const res = await fetch(`${API}/api/ingredients/${ingredient.id}/stock`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({
         ...values,
         delta: finalDelta,

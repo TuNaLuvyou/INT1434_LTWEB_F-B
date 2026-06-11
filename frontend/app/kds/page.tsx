@@ -617,65 +617,66 @@ export default function KDSPage() {
 
       {/* Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link href="/" className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Link>
-            <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-lg text-white">Kitchen Display (KDS)</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 font-semibold tracking-wider uppercase">Live Sync</span>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="font-bold tracking-tight text-sm sm:text-lg text-white">KDS</span>
+              <span className="hidden sm:inline font-bold tracking-tight text-sm sm:text-lg text-white">Kitchen Display</span>
+              <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 font-semibold tracking-wider uppercase">Live</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-4">
             <button 
               onClick={() => {
                 fetchMenuItems();
                 setIsMenuDrawerOpen(true);
               }}
-              className="text-xs bg-orange-600/10 border border-orange-500/20 hover:bg-orange-600 hover:text-white px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 text-orange-400 font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+              className="text-xs bg-orange-600/10 border border-orange-500/20 hover:bg-orange-600 hover:text-white px-2 sm:px-3.5 py-1.5 rounded-lg flex items-center gap-1 sm:gap-1.5 text-orange-400 font-bold transition-all shadow-md active:scale-95 cursor-pointer"
             >
               <ChefHat className="h-3.5 w-3.5 animate-pulse" />
-              Báo Hết Món
+              <span className="hidden sm:inline">Báo Hết Món</span>
             </button>
             <button 
               onClick={() => setIsArchiveOpen(true)}
-              className="text-xs bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 text-zinc-300 font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+              className="text-xs bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white px-2 sm:px-3.5 py-1.5 rounded-lg flex items-center gap-1 sm:gap-1.5 text-zinc-300 font-bold transition-all shadow-md active:scale-95 cursor-pointer"
             >
               <Archive className="h-3.5 w-3.5" />
-              Lịch sử Giao món
+              <span className="hidden sm:inline">Lịch sử</span>
             </button>
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs text-zinc-400 font-mono">BẾP CHÍNH</span>
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse hidden sm:block" />
+            <span className="text-xs text-zinc-400 font-mono hidden sm:inline">ĐẦU BẾP</span>
           </div>
         </div>
       </header>
 
       {/* Top Banner Stats */}
-      <div className="max-w-7xl mx-auto w-full px-6 py-4 flex flex-wrap gap-4 items-center justify-between border-b border-zinc-900">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-orange-500" />
-            <span className="text-xs text-zinc-400">Đơn hàng chờ/nấu:</span>
-            <span className="font-bold font-mono text-sm">{orders.filter(o => o.status !== "ready").length}</span>
+      <div className="max-w-7xl mx-auto w-full px-3 sm:px-6 py-3 sm:py-4 flex flex-wrap gap-3 sm:gap-4 items-center justify-between border-b border-zinc-900">
+        <div className="flex items-center gap-4 sm:gap-6">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-500" />
+            <span className="text-[10px] sm:text-xs text-zinc-400">Chờ/nấu:</span>
+            <span className="font-bold font-mono text-xs sm:text-sm">{orders.filter(o => o.status !== "ready").length}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-amber-500" />
-            <span className="text-xs text-zinc-400">Thời gian nấu TB:</span>
-            <span className="font-bold font-mono text-sm text-amber-400">11:24</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
+            <span className="text-[10px] sm:text-xs text-zinc-400">TB nấu:</span>
+            <span className="font-bold font-mono text-xs sm:text-sm text-amber-400">11:24</span>
           </div>
         </div>
-        <div className="text-xs text-zinc-500 font-light italic">
+        <div className="text-[10px] sm:text-xs text-zinc-500 font-light italic hidden sm:block">
           * Đơn hàng hiển thị cảnh báo đỏ khi chờ vượt quá 10 phút.
         </div>
       </div>
 
       {/* Kanban Columns */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
+      <div className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         
         {/* Column 1: PENDING */}
-        <div className="flex flex-col bg-zinc-900/20 border border-zinc-900 rounded-3xl p-5 max-h-[calc(100vh-210px)] overflow-hidden">
+        <div className="flex flex-col bg-zinc-900/20 border border-zinc-900 rounded-3xl p-4 sm:p-5 max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-210px)] overflow-hidden">
           <div className="flex items-center justify-between pb-4 border-b border-zinc-900 mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-amber-500" />
@@ -753,7 +754,7 @@ export default function KDSPage() {
         </div>
 
         {/* Column 2: PREPARING */}
-        <div className="flex flex-col bg-zinc-900/20 border border-zinc-900 rounded-3xl p-5 max-h-[calc(100vh-210px)] overflow-hidden">
+        <div className="flex flex-col bg-zinc-900/20 border border-zinc-900 rounded-3xl p-4 sm:p-5 max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-210px)] overflow-hidden">
           <div className="flex items-center justify-between pb-4 border-b border-zinc-900 mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-orange-500" />
@@ -826,7 +827,7 @@ export default function KDSPage() {
         </div>
 
         {/* Column 3: READY */}
-        <div className="flex flex-col bg-zinc-900/20 border border-zinc-900 rounded-3xl p-5 max-h-[calc(100vh-210px)] overflow-hidden">
+        <div className="flex flex-col bg-zinc-900/20 border border-zinc-900 rounded-3xl p-4 sm:p-5 max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-210px)] overflow-hidden">
           <div className="flex items-center justify-between pb-4 border-b border-zinc-900 mb-4 shrink-0">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />

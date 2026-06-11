@@ -17,14 +17,14 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
       {/* Background Glow */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-900/10 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-teal-900/10 blur-[130px] pointer-events-none" />
 
       {/* Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
-        <div className="max-w-7xl mx-auto px-6 pl-16 lg:pl-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-lg text-white">Đồng bộ Thực đơn</span>
@@ -35,7 +35,7 @@ export default async function SettingsPage() {
       </header>
 
       {/* Content Area */}
-      <main className="flex-1 overflow-hidden flex flex-col p-6 max-w-7xl w-full mx-auto relative z-10">
+      <main className="flex-1 flex flex-col p-3 sm:p-6 max-w-7xl w-full mx-auto relative z-10">
         <SettingsClient />
       </main>
     </div>

@@ -240,14 +240,14 @@ export default function ZReportPage() {
   };
 
   return (
-    <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
       {/* Background glow */}
       <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] rounded-full bg-violet-900/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-blue-900/10 blur-[120px] pointer-events-none" />
 
       {/* Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
-        <div className="max-w-7xl mx-auto px-6 pl-16 lg:pl-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-violet-400" />
@@ -260,12 +260,12 @@ export default function ZReportPage() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden flex flex-col p-6 space-y-4 max-w-7xl w-full mx-auto">
+      <main className="flex-1 flex flex-col p-3 sm:p-6 space-y-4 max-w-7xl w-full mx-auto">
 
         {/* Control Panel */}
-        <div className="shrink-0 bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5">
-          <h2 className="text-sm font-bold text-white mb-4">Chọn Kỳ Báo Cáo</h2>
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
+        <div className="shrink-0 bg-zinc-900/40 border border-zinc-900 rounded-2xl p-4 sm:p-5">
+          <h2 className="text-sm font-bold text-white mb-3 sm:mb-4">Chọn Kỳ Báo Cáo</h2>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-end">
             {/* From date */}
             <div className="flex flex-col gap-1.5 flex-1">
               <label className="text-xs text-zinc-400 font-medium">Từ ngày</label>
@@ -295,7 +295,7 @@ export default function ZReportPage() {
               id="z-report-load-btn"
               onClick={fetchReport}
               disabled={loading}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold transition-all shrink-0"
+              className="flex items-center justify-center sm:justify-start gap-2 px-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold transition-all shrink-0 mt-2 sm:mt-0"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Tải Báo Cáo
@@ -317,7 +317,7 @@ export default function ZReportPage() {
           <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pr-2 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
 
             {/* Summary banner */}
-            <div className="bg-gradient-to-r from-violet-900/30 to-blue-900/20 border border-violet-800/30 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="bg-gradient-to-r from-violet-900/30 to-blue-900/20 border border-violet-800/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <h3 className="font-bold text-white text-base">{reportData.summary.restaurantName}</h3>
                 <p className="text-xs text-zinc-400 mt-1">
@@ -328,7 +328,7 @@ export default function ZReportPage() {
                 <p className="text-xs text-zinc-500 mt-0.5">Gửi tới: {reportData.summary.managerEmail}</p>
               </div>
               {/* Action buttons */}
-              <div className="flex gap-2.5 shrink-0">
+              <div className="flex gap-2.5 shrink-0 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                 <button
                   id="z-report-excel-btn"
                   onClick={handleExportExcel}
@@ -360,14 +360,14 @@ export default function ZReportPage() {
             </div>
 
             {/* KPI Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {[
                 { label: "Tổng Doanh Thu", value: fmt(reportData.kpi.totalRevenue), icon: TrendingUp, color: "text-emerald-400", bg: "bg-emerald-500/10" },
                 { label: "Số Đơn Hoàn Thành", value: `${reportData.kpi.totalOrders} đơn`, icon: ShoppingBag, color: "text-blue-400", bg: "bg-blue-500/10" },
                 { label: "Tổng Giảm Giá", value: fmt(reportData.kpi.totalDiscount), icon: Tag, color: "text-rose-400", bg: "bg-rose-500/10" },
                 { label: "Giá Trị TB / Đơn", value: fmt(Math.round(reportData.kpi.averageOrderValue)), icon: BarChart2, color: "text-violet-400", bg: "bg-violet-500/10" },
               ].map((kpi) => (
-                <div key={kpi.label} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-3 hover:border-zinc-800 transition-all">
+                <div key={kpi.label} className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-3 sm:p-5 space-y-2 sm:space-y-3 hover:border-zinc-800 transition-all">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-zinc-400 font-medium">{kpi.label}</span>
                     <div className={`h-8 w-8 rounded-lg ${kpi.bg} flex items-center justify-center`}>
@@ -383,7 +383,7 @@ export default function ZReportPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* Payment Breakdown */}
-              <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-6 space-y-4">
+              <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-4 sm:p-6 space-y-4">
                 <h3 className="text-sm font-bold text-white">Phương Thức Thanh Toán</h3>
                 {reportData.paymentBreakdown.length === 0 ? (
                   <p className="text-xs text-zinc-500">Không có dữ liệu trong kỳ.</p>
@@ -412,7 +412,7 @@ export default function ZReportPage() {
               </div>
 
               {/* Top Items */}
-              <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-6 space-y-4">
+              <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-4 sm:p-6 space-y-4">
                 <h3 className="text-sm font-bold text-white">Top 5 Món Bán Chạy</h3>
                 {reportData.topItems.length === 0 ? (
                   <p className="text-xs text-zinc-500">Không có dữ liệu trong kỳ.</p>
@@ -444,12 +444,12 @@ export default function ZReportPage() {
             </div>
 
             {/* Shifts Table */}
-            <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-6 space-y-4">
+            <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-4 sm:p-6 space-y-4">
               <h3 className="text-sm font-bold text-white">Thông Tin Ca Làm Việc</h3>
               {reportData.shifts.length === 0 ? (
                 <p className="text-xs text-zinc-500">Không có ca làm việc nào trong kỳ.</p>
               ) : (
-                <div className="overflow-x-auto border border-zinc-900 rounded-xl bg-zinc-950/20">
+                <div className="overflow-x-auto border border-zinc-900 rounded-xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent" style={{ maxHeight: '65vh' }}>
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/60">

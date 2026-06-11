@@ -329,22 +329,22 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
       {/* Background Glow */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-900/10 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[130px] pointer-events-none" />
 
       {/* Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
-        <div className="max-w-7xl mx-auto px-6 pl-16 lg:pl-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-lg text-white">Admin Analytics</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">Management Suite</span>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <span className="font-bold tracking-tight text-sm sm:text-lg text-white whitespace-nowrap">Admin Analytics</span>
+              <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">Management Suite</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 relative">
+          <div className="flex items-center gap-1.5 sm:gap-3 relative shrink-0">
             <div className="relative">
               <button 
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -547,97 +547,97 @@ export default function DashboardPage() {
       </header>
 
       {/* Admin Content Area */}
-      <main className="flex-1 overflow-hidden flex flex-col p-6 space-y-6 max-w-7xl w-full mx-auto">
+      <main className="flex-1 flex flex-col p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl w-full mx-auto overflow-x-hidden">
         
         {/* Row 1: KPI Stats Widgets */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 shrink-0">
           {/* Card 1 */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-3 relative overflow-hidden group hover:border-zinc-800 transition-all">
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-3 sm:p-5 space-y-2 sm:space-y-3 relative overflow-hidden group hover:border-zinc-800 transition-all">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-zinc-400 font-medium">
-                Doanh Thu {rangeType === "today" || rangeType === "yesterday" || rangeType === "custom" ? "Hôm Nay" : rangeType === "7days" ? "7 Ngày Qua" : rangeType === "30days" ? "30 Ngày Qua" : "90 Ngày Qua"}
+              <span className="text-[10px] sm:text-xs text-zinc-400 font-medium leading-tight">
+                Doanh Thu {rangeType === "today" || rangeType === "yesterday" || rangeType === "custom" ? "Hôm Nay" : rangeType === "7days" ? "7 Ngày" : rangeType === "30days" ? "30 Ngày" : "90 Ngày"}
               </span>
-              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-                <DollarSign className="h-4.5 w-4.5" />
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
+                <DollarSign className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
               </div>
             </div>
             <div className="space-y-1">
-              <h3 className="font-mono text-2xl font-bold tracking-tight text-white">
+              <h3 className="font-mono text-base sm:text-2xl font-bold tracking-tight text-white leading-tight">
                 {formatCurrency(stats?.todayRevenue || 0)}
               </h3>
-              <div className={`flex items-center gap-1 text-[11px] font-semibold ${getGrowthClass(stats?.revenueGrowth)}`}>
+              <div className={`flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold ${getGrowthClass(stats?.revenueGrowth)}`}>
                 {getGrowthIcon(stats?.revenueGrowth)}
-                <span>{stats?.revenueGrowth}</span>
+                <span className="truncate">{stats?.revenueGrowth}</span>
               </div>
             </div>
           </div>
 
           {/* Card 2 */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-3 relative overflow-hidden group hover:border-zinc-800 transition-all">
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-3 sm:p-5 space-y-2 sm:space-y-3 relative overflow-hidden group hover:border-zinc-800 transition-all">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-zinc-400 font-medium">
-                Đơn Hàng {rangeType === "today" || rangeType === "yesterday" || rangeType === "custom" ? "Đã Giao" : rangeType === "7days" ? "7 Ngày Qua" : rangeType === "30days" ? "30 Ngày Qua" : "90 Ngày Qua"}
+              <span className="text-[10px] sm:text-xs text-zinc-400 font-medium leading-tight">
+                Đơn Hàng {rangeType === "today" || rangeType === "yesterday" || rangeType === "custom" ? "Đã Giao" : rangeType === "7days" ? "7 Ngày" : rangeType === "30days" ? "30 Ngày" : "90 Ngày"}
               </span>
-              <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
-                <ShoppingBag className="h-4.5 w-4.5" />
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0">
+                <ShoppingBag className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
               </div>
             </div>
             <div className="space-y-1">
-              <h3 className="font-mono text-2xl font-bold tracking-tight text-white">
+              <h3 className="font-mono text-base sm:text-2xl font-bold tracking-tight text-white leading-tight">
                 {stats?.todayOrders || 0} Đơn
               </h3>
-              <div className={`flex items-center gap-1 text-[11px] font-semibold ${getGrowthClass(stats?.ordersGrowth)}`}>
+              <div className={`flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold ${getGrowthClass(stats?.ordersGrowth)}`}>
                 {getGrowthIcon(stats?.ordersGrowth)}
-                <span>{stats?.ordersGrowth}</span>
+                <span className="truncate">{stats?.ordersGrowth}</span>
               </div>
             </div>
           </div>
 
           {/* Card 3 */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-3 relative overflow-hidden group hover:border-zinc-800 transition-all">
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-3 sm:p-5 space-y-2 sm:space-y-3 relative overflow-hidden group hover:border-zinc-800 transition-all">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-zinc-400 font-medium">Thời Gian Chế Biến TB</span>
-              <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400">
-                <Clock className="h-4.5 w-4.5" />
+              <span className="text-[10px] sm:text-xs text-zinc-400 font-medium leading-tight">TG Chế Biến TB</span>
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 shrink-0">
+                <Clock className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
               </div>
             </div>
             <div className="space-y-1">
-              <h3 className="font-mono text-2xl font-bold tracking-tight text-white">
+              <h3 className="font-mono text-base sm:text-2xl font-bold tracking-tight text-white leading-tight">
                 {stats?.avgCookingTime || 11.4} Phút
               </h3>
-              <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-                <Clock className="h-3.5 w-3.5 text-emerald-400" />
-                <span>{stats?.cookingTimeDiff}</span>
+              <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-emerald-400">
+                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400" />
+                <span className="truncate">{stats?.cookingTimeDiff}</span>
               </div>
             </div>
           </div>
 
           {/* Card 4 */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-5 space-y-3 relative overflow-hidden group hover:border-zinc-800 transition-all">
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-3 sm:p-5 space-y-2 sm:space-y-3 relative overflow-hidden group hover:border-zinc-800 transition-all">
             <div className="flex justify-between items-center">
-              <span className="text-xs text-zinc-400 font-medium">
-                Lượt Quét {rangeType === "today" || rangeType === "yesterday" || rangeType === "custom" ? "Tại Bàn" : rangeType === "7days" ? "7 Ngày Qua" : rangeType === "30days" ? "30 Ngày Qua" : "90 Ngày Qua"}
+              <span className="text-[10px] sm:text-xs text-zinc-400 font-medium leading-tight">
+                Lượt Quét {rangeType === "today" || rangeType === "yesterday" || rangeType === "custom" ? "Tại Bàn" : rangeType === "7days" ? "7 Ngày" : rangeType === "30days" ? "30 Ngày" : "90 Ngày"}
               </span>
-              <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400">
-                <Users className="h-4.5 w-4.5" />
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 shrink-0">
+                <Users className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
               </div>
             </div>
             <div className="space-y-1">
-              <h3 className="font-mono text-2xl font-bold tracking-tight text-white">
+              <h3 className="font-mono text-base sm:text-2xl font-bold tracking-tight text-white leading-tight">
                 {stats?.newCustomers || 0} Lượt
               </h3>
-              <div className={`flex items-center gap-1 text-[11px] font-semibold ${getGrowthClass(stats?.customersGrowth)}`}>
+              <div className={`flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold ${getGrowthClass(stats?.customersGrowth)}`}>
                 {getGrowthIcon(stats?.customersGrowth)}
-                <span>{stats?.customersGrowth}</span>
+                <span className="truncate">{stats?.customersGrowth}</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Row 2: Analytics Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 shrink-0">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 shrink-0">
           {/* Chart Left: Sales by Hours */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 lg:col-span-2 flex flex-col justify-between h-[250px] shrink-0">
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-4 sm:p-5 lg:col-span-2 flex flex-col justify-between h-[220px] sm:h-[250px] shrink-0">
             <div className="flex items-center justify-between shrink-0">
               <div>
                 <h2 className="text-sm font-bold text-white">
@@ -677,7 +677,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Chart Right: Sales Channels & Payments */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 flex flex-col justify-between h-[250px] shrink-0">
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-4 sm:p-5 flex flex-col justify-between h-[220px] sm:h-[250px] shrink-0">
             <div className="shrink-0">
               <h2 className="text-sm font-bold text-white">Phương Thức Thanh Toán</h2>
               <p className="text-[11px] text-zinc-400 font-light mt-0.5">Phân tích tỷ trọng dòng tiền hôm nay.</p>
@@ -731,15 +731,15 @@ export default function DashboardPage() {
         </div>
 
         {/* Row 3: Recent Transactions Data Table */}
-        <div className="flex-1 min-h-0 bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 flex flex-col space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between shrink-0">
+        <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-3 sm:p-5 flex flex-col space-y-3 sm:space-y-4 pb-6">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between shrink-0">
             <div>
               <h2 className="text-sm font-bold text-white">Giao Dịch Gần Đây</h2>
-              <p className="text-[11px] text-zinc-400 font-light mt-0.5">Danh sách các hóa đơn vừa được thực hiện trong ngày.</p>
+              <p className="text-[11px] text-zinc-400 font-light mt-0.5 hidden sm:block">Danh sách các hóa đơn vừa được thực hiện trong ngày.</p>
             </div>
 
             {/* Filter Tools */}
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto items-center">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto items-stretch sm:items-center">
               {/* Search Bar */}
               <div className="relative w-full sm:max-w-xs">
                 <Search className="absolute left-3 top-2 h-3.5 w-3.5 text-zinc-500" />
@@ -753,12 +753,12 @@ export default function DashboardPage() {
               </div>
 
               {/* Status Selectors */}
-              <div className="flex gap-1 border border-zinc-900 bg-zinc-950/60 rounded-xl p-1 shrink-0">
+              <div className="flex gap-1 border border-zinc-900 bg-zinc-950/60 rounded-xl p-1 shrink-0 overflow-x-auto">
                 {(["All", "Completed", "Preparing", "Cancelled"] as const).map(f => (
                   <button
                     key={f}
                     onClick={() => setStatusFilter(f)}
-                    className={`px-3 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-all duration-200 ${
+                    className={`whitespace-nowrap px-2.5 sm:px-3 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-all duration-200 ${
                       statusFilter === f 
                         ? "bg-violet-600 text-white" 
                         : "text-zinc-500 hover:text-white hover:bg-zinc-900"
@@ -772,7 +772,7 @@ export default function DashboardPage() {
           </div>
 
           {/* High-Fidelity Data Table */}
-          <div className="flex-1 min-h-0 overflow-y-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+          <div className="overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent" style={{ maxHeight: '60vh' }}>
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
