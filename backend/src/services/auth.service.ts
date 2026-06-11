@@ -19,7 +19,7 @@ export const registerUser = async (data: any) => {
       email: data.email,
       name: data.name,
       passwordHash: hashedPassword,
-      role: data.role || Role.STAFF,
+      role: data.role || Role.CASHIER,
     },
     select: {
       id: true,

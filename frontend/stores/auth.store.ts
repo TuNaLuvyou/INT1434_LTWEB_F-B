@@ -1,7 +1,7 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import { getAccessTokenFromCookie } from '../lib/auth/client';
 
-type Role = 'ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN' | 'CASHIER';
+type Role = 'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER';
 
 type AuthStore = {
   user: { id: string; email: string; name: string; role: Role } | null;

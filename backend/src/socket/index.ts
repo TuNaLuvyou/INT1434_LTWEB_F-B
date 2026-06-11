@@ -13,7 +13,7 @@ let io: SocketIOServer;
 interface JwtPayload {
   id: string;
   email: string;
-  role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN' | 'CASHIER';
+  role: 'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER';
 }
 
 function verifyToken(token: string): JwtPayload | null {
@@ -63,7 +63,7 @@ function canJoinRoom(room: string, role: string): boolean {
  * │ table:[tableId] │ Khách tại bàn (QR)          │ Không                │
  * │ menu-updates    │ Mọi trang /menu             │ Không                │
  * │ kitchen         │ Màn hình KDS bếp            │ ADMIN/MANAGER/KITCHEN│
- * │ cashier         │ Màn hình thu ngân           │ ADMIN/MANAGER/STAFF  │
+ * │ cashier         │ Màn hình thu ngân           │ ADMIN/MANAGER/CASHIER│
  * │ floor-plan      │ Sơ đồ bàn admin             │ ADMIN/MANAGER        │
  * └─────────────────┴─────────────────────────────┴──────────────────────┘
  */

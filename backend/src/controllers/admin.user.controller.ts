@@ -13,9 +13,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
         isActive: true,
         createdAt: true,
         updatedAt: true,
-        _count: {
-          select: { devices: true, attendances: true }
-        }
+
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -51,7 +49,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, role, isActive } = req.body;
     
     if (req.user?.userId === id) {
@@ -88,7 +86,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
 
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { newPassword } = req.body;
     
     if (!newPassword || newPassword.length < 8) {
@@ -111,7 +109,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
 
 export const deleteUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     
     if (req.user?.userId === id) {
       res.status(403).json({ success: false, message: 'Không thể tự xóa chính mình' });

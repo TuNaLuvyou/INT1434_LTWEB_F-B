@@ -29,12 +29,12 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex h-screen w-screen bg-zinc-950 text-zinc-50 font-sans relative overflow-hidden">
+    <div className="flex min-h-screen w-screen bg-zinc-950 text-zinc-50 font-sans relative">
       {/* Left Sidebar */}
       <AdminSidebar />
 
       {/* Main Page Area */}
-      <div className="flex-1 min-w-0 relative flex flex-col h-full overflow-hidden">
+      <div className="flex-1 min-w-0 relative flex flex-col overflow-x-hidden">
         {children}
       </div>
     </div>

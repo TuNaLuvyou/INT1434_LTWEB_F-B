@@ -217,111 +217,111 @@ export default function TableSelectionInternalPage() {
 
       {/* Header */}
       <header className="sticky top-0 z-40 bg-black/95 backdrop-blur-md border-b border-gray-900 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/" className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Link>
 
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-400 flex items-center justify-center shadow-md shadow-black/30">
-              <TableIcon className="text-white h-5 w-5" />
+            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-br from-emerald-600 to-emerald-400 flex items-center justify-center shadow-md shadow-black/30 shrink-0">
+              <TableIcon className="text-white h-4 w-4 sm:h-5 sm:w-5" />
             </div>
 
             <div>
-              <h1 className="text-sm font-extrabold text-gray-100 tracking-tight leading-none">Table</h1>
-              <p className="text-[10px] text-gray-500 font-medium mt-0.5">Thực đơn khách hàng</p>
+              <h1 className="text-sm font-extrabold text-gray-100 tracking-tight leading-none">Quản lý Bàn</h1>
+              <p className="text-[10px] text-gray-500 font-medium mt-0.5 hidden sm:block">Thực đơn khách hàng</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {isMounted && canManage && (
               <button 
                 onClick={() => setIsAddOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-900 bg-emerald-950/40 hover:bg-emerald-900/50 text-xs font-bold text-emerald-300 transition-all cursor-pointer"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg border border-emerald-900 bg-emerald-950/40 hover:bg-emerald-900/50 text-xs font-bold text-emerald-300 transition-all cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Thêm bàn
+                <span className="hidden sm:inline">Thêm bàn</span>
               </button>
             )}
 
             <button 
               onClick={fetchTables}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-900 bg-zinc-900/60 hover:bg-zinc-900/70 text-xs font-semibold text-gray-200 transition-all cursor-pointer"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg border border-zinc-900 bg-zinc-900/60 hover:bg-zinc-900/70 text-xs font-semibold text-gray-200 transition-all cursor-pointer"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-              Làm mới
+              <span className="hidden sm:inline">Làm mới</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 mt-8 space-y-8">
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 mt-4 sm:mt-8 space-y-4 sm:space-y-6 pb-12">
         {/* Banner giới thiệu */}
-        <div className="bg-zinc-900/60 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-black/50 relative overflow-hidden border border-zinc-800 backdrop-blur-sm">
-          <div className="absolute right-6 bottom-[-20px] opacity-10 text-9xl select-none font-bold pointer-events-none">🍽️</div>
-          <div className="space-y-3 relative z-10 max-w-xl">
+        <div className="bg-zinc-900/60 rounded-2xl sm:rounded-3xl p-4 sm:p-8 text-white shadow-lg shadow-black/50 relative overflow-hidden border border-zinc-800 backdrop-blur-sm">
+          <div className="absolute right-4 bottom-[-16px] opacity-10 text-7xl sm:text-9xl select-none font-bold pointer-events-none">🍽️</div>
+          <div className="space-y-2 sm:space-y-3 relative z-10 max-w-xl">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 border border-white/10 text-white text-[10px] font-bold tracking-wide uppercase">
               <QrCode className="h-3 w-3" /> DANH SÁCH BÀN
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Danh sách các bàn trong nhà hàng</h2>
-            <p className="text-xs sm:text-sm text-gray-400 leading-relaxed font-light">
+            <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight">Quản lý bàn nhà hàng</h2>
+            <p className="text-xs text-gray-400 leading-relaxed font-light hidden sm:block">
               Danh sách các bàn hiện có và trạng thái (còn trống / có khách / đặt trước). Dùng cho nghiệp vụ nội bộ.
             </p>
           </div>
         </div>
 
         {/* Thống kê nhanh */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-zinc-900/40 p-4 rounded-2xl border border-zinc-900 shadow-sm flex items-center gap-4">
-            <div className="h-10 w-10 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-emerald-300 shrink-0">
-              <span className="font-mono font-bold text-sm">{tables.length}</span>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
+          <div className="bg-zinc-900/40 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-zinc-900 shadow-sm flex items-center gap-2 sm:gap-4">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center text-emerald-300 shrink-0">
+              <span className="font-mono font-bold text-xs sm:text-sm">{tables.length}</span>
             </div>
             <div>
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Tổng số bàn</p>
-              <p className="text-sm font-extrabold text-gray-100">Thiết lập</p>
+              <p className="text-[9px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Tổng bàn</p>
+              <p className="text-xs sm:text-sm font-extrabold text-gray-100">{tables.length} bàn</p>
             </div>
           </div>
 
-          <div className="bg-zinc-900/40 p-4 rounded-2xl border border-zinc-900 shadow-sm flex items-center gap-4">
-            <div className="h-10 w-10 rounded-xl bg-emerald-700 border border-emerald-800 flex items-center justify-center text-emerald-50 shrink-0">
-              <CheckCircle2 className="h-5 w-5" />
+          <div className="bg-zinc-900/40 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-zinc-900 shadow-sm flex items-center gap-2 sm:gap-4">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-emerald-700 border border-emerald-800 flex items-center justify-center text-emerald-50 shrink-0">
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
             <div>
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Bàn trống</p>
-              <p className="text-sm font-extrabold text-gray-100">{availableCount} bàn trống</p>
+              <p className="text-[9px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Còn trống</p>
+              <p className="text-xs sm:text-sm font-extrabold text-gray-100">{availableCount} bàn</p>
             </div>
           </div>
 
-          <div className="bg-zinc-900/40 p-4 rounded-2xl border border-zinc-900 shadow-sm flex items-center gap-4">
-            <div className="h-10 w-10 rounded-xl bg-amber-800/20 border border-amber-800 flex items-center justify-center text-amber-300 shrink-0">
-              <Users className="h-5 w-5" />
+          <div className="bg-zinc-900/40 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-zinc-900 shadow-sm flex items-center gap-2 sm:gap-4">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-amber-800/20 border border-amber-800 flex items-center justify-center text-amber-300 shrink-0">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
             <div>
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Có khách</p>
-              <p className="text-sm font-extrabold text-gray-100">{occupiedCount} đang dùng</p>
+              <p className="text-[9px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Có khách</p>
+              <p className="text-xs sm:text-sm font-extrabold text-gray-100">{occupiedCount} bàn</p>
             </div>
           </div>
 
-          <div className="bg-zinc-900/40 p-4 rounded-2xl border border-zinc-900 shadow-sm flex items-center gap-4">
-            <div className="h-10 w-10 rounded-xl bg-amber-800/20 border border-amber-800 flex items-center justify-center text-amber-300 shrink-0">
-              <Clock className="h-5 w-5" />
+          <div className="bg-zinc-900/40 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-zinc-900 shadow-sm flex items-center gap-2 sm:gap-4">
+            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg sm:rounded-xl bg-amber-800/20 border border-amber-800 flex items-center justify-center text-amber-300 shrink-0">
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
             <div>
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Đặt trước</p>
-              <p className="text-sm font-extrabold text-gray-100">{reservedCount} đã đặt</p>
+              <p className="text-[9px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Đặt trước</p>
+              <p className="text-xs sm:text-sm font-extrabold text-gray-100">{reservedCount} bàn</p>
             </div>
           </div>
         </div>
 
         {/* Bộ lọc & Tìm kiếm */}
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-zinc-900/30 p-4 rounded-2xl border border-zinc-900 shadow-sm">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-stretch sm:items-center justify-between bg-zinc-900/30 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-zinc-900 shadow-sm">
           {/* Status Filters */}
-          <div className="flex gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
+          <div className="flex gap-1 sm:gap-1.5 overflow-x-auto pb-0 scrollbar-none">
             {[
               { id: "ALL", label: "Tất cả" },
-              { id: "AVAILABLE", label: "Còn trống" },
-              { id: "OCCUPIED", label: "Đang ngồi" },
+              { id: "AVAILABLE", label: "Trống" },
+              { id: "OCCUPIED", label: "Có khách" },
               { id: "RESERVED", label: "Đặt trước" }
             ].map(tab => {
               const isActive = statusFilter === tab.id;
@@ -329,7 +329,7 @@ export default function TableSelectionInternalPage() {
                   <button
                     key={tab.id}
                     onClick={() => setStatusFilter(tab.id)}
-                    className={`whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    className={`whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all ${
                       isActive 
                         ? "bg-emerald-600 text-white shadow-sm" 
                         : "bg-zinc-900/40 text-gray-500 hover:text-white hover:bg-zinc-900/60"
@@ -343,13 +343,13 @@ export default function TableSelectionInternalPage() {
 
           {/* Search Box */}
           <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+            <Search className="absolute left-3 top-2 h-3.5 w-3.5 sm:top-2.5 sm:h-4 sm:w-4 text-gray-500" />
             <input 
               type="text" 
               placeholder="Tìm bàn ăn..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-900/30 border border-zinc-800 rounded-xl py-2 pl-9 pr-4 text-xs font-medium text-gray-200 placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:bg-zinc-900/40 transition-all"
+              className="w-full bg-zinc-900/30 border border-zinc-800 rounded-xl py-1.5 sm:py-2 pl-8 sm:pl-9 pr-4 text-xs font-medium text-gray-200 placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:bg-zinc-900/40 transition-all"
             />
           </div>
         </div>
@@ -404,10 +404,10 @@ export default function TableSelectionInternalPage() {
 
         {/* Grid of Tables */}
         {!loading && !error && filteredTables.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {filteredTables.map(table => {
               const statusBadges = {
-                AVAILABLE: { label: "Đang trống", class: "bg-emerald-900 text-emerald-300 border-emerald-800" },
+                AVAILABLE: { label: "Trống", class: "bg-emerald-900 text-emerald-300 border-emerald-800" },
                 OCCUPIED: { label: "Có khách", class: "bg-orange-900 text-orange-300 border-orange-800" },
                 RESERVED: { label: "Đặt trước", class: "bg-amber-900 text-amber-300 border-amber-800" }
               };
@@ -416,19 +416,19 @@ export default function TableSelectionInternalPage() {
               return (
                 <div
                   key={table.id}
-                  className="group relative block overflow-hidden rounded-3xl border border-zinc-900 bg-zinc-900/40 p-8 transition-all duration-300 hover:scale-[1.01] hover:border-zinc-800 hover:bg-zinc-900/60 shadow-xl"
+                  className="group relative block overflow-hidden rounded-2xl sm:rounded-3xl border border-zinc-900 bg-zinc-900/40 p-4 sm:p-6 transition-all duration-300 hover:scale-[1.01] hover:border-zinc-800 hover:bg-zinc-900/60 shadow-xl"
                 >
                   {/* Glow effect */}
                   <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-gradient-to-tr from-emerald-700 to-emerald-500 opacity-0 blur-[50px] transition-all duration-500 group-hover:opacity-20 group-hover:-translate-x-6 group-hover:translate-y-6" />
 
-                  <div className="space-y-3 relative z-10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold font-mono text-gray-500 uppercase tracking-widest">
-                        Table #{table.tableNumber}
+                  <div className="space-y-2 sm:space-y-3 relative z-10">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[9px] sm:text-[10px] font-bold font-mono text-gray-500 uppercase tracking-widest">
+                        #{table.tableNumber}
                       </span>
                       
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badge.class}`}>
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <span className={`px-1.5 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold border ${badge.class}`}>
                           {badge.label}
                         </span>
 
@@ -440,68 +440,68 @@ export default function TableSelectionInternalPage() {
                               handleDeleteTable(table.id, table.tableNumber);
                             }}
                             disabled={deletingId === table.id}
-                            className="h-6 w-6 rounded-lg bg-red-950/20 border border-red-900/30 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+                            className="h-5 w-5 sm:h-6 sm:w-6 rounded-md sm:rounded-lg bg-red-950/20 border border-red-900/30 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
                             title="Xóa bàn"
                           >
                             {deletingId === table.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <Loader2 className="h-3 w-3 animate-spin" />
                             ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-3 w-3" />
                             )}
                           </button>
                         )}
                       </div>
                     </div>
 
-                    <h3 className="text-xl font-bold tracking-tight text-white group-hover:text-emerald-300 transition-colors">
+                    <h3 className="text-base sm:text-xl font-bold tracking-tight text-white group-hover:text-emerald-300 transition-colors leading-tight">
                       {table.label}
                     </h3>
                   </div>
 
                   {/* Status Toggle Buttons */}
-                  <div className="mt-4 pt-4 border-t border-zinc-900/50 flex gap-2 relative z-10">
+                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-zinc-900/50 flex gap-1.5 sm:gap-2 relative z-10">
                     <button
                       onClick={() => updateTableStatus(table.id, "OCCUPIED")}
                       disabled={updatingId === table.id || table.status === "OCCUPIED"}
-                      className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`flex-1 py-1 sm:py-1.5 px-1 sm:px-2 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold transition-all flex items-center justify-center gap-0.5 sm:gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                         table.status === "OCCUPIED"
                           ? "bg-orange-600/90 text-white shadow-md shadow-orange-950/20"
                           : "bg-zinc-950/40 text-zinc-400 hover:text-orange-300 hover:bg-orange-950/20 border border-zinc-900"
                       }`}
                     >
                       {updatingId === table.id && table.status !== "OCCUPIED" ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 animate-spin" />
                       ) : (
-                        <Users className="h-3 w-3" />
+                        <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                       )}
-                      Có khách
+                      <span>Có khách</span>
                     </button>
 
                     <button
                       onClick={() => updateTableStatus(table.id, "AVAILABLE")}
                       disabled={updatingId === table.id || table.status === "AVAILABLE"}
-                      className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`flex-1 py-1 sm:py-1.5 px-1 sm:px-2 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold transition-all flex items-center justify-center gap-0.5 sm:gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                         table.status === "AVAILABLE"
                           ? "bg-emerald-600/90 text-white shadow-md shadow-emerald-950/20"
                           : "bg-zinc-950/40 text-zinc-400 hover:text-emerald-300 hover:bg-emerald-950/20 border border-zinc-900"
                       }`}
                     >
                       {updatingId === table.id && table.status !== "AVAILABLE" ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 className="h-2.5 w-2.5 sm:h-3 sm:w-3 animate-spin" />
                       ) : (
-                        <CheckCircle2 className="h-3 w-3" />
+                        <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                       )}
-                      Đang trống
+                      <span>Trống</span>
                     </button>
                   </div>
 
-                  <div className="mt-4 relative z-10">
+                  <div className="mt-2.5 sm:mt-4 relative z-10">
                     <Link
                       href={`/table/${table.id}`}
-                      className="w-full h-10 rounded-xl bg-zinc-950/30 border border-zinc-800 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white hover:shadow-md flex items-center justify-center gap-1.5 text-xs font-bold text-gray-200 transition-all cursor-pointer"
+                      className="w-full h-8 sm:h-10 rounded-lg sm:rounded-xl bg-zinc-950/30 border border-zinc-800 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white hover:shadow-md flex items-center justify-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-gray-200 transition-all cursor-pointer"
                     >
                       Vào thực đơn
-                      <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </Link>
                   </div>
                 </div>

@@ -158,14 +158,14 @@ export default function AdminVouchersPage() {
   };
 
   return (
-    <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
       {/* Background Glow */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-900/10 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[130px] pointer-events-none" />
 
       {/* Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
-        <div className="max-w-7xl mx-auto px-6 pl-16 lg:pl-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-lg text-white">Quản Lý Voucher</span>
@@ -178,7 +178,7 @@ export default function AdminVouchersPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden flex flex-col p-6 space-y-4 max-w-7xl w-full mx-auto">
+      <main className="flex-1 flex flex-col p-3 sm:p-6 space-y-4 max-w-7xl w-full mx-auto">
 
         {/* Feedback Alerts */}
         {errorMsg && (
@@ -195,9 +195,9 @@ export default function AdminVouchersPage() {
           </div>
         )}
 
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-3 gap-6">
           {/* Form Create Voucher (Left side) */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 space-y-4 h-full overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-4 sm:p-5 space-y-4 shrink-0">
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <Ticket className="h-5 w-5 text-violet-400" />
@@ -332,7 +332,7 @@ export default function AdminVouchersPage() {
           </div>
 
           {/* List of Vouchers (Right side) */}
-          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 lg:col-span-2 flex flex-col space-y-4 h-full min-h-0">
+          <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-4 sm:p-5 lg:col-span-2 flex flex-col space-y-4 flex-1 min-h-[400px]">
             <div className="shrink-0">
               <h2 className="text-base font-bold text-white">Danh Sách Voucher</h2>
               <p className="text-xs text-zinc-500 mt-1">
@@ -351,7 +351,7 @@ export default function AdminVouchersPage() {
                 <span>Chưa có mã giảm giá nào được tạo.</span>
               </div>
             ) : (
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+              <div className="flex-1 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent" style={{ maxHeight: '65vh' }}>
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">

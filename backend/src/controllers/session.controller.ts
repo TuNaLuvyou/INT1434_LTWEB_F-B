@@ -77,7 +77,7 @@ export async function getActiveSession(req: Request, res: Response): Promise<voi
 
 // ─── PATCH /api/sessions/:sessionId/status ───────────────────────────────────
 /**
- * Đóng session (PAID | CANCELLED) — yêu cầu auth: ADMIN, MANAGER, STAFF.
+ * Đóng session (PAID | CANCELLED) — yêu cầu auth: ADMIN, MANAGER, CASHIER.
  */
 export async function updateSessionStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {

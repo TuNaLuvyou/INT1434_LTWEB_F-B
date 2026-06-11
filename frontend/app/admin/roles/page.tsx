@@ -22,7 +22,7 @@ interface UserItem {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN' | 'CASHIER';
+  role: 'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER';
 }
 
 export default function RolesPage() {
@@ -42,7 +42,7 @@ export default function RolesPage() {
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'ADMIN' | 'MANAGER' | 'STAFF' | 'KITCHEN' | 'CASHIER'>('STAFF');
+  const [newRole, setNewRole] = useState<'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER'>('CASHIER');
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -64,7 +64,7 @@ export default function RolesPage() {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/devices/users`, {
+      const res = await fetch(`${API_URL}/api/admin/users`, {
         headers: getHeaders({
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache'
@@ -95,8 +95,8 @@ export default function RolesPage() {
   const handleRoleChange = async (userId: string, newRole: string) => {
     setUpdatingUserId(userId);
     try {
-      const res = await fetch(`${API_URL}/api/devices/users/${userId}/role`, {
-        method: 'PUT',
+      const res = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+        method: 'PATCH',
         headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ role: newRole }),
         credentials: 'include'
@@ -142,7 +142,7 @@ export default function RolesPage() {
 
     setIsCreating(true);
     try {
-      const res = await fetch(`${API_URL}/api/devices/users`, {
+      const res = await fetch(`${API_URL}/api/admin/users`, {
         method: 'POST',
         headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
@@ -162,7 +162,7 @@ export default function RolesPage() {
         setNewName('');
         setNewEmail('');
         setNewPassword('');
-        setNewRole('STAFF');
+        setNewRole('CASHIER');
         fetchUsers();
       } else {
         setErrorMessage(data.message || 'Lỗi khi tạo tài khoản.');
@@ -199,14 +199,14 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="h-screen max-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
       {/* Background Glow */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-900/10 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[130px] pointer-events-none" />
 
       {/* Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
-        <div className="max-w-7xl mx-auto px-6 pl-16 lg:pl-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="font-bold tracking-tight text-lg text-white">Phân Quyền</span>
@@ -234,7 +234,7 @@ export default function RolesPage() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-hidden flex flex-col p-6 space-y-4 max-w-7xl w-full mx-auto">
+      <main className="flex-1 flex flex-col p-3 sm:p-6 space-y-4 max-w-7xl w-full mx-auto">
         <div className="flex-1 min-h-0 bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 flex flex-col space-y-4">
           <div className="shrink-0 flex items-center justify-between">
             <div>
@@ -265,7 +265,7 @@ export default function RolesPage() {
                 <option value="ALL">Tất cả vai trò</option>
                 <option value="ADMIN">ADMIN</option>
                 <option value="MANAGER">MANAGER</option>
-                <option value="STAFF">STAFF</option>
+
                 <option value="KITCHEN">KITCHEN</option>
                 <option value="CASHIER">CASHIER</option>
               </select>
@@ -330,7 +330,7 @@ export default function RolesPage() {
                           >
                             <option value="ADMIN">ADMIN</option>
                             <option value="MANAGER">MANAGER</option>
-                            <option value="STAFF">STAFF</option>
+
                             <option value="KITCHEN">KITCHEN</option>
                             <option value="CASHIER">CASHIER</option>
                           </select>
@@ -433,7 +433,7 @@ export default function RolesPage() {
                     onChange={(e) => setNewRole(e.target.value as any)}
                     className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-100 focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/10 transition-all cursor-pointer font-medium appearance-none"
                   >
-                    <option value="STAFF">STAFF (Nhân viên thường)</option>
+
                     <option value="CASHIER">CASHIER (Thu ngân)</option>
                     <option value="KITCHEN">KITCHEN (Đầu bếp)</option>
                     <option value="MANAGER">MANAGER (Quản lý)</option>

@@ -100,7 +100,7 @@ export class ExcelService {
     footerRow.eachCell(cell => {
       cell.font = { bold: true };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-      if (cell.col > 2) cell.numFmt = '#,##0';
+      if (Number(cell.col) > 2) cell.numFmt = '#,##0';
     });
   }
 
