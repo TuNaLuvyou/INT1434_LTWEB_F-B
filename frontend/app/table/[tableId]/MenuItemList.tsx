@@ -71,6 +71,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   const sessionTableId = useCartStore((s) => s.tableId);
   const isSubmitting = useCartStore((s) => s.isSubmitting);
   const submitError = useCartStore((s) => s.submitError);
+  const isGeofenceEnabled = useCartStore((s) => s.isGeofenceEnabled);
   const isLocked = false; // Bỏ khóa bàn: luôn false để cho phép khách hàng gọi thêm món liên tục.
 
   const initSession = useCartStore((s) => s.initSession);
@@ -93,6 +94,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   const [lastOrder, setLastOrder] = useState<CartItemEntry[] | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastGeoLocation = useRef<{ lat: number; lng: number; timestamp: number } | null>(null);
   const [loadingItemIds, setLoadingItemIds] = useState<Record<string, boolean>>({});
   const [isSessionClosed, setIsSessionClosed] = useState(false);
   const [sessionClosedStatus, setSessionClosedStatus] = useState<'PAID' | 'CANCELLED' | 'UNKNOWN' | null>(null);
@@ -288,53 +290,120 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
     setSubmitting(true);
     setSubmitError(null);
 
-    try {
-      const result = await submitOrder({
-        sessionId,
-        tableId: sessionTableId,
-        items: cartItems.map((i) => ({
-          menuItemId: i.menuItemId,
-          qty: i.qty,
-          note: i.note || undefined,
-        })),
-      });
-
-      if (result.success) {
-        const updatedLastOrder = [...(lastOrder || [])];
-        for (const cartItem of cartItems) {
-          const existing = updatedLastOrder.find((i) => i.menuItemId === cartItem.menuItemId);
-          if (existing) {
-            existing.qty += cartItem.qty;
-            if (cartItem.note) {
-              existing.note = existing.note ? `${existing.note}, ${cartItem.note}` : cartItem.note;
-            }
-          } else {
-            updatedLastOrder.push({ ...cartItem });
-          }
-        }
-        setLastOrder(updatedLastOrder);
-        clearCart();
-        setMobileCartOpen(true); // Tiếp tục mở để khách tiện quan sát các món đã gọi
-        showToast({
-          type: 'success',
-          message: '🍳 Gửi món lên hệ thống thành công! Nhà bếp đang xử lý.',
+    const executeSubmit = async (lat?: number, lng?: number) => {
+      try {
+        const result = await submitOrder({
+          sessionId,
+          tableId: sessionTableId,
+          items: cartItems.map((i) => ({
+            menuItemId: i.menuItemId,
+            qty: i.qty,
+            note: i.note || undefined,
+          })),
+          lat,
+          lng,
         });
-      } else {
-        let errMsg = result.message || 'Có lỗi xảy ra khi gọi món.';
-        if (result.errors && (result.errors as any).itemErrors) {
-          const specificErrors = (result.errors as any).itemErrors.map((e: any) => e.message);
-          errMsg = `Không thể đặt các món: ${specificErrors.join(', ')}`;
+
+        if (result.success) {
+          const updatedLastOrder = [...(lastOrder || [])];
+          for (const cartItem of cartItems) {
+            const existing = updatedLastOrder.find((i) => i.menuItemId === cartItem.menuItemId);
+            if (existing) {
+              existing.qty += cartItem.qty;
+              if (cartItem.note) {
+                existing.note = existing.note ? `${existing.note}, ${cartItem.note}` : cartItem.note;
+              }
+            } else {
+              updatedLastOrder.push({ ...cartItem });
+            }
+          }
+          setLastOrder(updatedLastOrder);
+          clearCart();
+          setMobileCartOpen(true); // Tiếp tục mở để khách tiện quan sát các món đã gọi
+          showToast({
+            type: 'success',
+            message: '🍳 Gửi món lên hệ thống thành công! Nhà bếp đang xử lý.',
+          });
+        } else {
+          lastGeoLocation.current = null; // Xoá cache định vị khi gặp lỗi để khách thử lại vị trí mới
+          let errMsg = result.message || 'Có lỗi xảy ra khi gọi món.';
+          if (result.errors && (result.errors as any).itemErrors) {
+            const specificErrors = (result.errors as any).itemErrors.map((e: any) => e.message);
+            errMsg = `Không thể đặt các món: ${specificErrors.join(', ')}`;
+          }
+          setSubmitError(errMsg);
+          showToast({ type: 'error', message: errMsg });
         }
+      } catch (networkErr) {
+        lastGeoLocation.current = null; // Xoá cache định vị khi gặp lỗi mạng
+        const errMsg = 'Mất kết nối mạng. Vui lòng kiểm tra lại kết nối và thử lại.';
         setSubmitError(errMsg);
         showToast({ type: 'error', message: errMsg });
+        console.error('[MenuItemList] submitOrder error:', networkErr);
+      } finally {
+        setSubmitting(false);
       }
-    } catch (networkErr) {
-      const errMsg = 'Mất kết nối mạng. Vui lòng kiểm tra lại kết nối và thử lại.';
-      setSubmitError(errMsg);
-      showToast({ type: 'error', message: errMsg });
-      console.error('[MenuItemList] submitOrder error:', networkErr);
-    } finally {
-      setSubmitting(false);
+    };
+
+    if (isGeofenceEnabled) {
+      // 1. Kiểm tra cache định vị (nếu toạ độ đã lấy thành công trong vòng 60 giây qua, dùng luôn để tránh đè cổng định vị)
+      if (lastGeoLocation.current && Date.now() - lastGeoLocation.current.timestamp < 60000) {
+        console.log('[GPS Cache] Sử dụng toạ độ định vị đã lưu trong bộ đệm:', lastGeoLocation.current);
+        executeSubmit(lastGeoLocation.current.lat, lastGeoLocation.current.lng);
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        const errMsg = 'Trình duyệt không hỗ trợ định vị GPS để gọi món.';
+        setSubmitError(errMsg);
+        showToast({ type: 'error', message: errMsg });
+        setSubmitting(false);
+        return;
+      }
+
+      const getCoordinates = (onSuccess: (lat: number, lng: number) => void, onError: (err: GeolocationPositionError) => void) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => onSuccess(position.coords.latitude, position.coords.longitude),
+          (error) => {
+            if (error.code === 3 || error.code === 2) {
+              console.warn('GPS High Accuracy failed or timed out, retrying with low accuracy...');
+              navigator.geolocation.getCurrentPosition(
+                (pos) => onSuccess(pos.coords.latitude, pos.coords.longitude),
+                onError,
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+              );
+            } else {
+              onError(error);
+            }
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      };
+
+      getCoordinates(
+        (lat, lng) => {
+          // Lưu vào bộ đệm cache định vị
+          lastGeoLocation.current = { lat, lng, timestamp: Date.now() };
+          executeSubmit(lat, lng);
+        },
+        (error) => {
+          console.error('Customer geolocation error:', error);
+          lastGeoLocation.current = null; // Xoá cache định vị khi lấy toạ độ thất bại
+          let errMsg = 'Không thể xác định vị trí GPS.';
+          if (error.code === 1) {
+            errMsg = 'Quyền truy cập GPS bị chặn. Vui lòng cấp quyền định vị cho trình duyệt trên thanh địa chỉ để đặt món.';
+          } else if (error.code === 2) {
+            errMsg = 'Vị trí của bạn hiện không khả dụng. Vui lòng bật GPS trên thiết bị.';
+          } else if (error.code === 3) {
+            errMsg = 'Hết thời gian chờ lấy định vị GPS. Vui lòng thử đặt món lại.';
+          }
+          setSubmitError(errMsg);
+          showToast({ type: 'error', message: errMsg });
+          setSubmitting(false);
+        }
+      );
+    } else {
+      executeSubmit();
     }
   };
 

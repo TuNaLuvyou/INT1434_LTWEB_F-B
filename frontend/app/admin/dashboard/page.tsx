@@ -339,7 +339,10 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <span className="font-bold tracking-tight text-sm sm:text-lg text-white whitespace-nowrap">Admin Analytics</span>
+              <span className="font-bold tracking-tight text-sm sm:text-lg text-white whitespace-nowrap">
+                <span className="sm:hidden">Analytics</span>
+                <span className="hidden sm:inline">Admin Analytics</span>
+              </span>
               <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">Management Suite</span>
             </div>
           </div>
@@ -348,16 +351,24 @@ export default function DashboardPage() {
             <div className="relative">
               <button 
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-semibold hover:text-white hover:border-zinc-700 hover:bg-zinc-900 transition-all cursor-pointer shadow-lg active:scale-95"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-300 text-xs font-semibold hover:text-white hover:border-zinc-700 hover:bg-zinc-900 transition-all cursor-pointer shadow-lg active:scale-95"
               >
-                <Calendar className="h-3.5 w-3.5 text-violet-400 animate-pulse" />
-                <span>
+                <Calendar className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+                <span className="hidden sm:inline">
                   {rangeType === "today" && `Hôm nay: ${formatDateToDDMMYYYY(new Date())}`}
                   {rangeType === "yesterday" && `Hôm qua: ${formatDateToDDMMYYYY(new Date(Date.now() - 24 * 60 * 60 * 1000))}`}
                   {rangeType === "7days" && "7 ngày qua"}
                   {rangeType === "30days" && "30 ngày qua"}
                   {rangeType === "90days" && "90 ngày qua"}
                   {rangeType === "custom" && `Ngày: ${formatHeaderDate(customDate)}`}
+                </span>
+                <span className="sm:hidden text-[11px]">
+                  {rangeType === "today" && formatDateToDDMMYYYY(new Date())}
+                  {rangeType === "yesterday" && formatDateToDDMMYYYY(new Date(Date.now() - 24 * 60 * 60 * 1000))}
+                  {rangeType === "7days" && "7 ngày"}
+                  {rangeType === "30days" && "30 ngày"}
+                  {rangeType === "90days" && "90 ngày"}
+                  {rangeType === "custom" && formatHeaderDate(customDate)}
                 </span>
               </button>
 
@@ -550,7 +561,7 @@ export default function DashboardPage() {
       <main className="flex-1 flex flex-col p-3 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl w-full mx-auto overflow-x-hidden">
         
         {/* Row 1: KPI Stats Widgets */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 shrink-0">
+        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 shrink-0">
           {/* Card 1 */}
           <div className="bg-zinc-900/40 border border-zinc-900 rounded-2xl p-3 sm:p-5 space-y-2 sm:space-y-3 relative overflow-hidden group hover:border-zinc-800 transition-all">
             <div className="flex justify-between items-center">
@@ -773,7 +784,7 @@ export default function DashboardPage() {
 
           {/* High-Fidelity Data Table */}
           <div className="overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent" style={{ maxHeight: '60vh' }}>
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse whitespace-nowrap">
               <thead>
                 <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
                   <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Mã Đơn Hàng</th>

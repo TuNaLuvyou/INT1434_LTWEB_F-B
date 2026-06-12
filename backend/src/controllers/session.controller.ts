@@ -5,6 +5,8 @@ import { AppError } from '../utils/app-error';
 import { emitCartUpdated } from '../socket/emit.helpers';
 import { InsufficientStockError } from '../services/inventory.service';
 
+import prisma from '../config/prisma';
+
 // ─── POST /api/sessions/join ──────────────────────────────────────────────────
 /**
  * PUBLIC endpoint — được gọi khi khách quét QR code.
@@ -22,9 +24,12 @@ export async function joinSession(req: Request, res: Response): Promise<void> {
     const createdViaPos = source === 'POS';
     const { session, isNew } = await sessionService.joinOrCreateSession(tableId.trim(), createdViaPos);
 
+    const config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
+    const isGeofenceEnabled = config?.isGeofenceEnabled ?? false;
+
     res.status(isNew ? 201 : 200).json({
       success: true,
-      data: { session, isNew, serverTime: Date.now() },
+      data: { session, isNew, serverTime: Date.now(), isGeofenceEnabled },
     });
   } catch (error: any) {
     const status = error.statusCode ?? 500;
