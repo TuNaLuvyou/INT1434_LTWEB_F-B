@@ -16,10 +16,14 @@ import {
 } from "lucide-react";
 import IngredientModal from "@/components/inventory/IngredientModal";
 import StockAdjustModal from "@/components/inventory/StockAdjustModal";
-import { fetchIngredients, deleteIngredient } from "@/lib/api/admin";
+import { fetchIngredients, deleteIngredient, fetchInventoryLogs } from "@/lib/api/admin";
 
 export default function AdminInventoryPage() {
+  const [activeTab, setActiveTab] = useState<'list' | 'logs'>('list');
   const [ingredients, setIngredients] = useState<any[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsTotal, setLogsTotal] = useState(0);
+  const [logsPage, setLogsPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [lowStockFilter, setLowStockFilter] = useState(false);
@@ -41,9 +45,25 @@ export default function AdminInventoryPage() {
     }
   }, [lowStockFilter]);
 
+  const loadLogs = useCallback(async () => {
+    try {
+      const data = await fetchInventoryLogs(logsPage, 20);
+      setLogs(data?.data?.logs ?? []);
+      setLogsTotal(data?.data?.total ?? 0);
+    } catch (err) {
+      console.error("Lỗi fetch logs:", err);
+    }
+  }, [logsPage]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      loadLogs();
+    }
+  }, [activeTab, loadLogs]);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Bạn chắc chắn muốn xóa nguyên liệu "${name}"?`)) return;
@@ -85,7 +105,7 @@ export default function AdminInventoryPage() {
               <Calendar className="h-3.5 w-3.5 text-zinc-500" />
               <span>Hôm nay, 19 Tháng 5</span>
             </div>
-            <button onClick={loadData} className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
+            <button onClick={() => { loadData(); if (activeTab === 'logs') loadLogs(); }} className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all">
               <RefreshCw className="h-4 w-4" />
             </button>
           </div>
@@ -95,7 +115,31 @@ export default function AdminInventoryPage() {
       {/* Content Area */}
       <main className="flex-1 flex flex-col p-3 sm:p-6 space-y-4 max-w-7xl w-full mx-auto">
 
-        {/* Action Bar */}
+        {/* Tabs */}
+        <div className="flex border-b border-zinc-800 mb-2 shrink-0">
+          <button
+            onClick={() => setActiveTab('list')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'list'
+                ? 'border-violet-500 text-violet-400'
+                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            Danh sách nguyên liệu
+          </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'logs'
+                ? 'border-violet-500 text-violet-400'
+                : 'border-transparent text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            Lịch sử nhập/xuất kho
+          </button>
+        </div>
+
+        {activeTab === 'list' && (
         <div className="flex-1 min-h-0 bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 flex flex-col space-y-4">
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-between shrink-0">
             <div>
@@ -132,7 +176,7 @@ export default function AdminInventoryPage() {
                   onClick={() => setLowStockFilter(true)}
                   className={`px-3 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-all duration-200 ${
                     lowStockFilter 
-                      ? "bg-amber-600 text-white" 
+                      ? "bg-violet-600 text-white" 
                       : "text-zinc-500 hover:text-white hover:bg-zinc-900"
                   }`}
                 >
@@ -241,6 +285,77 @@ export default function AdminInventoryPage() {
             </table>
           </div>
         </div>
+        )}
+
+        {activeTab === 'logs' && (
+          <div className="flex-1 min-h-0 bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 flex flex-col space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3 items-center justify-between shrink-0">
+              <div>
+                <h2 className="text-base font-bold text-white">Lịch sử xuất / nhập kho</h2>
+                <p className="text-xs text-zinc-400 font-light mt-0.5">Theo dõi chi tiết biến động nguyên liệu.</p>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto overflow-y-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent" style={{ maxHeight: '65vh' }}>
+              <table className="w-full text-left border-collapse whitespace-nowrap">
+                <thead>
+                  <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thời gian</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Nguyên liệu</th>
+                    <th className="px-5 py-3 text-right sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Biến động</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Lý do</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thực hiện bởi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-900 text-xs">
+                  {logs.map((log: any) => (
+                    <tr key={log.id} className="hover:bg-zinc-900/20 transition-all">
+                      <td className="px-5 py-3.5 text-zinc-400">
+                        {new Date(log.createdAt).toLocaleString('vi-VN')}
+                      </td>
+                      <td className="px-5 py-3.5 font-semibold text-white">
+                        {log.ingredient?.name} <span className="text-zinc-500 text-[10px] ml-1">({log.ingredient?.unit})</span>
+                      </td>
+                      <td className={`px-5 py-3.5 text-right font-mono font-bold ${Number(log.delta) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {Number(log.delta) > 0 ? '+' : ''}{new Intl.NumberFormat('vi-VN').format(Number(log.delta))}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="inline-flex px-2.5 py-0.5 rounded-md text-[10px] bg-zinc-800 text-zinc-300 font-mono">
+                          {log.reason}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-zinc-400 font-mono text-[10px]">{log.createdBy || '—'}</td>
+                    </tr>
+                  ))}
+                  {logs.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-12 text-center text-zinc-500 font-light">
+                        Chưa có lịch sử.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {logsTotal > 20 && (
+              <div className="flex gap-2 justify-end items-center mt-4">
+                <button
+                  disabled={logsPage <= 1}
+                  onClick={() => setLogsPage(p => p - 1)}
+                  className="px-3 py-1.5 text-xs font-medium text-zinc-300 border border-zinc-800 rounded bg-zinc-900/50 hover:bg-zinc-800 disabled:opacity-40 transition-all"
+                >← Trước</button>
+                <span className="px-3 py-1 text-xs text-zinc-500">Trang {logsPage} / {Math.ceil(logsTotal / 20)}</span>
+                <button
+                  disabled={logsPage * 20 >= logsTotal}
+                  onClick={() => setLogsPage(p => p + 1)}
+                  className="px-3 py-1.5 text-xs font-medium text-zinc-300 border border-zinc-800 rounded bg-zinc-900/50 hover:bg-zinc-800 disabled:opacity-40 transition-all"
+                >Sau →</button>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Modals */}
