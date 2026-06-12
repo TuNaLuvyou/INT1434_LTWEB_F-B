@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,  // 15 phút
-  max: 10,                   // tối đa 10 lần login
+  max: 1000,                 // tối đa 1000 lần login
   message: { success: false, message: 'Quá nhiều lần thử. Vui lòng đợi 15 phút.' }
 });
 

@@ -187,10 +187,6 @@ export default function AdminMenuPage() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
-      {/* Background Glow effects */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-amber-600/5 blur-[120px] pointer-events-none" />
-
       {/* Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between">
@@ -267,7 +263,7 @@ export default function AdminMenuPage() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-zinc-950/80 border border-zinc-800 text-sm font-semibold rounded-xl focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all appearance-none cursor-pointer text-zinc-100 placeholder-zinc-500 shadow-sm"
+              className="w-full pl-9 pr-4 py-2.5 bg-zinc-950/80 border border-zinc-800 text-sm font-semibold rounded-xl focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 transition-all appearance-none cursor-pointer text-zinc-100 placeholder-zinc-500 shadow-sm"
             >
               <option value="" className="bg-zinc-950 text-zinc-100">Tất cả danh mục</option>
               {categories.map((cat) => (
@@ -282,7 +278,7 @@ export default function AdminMenuPage() {
         {/* Trạng thái Loading / Lỗi */}
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl">
-            <Loader2 className="animate-spin text-orange-500 mb-3" size={32} />
+            <Loader2 className="animate-spin text-violet-500 mb-3" size={32} />
             <p className="text-sm font-bold text-zinc-400">Đang tải danh sách món ăn...</p>
           </div>
         ) : error ? (
@@ -299,7 +295,7 @@ export default function AdminMenuPage() {
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl text-center px-4">
-            <div className="p-4.5 bg-orange-500/10 rounded-full text-orange-500 mb-4 border border-orange-500/20 animate-pulse">
+            <div className="p-4.5 bg-violet-500/10 rounded-full text-violet-500 mb-4 border border-violet-500/20 animate-pulse">
               <Utensils size={32} />
             </div>
             <h3 className="text-base font-extrabold text-zinc-200">Không tìm thấy món ăn nào</h3>
