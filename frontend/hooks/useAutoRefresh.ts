@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { setAccessToken } from '@/lib/auth/client';
+import { setAccessToken, getAccessTokenFromCookie } from '@/lib/auth/client';
 import { useAuthStore } from '@/stores/auth.store';
 
 export function useAutoRefresh() {
