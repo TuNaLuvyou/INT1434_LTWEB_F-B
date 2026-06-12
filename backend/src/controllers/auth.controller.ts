@@ -25,11 +25,11 @@ const setRefreshTokenCookie = (res: Response, token: string) => {
   res.cookie('refresh_token', token, {
     httpOnly: true,
     secure: isProd,
-    // Dev: 'lax' cho phép cross-origin fetch gửi cookie (localhost:3000 → 127.0.0.1:5001)
-    // Prod: 'strict' khi cùng domain, hoặc 'none' nếu khác domain (cần secure: true)
-    sameSite: isProd ? 'strict' : 'lax',
+    // Trong môi trường production (Vercel + Render khác domain), sameSite PHẢI là 'none'
+    // Trong môi trường dev (cùng localhost), sameSite là 'lax'
+    sameSite: isProd ? 'none' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: '/', // '/' để cookie được gửi cho mọi endpoint, không chỉ /api/auth
+    path: '/',
   });
 };
 
