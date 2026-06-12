@@ -35,6 +35,8 @@ const submitOrderSchema = z.object({
       })
     )
     .min(1, 'Giỏ hàng trống'),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
 });
 
 export type SubmitOrderInput = z.infer<typeof submitOrderSchema>;
@@ -61,9 +63,47 @@ export async function submitOrder(
     };
   }
 
-  const { sessionId, tableId, items } = parsed.data;
+  const { sessionId, tableId, items, lat, lng } = parsed.data;
 
   try {
+    // ── Check Geofencing ──────────────────────────────────────────────────
+    const systemConfig = await prisma.systemConfig.findUnique({
+      where: { id: 'singleton' }
+    });
+
+    if (systemConfig?.isGeofenceEnabled) {
+      if (lat === undefined || lng === undefined) {
+        return {
+          success: false,
+          message: 'Vui lòng cấp quyền vị trí (GPS) để đặt món.',
+        };
+      }
+
+      const restLat = systemConfig.restaurantLat;
+      const restLng = systemConfig.restaurantLng;
+      const maxDistance = systemConfig.maxOrderDistance ?? 100;
+
+      if (restLat !== null && restLng !== null) {
+        // Tính khoảng cách Haversine (mét)
+        const R = 6371000; // Bán kính Trái Đất (mét)
+        const dLat = (restLat - lat) * Math.PI / 180;
+        const dLng = (restLng - lng) * Math.PI / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat * Math.PI / 180) * Math.cos(restLat * Math.PI / 180) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c;
+
+        if (distance > maxDistance) {
+          return {
+            success: false,
+            message: `Bạn đang ở quá xa nhà hàng (${Math.round(distance)}m). Vui lòng quét mã QR tại bàn để đặt món.`,
+          };
+        }
+      }
+    }
+
     // ── Step 2: Verify session tồn tại và OPEN ─────────────────────────────
     const session = await prisma.tableSession.findUnique({
       where: { id: sessionId },

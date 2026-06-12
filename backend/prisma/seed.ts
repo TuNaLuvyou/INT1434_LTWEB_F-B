@@ -18,8 +18,6 @@ async function main() {
     create: {
       id: 'singleton',
       restaurantName: 'RestoFlow Demo',
-      licenseKey: 'RF-DEMO-2025-XXXX',
-      licenseExpiredAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // +1 year
     },
   });
   console.log('✅ SystemConfig created');

@@ -7,11 +7,13 @@ datasource db {
 }
 
 model SystemConfig {
-  id               String   @id @default("singleton")
-  restaurantName   String
-  licenseKey       String   @unique
-  licenseExpiredAt DateTime
-  updatedAt        DateTime @updatedAt
+  id                String   @id @default("singleton")
+  restaurantName    String
+  isGeofenceEnabled Boolean  @default(false)
+  restaurantLat     Float?
+  restaurantLng     Float?
+  maxOrderDistance  Int      @default(100)
+  updatedAt         DateTime @updatedAt
 }
 
 enum Role {

@@ -27,6 +27,7 @@ interface KDSItem {
   name: string;
   quantity: number;
   status: string;
+  note?: string | null;
 }
 
 interface KDSOther {
@@ -44,6 +45,7 @@ interface ArchivedKdsItem {
   name: string;
   quantity: number;
   status: string;
+  note?: string | null;
 }
 
 interface ArchivedKdsOrder {
@@ -433,7 +435,8 @@ export default function KDSPage() {
         id: oi.id,
         name: oi.menuItem.name,
         quantity: oi.qty,
-        status: oi.status
+        status: oi.status,
+        note: oi.note
       }));
 
       // Xác định trạng thái chung của ticket dựa trên các items
@@ -579,6 +582,7 @@ export default function KDSPage() {
         name: oi.menuItem.name,
         quantity: oi.qty,
         status: oi.status,
+        note: oi.note,
       })),
     };
 
@@ -713,23 +717,30 @@ export default function KDSPage() {
 
                   <ul className="space-y-2 mb-4">
                     {order.items.map((item, idx) => (
-                      <li key={idx} className="flex justify-between items-center text-xs group/item">
-                        <span className="text-zinc-400 font-light flex items-center gap-2">
-                          {item.name}
-                          {(item.status === 'PENDING' || item.status === 'PREPARING') && (
-                            <button
-                              onClick={() => handleVoidKdsItem(order.id, item.id, item.name)}
-                              disabled={isVoidingId === item.id}
-                              className="text-[10px] text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all duration-200"
-                              title="Báo hết món & Huỷ"
-                            >
-                              {isVoidingId === item.id ? "Đang huỷ..." : "Hết món"}
-                            </button>
-                          )}
-                        </span>
-                        <span className="font-mono font-bold text-white bg-zinc-800 border border-zinc-800 px-1.5 py-0.5 rounded shrink-0">
-                          x{item.quantity}
-                        </span>
+                      <li key={idx} className="bg-zinc-950/40 p-2.5 rounded-lg border border-zinc-900/60 flex flex-col gap-1.5 hover:border-zinc-800/80 transition-all duration-300">
+                        <div className="flex justify-between items-center text-xs group/item">
+                          <span className="text-zinc-400 font-light flex items-center gap-2">
+                            {item.name}
+                            {(item.status === 'PENDING' || item.status === 'PREPARING') && (
+                              <button
+                                onClick={() => handleVoidKdsItem(order.id, item.id, item.name)}
+                                disabled={isVoidingId === item.id}
+                                className="text-[10px] text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all duration-200"
+                                title="Báo hết món & Huỷ"
+                              >
+                                {isVoidingId === item.id ? "Đang huỷ..." : "Hết món"}
+                              </button>
+                            )}
+                          </span>
+                          <span className="font-mono font-bold text-white bg-zinc-800 border border-zinc-800 px-1.5 py-0.5 rounded shrink-0">
+                            x{item.quantity}
+                          </span>
+                        </div>
+                        {item.note && (
+                          <p className="text-yellow-400 text-[11px] flex gap-1 items-start pl-1 border-t border-zinc-800/20 pt-1 mt-0.5">
+                            <span className="mt-0.5">📝</span> {item.note}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -786,23 +797,30 @@ export default function KDSPage() {
 
                   <ul className="space-y-2 mb-4">
                     {order.items.map((item, idx) => (
-                      <li key={idx} className="flex justify-between items-center text-xs group/item">
-                        <span className="text-zinc-300 font-medium flex items-center gap-2">
-                          {item.name}
-                          {(item.status === 'PENDING' || item.status === 'PREPARING') && (
-                            <button
-                              onClick={() => handleVoidKdsItem(order.id, item.id, item.name)}
-                              disabled={isVoidingId === item.id}
-                              className="text-[10px] text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all duration-200"
-                              title="Báo hết món & Huỷ"
-                            >
-                              {isVoidingId === item.id ? "Đang huỷ..." : "Hết món"}
-                            </button>
-                          )}
-                        </span>
-                        <span className="font-mono font-bold text-white bg-orange-950/20 border border-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded shrink-0">
-                          x{item.quantity}
-                        </span>
+                      <li key={idx} className="bg-zinc-950/40 p-2.5 rounded-lg border border-zinc-900/60 flex flex-col gap-1.5 hover:border-zinc-800/80 transition-all duration-300">
+                        <div className="flex justify-between items-center text-xs group/item">
+                          <span className="text-zinc-300 font-medium flex items-center gap-2">
+                            {item.name}
+                            {(item.status === 'PENDING' || item.status === 'PREPARING') && (
+                              <button
+                                onClick={() => handleVoidKdsItem(order.id, item.id, item.name)}
+                                disabled={isVoidingId === item.id}
+                                className="text-[10px] text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all duration-200"
+                                title="Báo hết món & Huỷ"
+                              >
+                                {isVoidingId === item.id ? "Đang huỷ..." : "Hết món"}
+                              </button>
+                            )}
+                          </span>
+                          <span className="font-mono font-bold text-white bg-orange-950/20 border border-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded shrink-0">
+                            x{item.quantity}
+                          </span>
+                        </div>
+                        {item.note && (
+                          <p className="text-yellow-400 text-[11px] flex gap-1 items-start pl-1 border-t border-zinc-800/20 pt-1 mt-0.5">
+                            <span className="mt-0.5">📝</span> {item.note}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -862,11 +880,18 @@ export default function KDSPage() {
 
                   <ul className="space-y-2 mb-4 opacity-75">
                     {order.items.map((item, idx) => (
-                      <li key={idx} className="flex justify-between items-center text-xs">
-                        <span className="text-zinc-400 line-through decoration-zinc-600">{item.name}</span>
-                        <span className="font-mono text-zinc-400 bg-zinc-800/60 px-1.5 py-0.5 rounded">
-                          x{item.quantity}
-                        </span>
+                      <li key={idx} className="bg-zinc-950/40 p-2.5 rounded-lg border border-zinc-900/60 flex flex-col gap-1.5">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-zinc-400 line-through decoration-zinc-600">{item.name}</span>
+                          <span className="font-mono text-zinc-400 bg-zinc-800/60 px-1.5 py-0.5 rounded">
+                            x{item.quantity}
+                          </span>
+                        </div>
+                        {item.note && (
+                          <p className="text-yellow-500/60 text-[11px] flex gap-1 items-start pl-1 border-t border-zinc-800/20 pt-1 mt-0.5 line-through decoration-zinc-700">
+                            <span className="mt-0.5">📝</span> {item.note}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -1249,11 +1274,18 @@ export default function KDSPage() {
                           </div>
                           <ul className="space-y-1.5">
                             {order.items.map((item, idx) => (
-                              <li key={idx} className="flex justify-between items-center text-sm">
-                                <span className={`text-zinc-300 ${item.status === 'VOID' ? 'line-through opacity-50' : ''}`}>{item.name}</span>
-                                <span className="font-mono font-bold text-zinc-400 bg-zinc-800/60 px-1.5 py-0.5 rounded text-xs">
-                                  x{item.quantity}
-                                </span>
+                              <li key={idx} className="flex flex-col gap-1 text-sm bg-zinc-950/20 p-2.5 rounded-lg border border-zinc-800/40">
+                                <div className="flex justify-between items-center">
+                                  <span className={`text-zinc-300 ${item.status === 'VOID' ? 'line-through opacity-50' : ''}`}>{item.name}</span>
+                                  <span className="font-mono font-bold text-zinc-400 bg-zinc-800/60 px-1.5 py-0.5 rounded text-xs">
+                                    x{item.quantity}
+                                  </span>
+                                </div>
+                                {item.note && (
+                                  <p className="text-yellow-500/60 text-xs flex gap-1 items-start pl-1 border-t border-zinc-800/20 pt-1 mt-0.5">
+                                    <span className="mt-0.5">📝</span> {item.note}
+                                  </p>
+                                )}
                               </li>
                             ))}
                           </ul>

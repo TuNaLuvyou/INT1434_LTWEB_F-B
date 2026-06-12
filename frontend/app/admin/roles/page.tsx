@@ -209,23 +209,25 @@ export default function RolesPage() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-lg text-white">Phân Quyền</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 font-semibold tracking-wider uppercase">Admin Control</span>
+              <span className="font-bold tracking-tight text-sm sm:text-lg text-white">Phân Quyền</span>
+              <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 font-semibold tracking-wider uppercase">Admin Control</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] shrink-0 active:scale-95"
+              className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold p-2 sm:px-4 sm:py-2 rounded-xl transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] shrink-0 active:scale-95"
+              aria-label="Tạo tài khoản mới"
             >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Tạo Tài Khoản</span>
+              <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+              <span className="hidden sm:inline">Tạo Tài Khoản</span>
             </button>
 
             <button 
               onClick={fetchUsers}
-              className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all"
+              className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all shrink-0"
+              aria-label="Tải lại danh sách"
             >
               <RefreshCw className="h-4 w-4 animate-spin-once" />
             </button>
@@ -279,7 +281,7 @@ export default function RolesPage() {
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse whitespace-nowrap">
                 <thead>
                   <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
                     <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Nhân Viên</th>

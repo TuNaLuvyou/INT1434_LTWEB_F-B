@@ -37,6 +37,7 @@ export type CartStore = {
   submitError: string | null;
   clockOffset: number; // Thêm clockOffset để bù giờ client-server
   isLocked: boolean; // Trạng thái khóa giỏ hàng của bàn
+  isGeofenceEnabled: boolean; // Trạng thái định vị giới hạn đặt món của quán
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -107,6 +108,7 @@ export const useCartStore = create<CartStore>()(
       submitError: null,
       clockOffset: 0,
       isLocked: false,
+      isGeofenceEnabled: false,
 
       initSession: async (tableId: string) => {
         const state = get();
@@ -124,13 +126,14 @@ export const useCartStore = create<CartStore>()(
         }
 
         const { data } = await res.json() as {
-          data: { session: { id: string; tableId: string; lockedAt?: string | null }; isNew: boolean; serverTime?: number };
+          data: { session: { id: string; tableId: string; lockedAt?: string | null }; isNew: boolean; serverTime?: number; isGeofenceEnabled?: boolean };
         };
 
         const serverTime = data.serverTime || Date.now();
         const clockOffset = serverTime - Date.now();
 
         const isLocked = Boolean(data.session.lockedAt);
+        const isGeofenceEnabled = Boolean(data.isGeofenceEnabled);
 
         // Nếu session ID thay đổi (phiên cũ đã đóng, phiên mới được tạo)
         if (state.sessionId !== data.session.id) {
@@ -140,6 +143,7 @@ export const useCartStore = create<CartStore>()(
             items: [], // Reset giỏ hàng của phiên cũ
             clockOffset,
             isLocked,
+            isGeofenceEnabled,
           });
         } else {
           set({
@@ -147,6 +151,7 @@ export const useCartStore = create<CartStore>()(
             tableId: data.session.tableId,
             clockOffset,
             isLocked,
+            isGeofenceEnabled,
           });
         }
 
@@ -433,6 +438,7 @@ export const useCartStore = create<CartStore>()(
         sessionId: state.sessionId,
         tableId: state.tableId,
         isLocked: state.isLocked,
+        isGeofenceEnabled: state.isGeofenceEnabled,
       }),
     }
   )

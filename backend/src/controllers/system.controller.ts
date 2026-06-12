@@ -9,21 +9,17 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
         data: {
           id: 'singleton',
           restaurantName: 'RestoFlow POS',
-          licenseKey: 'RF-TRIAL-2025',
-          licenseExpiredAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+          isGeofenceEnabled: false,
+          restaurantLat: null,
+          restaurantLng: null,
+          maxOrderDistance: 100
         }
       });
     }
 
-    // Mask license key partially
-    const maskedKey = config.licenseKey.replace(/^([^-]+-[^-]+-).*/, '$1****');
-
     res.json({
       success: true,
-      data: {
-        ...config,
-        licenseKey: maskedKey
-      }
+      data: config
     });
   } catch (error) {
     console.error('getConfig error:', error);
@@ -33,43 +29,56 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
 
 export const updateConfig = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { restaurantName, licenseKey } = req.body;
+    const {
+      restaurantName,
+      isGeofenceEnabled,
+      restaurantLat,
+      restaurantLng,
+      maxOrderDistance
+    } = req.body;
+
+    if (isGeofenceEnabled) {
+      if (restaurantLat !== undefined && restaurantLat !== null && restaurantLat !== '') {
+        const latNum = Number(restaurantLat);
+        if (isNaN(latNum) || latNum < -90 || latNum > 90) {
+          res.status(400).json({ success: false, message: 'Vĩ độ (Latitude) phải nằm trong khoảng từ -90 đến 90.' });
+          return;
+        }
+      }
+      if (restaurantLng !== undefined && restaurantLng !== null && restaurantLng !== '') {
+        const lngNum = Number(restaurantLng);
+        if (isNaN(lngNum) || lngNum < -180 || lngNum > 180) {
+          res.status(400).json({ success: false, message: 'Kinh độ (Longitude) phải nằm trong khoảng từ -180 đến 180.' });
+          return;
+        }
+      }
+    }
     
-    if (!restaurantName) {
-      res.status(400).json({ success: false, message: 'Thiếu thông tin cấu hình' });
-      return;
-    }
-
     const currentConfig = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
-    let licenseExpiredAt = currentConfig?.licenseExpiredAt;
-
-    // Nếu người dùng nhập Key mới khác Key cũ, tự động gia hạn thêm 1 năm bản quyền
-    if (licenseKey && licenseKey !== currentConfig?.licenseKey) {
-      licenseExpiredAt = new Date(new Date().setFullYear(new Date().getFullYear() + 1));
-    }
+    const finalRestaurantName = restaurantName || currentConfig?.restaurantName || 'RestoFlow POS';
 
     const config = await prisma.systemConfig.upsert({
       where: { id: 'singleton' },
       update: { 
-        restaurantName, 
-        ...(licenseKey ? { licenseKey, licenseExpiredAt } : {})
+        restaurantName: finalRestaurantName, 
+        isGeofenceEnabled: isGeofenceEnabled !== undefined ? Boolean(isGeofenceEnabled) : undefined,
+        restaurantLat: restaurantLat !== undefined ? (restaurantLat === null || restaurantLat === '' ? null : Number(restaurantLat)) : undefined,
+        restaurantLng: restaurantLng !== undefined ? (restaurantLng === null || restaurantLng === '' ? null : Number(restaurantLng)) : undefined,
+        maxOrderDistance: maxOrderDistance !== undefined ? Number(maxOrderDistance) : undefined,
       },
       create: {
         id: 'singleton',
-        restaurantName,
-        licenseKey: licenseKey || 'RF-TRIAL-2025',
-        licenseExpiredAt: licenseExpiredAt || new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+        restaurantName: finalRestaurantName,
+        isGeofenceEnabled: isGeofenceEnabled !== undefined ? Boolean(isGeofenceEnabled) : false,
+        restaurantLat: restaurantLat !== undefined && restaurantLat !== null && restaurantLat !== '' ? Number(restaurantLat) : null,
+        restaurantLng: restaurantLng !== undefined && restaurantLng !== null && restaurantLng !== '' ? Number(restaurantLng) : null,
+        maxOrderDistance: maxOrderDistance !== undefined ? Number(maxOrderDistance) : 100
       }
     });
 
-    const maskedKey = config.licenseKey.replace(/^([^-]+-[^-]+-).*/, '$1****');
-
     res.json({ 
       success: true, 
-      data: {
-        ...config,
-        licenseKey: maskedKey
-      }
+      data: config
     });
   } catch (error) {
     console.error('updateConfig error:', error);

@@ -153,7 +153,7 @@ export default function AdminInventoryPage() {
 
           {/* High-Fidelity Data Table */}
           <div className="overflow-x-auto overflow-y-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent" style={{ maxHeight: '65vh' }}>
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse whitespace-nowrap">
               <thead>
                 <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
                   <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Tên Nguyên Liệu</th>

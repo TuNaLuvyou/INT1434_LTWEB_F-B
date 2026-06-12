@@ -27,7 +27,7 @@ export default async function SettingsPage() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-lg text-white">Đồng bộ Thực đơn</span>
+              <span className="font-bold tracking-tight text-lg text-white">Cài đặt hệ thống</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-semibold tracking-wider uppercase">ADMIN ONLY</span>
             </div>
           </div>

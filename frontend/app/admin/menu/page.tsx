@@ -313,7 +313,7 @@ export default function AdminMenuPage() {
           /* Bảng dữ liệu */
           <div className="flex-1 min-h-0 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl overflow-hidden flex flex-col">
             <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
-              <table className="w-full min-w-[700px] border-collapse text-left">
+              <table className="w-full min-w-[700px] border-collapse text-left whitespace-nowrap">
                 <thead>
                   <tr className="bg-zinc-950/80 border-b border-zinc-900">
                     <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-24 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Hình ảnh</th>
