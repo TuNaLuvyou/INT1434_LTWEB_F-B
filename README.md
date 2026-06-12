@@ -61,7 +61,7 @@ npm install
 ```
 
 Tạo file `.env` bằng cách sao chép file `.env.example` và cấu hình các thông số (Database, JWT, Mail SMTP...) phù hợp.
-* **Lưu ý**: Dự án dùng cổng **`5001`** làm mặc định cho Backend Server.
+* **Lưu ý**: Dự án dùng cổng **`5000`** làm mặc định cho Backend Server.
 
 Khởi tạo database và nạp dữ liệu seed ban đầu:
 
