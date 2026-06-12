@@ -85,7 +85,7 @@ export default function Home() {
       icon: BarChart3,
       color: "from-violet-600 to-purple-500",
       accent: "violet",
-      metrics: { label: "Doanh thu hôm nay", value: new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stats.todayRevenue) },
+      metrics: { label: "Doanh thu hôm nay", value: isMounted ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stats.todayRevenue) : "0 ₫" },
       visible: !user || user.role === "ADMIN" || user.role === "MANAGER"
     },
 
