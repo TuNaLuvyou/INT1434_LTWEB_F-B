@@ -90,8 +90,18 @@ export const exportExcel = async (req: Request, res: Response): Promise<void> =>
     // Set timeout to 60s
     req.setTimeout(60000);
 
-    const fromDate = from ? new Date(from as string) : new Date(new Date().setDate(1));
-    const toDate = to ? new Date(to as string) : new Date();
+    let fromDate = from ? new Date(from as string) : new Date(new Date().setDate(1));
+    let toDate = to ? new Date(to as string) : new Date();
+
+    if (from && typeof from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(from)) {
+      fromDate = new Date(`${from}T00:00:00.000Z`);
+    }
+    if (to && typeof to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      toDate = new Date(`${to}T23:59:59.999Z`);
+    } else if (!to) {
+      toDate.setUTCHours(23, 59, 59, 999);
+    }
+    
     const reportType = type === 'summary' ? 'summary' : 'full';
 
     const excelService = new ExcelService();

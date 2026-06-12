@@ -14,7 +14,7 @@ adminRouter.use(authMiddleware, requireRole(['ADMIN', 'MANAGER']));
 adminRouter.get('/',           getIngredients);
 adminRouter.post('/',          createIngredient);
 adminRouter.put('/:id',        updateIngredient);
-adminRouter.delete('/:id',     requireRole(['ADMIN']), deleteIngredient);
+adminRouter.delete('/:id',     requireRole(['ADMIN', 'MANAGER']), deleteIngredient);
 adminRouter.patch('/:id/stock', adjustStock);
 
 // ── Inventory Logs ───────────────────────────────────────────────
