@@ -347,7 +347,7 @@ export default function SettingsClient() {
                 type="button"
                 onClick={handleSyncMenu}
                 disabled={isSyncing}
-                className="w-full py-3.5 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 hover:border-zinc-500 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-md"
+                className="w-full py-3.5 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-[0_0_20px_-5px_rgba(139,92,246,0.4)] hover:shadow-[0_0_20px_-2px_rgba(139,92,246,0.6)]"
               >
                 {isSyncing ? 'Đang đồng bộ thực đơn...' : 'Đồng bộ thực đơn ngay lập tức'}
               </button>
