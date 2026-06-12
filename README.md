@@ -72,6 +72,9 @@ Khởi tạo database và nạp dữ liệu seed ban đầu:
 # Đẩy schema lên Database và tạo Client Prisma
 npx prisma db push
 
+# Tạo Client Prisma
+npx prisma generate
+
 # Nạp dữ liệu mặc định (Admin, Món ăn, Bàn ăn mẫu...)
 npm run db:seed
 ```
