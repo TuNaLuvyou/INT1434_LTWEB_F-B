@@ -40,9 +40,9 @@ app.use((req, res, next) => {
   console.log(`[Express API Call] ${req.method} ${req.originalUrl}`);
   console.log(`  > Query:`, JSON.stringify(req.query));
   console.log(`  > Auth Header:`, req.headers.authorization ? 'Bearer [HIDDEN]' : 'NONE');
-  
+
   const originalJson = res.json;
-  res.json = function(body) {
+  res.json = function (body) {
     console.log(`  < Response Status: ${res.statusCode}`);
     console.log(`  < Response Body Preview:`, JSON.stringify(body).slice(0, 300) + '...');
     return originalJson.call(this, body);
@@ -104,7 +104,7 @@ initSocket(httpServer);
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server RestoFlow đang chạy tại: http://localhost:${PORT}`);
   console.log(`🔌 Socket.io sẵn sàng trên cùng port ${PORT}`);
-  
+
   // Khởi động tác vụ tự động dọn dẹp lịch sử bán hàng (> 90 ngày)
   startAutomaticCleanupJob();
 });
