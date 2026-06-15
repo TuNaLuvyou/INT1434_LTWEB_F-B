@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { setAccessToken } from '@/lib/auth/client';
+import { setAccessToken, getAccessTokenFromCookie } from '@/lib/auth/client';
 import { useAuthStore } from '@/stores/auth.store';
 
 export function useAutoRefresh() {
@@ -44,11 +44,15 @@ export function useAutoRefresh() {
           // CHỈ văng ra màn hình đăng nhập nếu đang ở trang cần bảo mật
           // Nếu ở trang public (menu QR của khách), thì kệ không làm gì cả
           if (isProtected) {
-            router.push('/login?reason=expired');
+            // Nếu không có token từ cookie (thực sự hết hạn toàn bộ) thì mới văng ra
+            const currentToken = getAccessTokenFromCookie();
+            if (!currentToken) {
+              router.push('/login?reason=expired');
+            }
           }
         }
       } catch (error) {
-        console.error('[Auth] Auto-refresh network error');
+        console.warn('[Auth] Auto-refresh network error');
       }
     };
 

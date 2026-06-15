@@ -243,7 +243,7 @@ export default function KDSPage() {
 
   // Archive Filter States
   const [rangeType, setRangeType] = useState<"today" | "yesterday" | "7days" | "30days" | "90days" | "custom">("today");
-  const [customDate, setCustomDate] = useState<string>(getLocalDateString());
+  const [customDate, setCustomDate] = useState<string>("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [tempCustomDateText, setTempCustomDateText] = useState<string>("");
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -276,6 +276,10 @@ export default function KDSPage() {
     } catch {
       setArchivedOrders([]);
     }
+  }, []);
+
+  useEffect(() => {
+    setCustomDate(getLocalDateString());
   }, []);
 
   const handleRangeChange = (newRange: typeof rangeType) => {

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../../stores/auth.store";
 import { getAccessTokenFromCookie } from "../../lib/auth/client";
+import TableQRCode from "../../components/floor/TableQRCode";
 
 interface Table {
   id: string;
@@ -40,6 +41,7 @@ export default function TableSelectionInternalPage() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [qrTableId, setQrTableId] = useState<string | null>(null);
 
   // States for Add Table feature
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -495,14 +497,21 @@ export default function TableSelectionInternalPage() {
                     </button>
                   </div>
 
-                  <div className="mt-2.5 sm:mt-4 relative z-10">
+                  <div className="mt-2.5 sm:mt-4 relative z-10 flex gap-2">
                     <Link
                       href={`/table/${table.id}`}
-                      className="w-full h-8 sm:h-10 rounded-lg sm:rounded-xl bg-zinc-950/30 border border-zinc-800 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white hover:shadow-md flex items-center justify-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-gray-200 transition-all cursor-pointer"
+                      className="flex-1 h-8 sm:h-10 rounded-lg sm:rounded-xl bg-zinc-950/30 border border-zinc-800 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white hover:shadow-md flex items-center justify-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-gray-200 transition-all cursor-pointer"
                     >
                       Vào thực đơn
                       <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </Link>
+                    <button
+                      onClick={() => setQrTableId(table.id)}
+                      className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded-lg sm:rounded-xl bg-zinc-950/30 border border-zinc-800 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                      title="Hiện mã QR"
+                    >
+                      <QrCode className="h-4 w-4 sm:h-4 sm:w-4 text-gray-400 group-hover:text-white transition-colors" />
+                    </button>
                   </div>
                 </div>
               );
@@ -604,6 +613,24 @@ export default function TableSelectionInternalPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {qrTableId && tables.find(t => t.id === qrTableId) && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" 
+          onClick={() => setQrTableId(null)}
+        >
+          <div className="relative animate-scale-in" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setQrTableId(null)}
+              className="absolute -right-3 -top-3 z-10 h-8 w-8 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-red-600 flex items-center justify-center transition-all shadow-xl cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <TableQRCode table={tables.find(t => t.id === qrTableId)!} />
           </div>
         </div>
       )}
