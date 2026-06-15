@@ -21,12 +21,15 @@ const loginSchema = z.object({
 });
 
 const setRefreshTokenCookie = (res: Response, token: string) => {
+  const isProd = process.env.NODE_ENV === 'production';
   res.cookie('refresh_token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProd,
+    // Trong môi trường production (Vercel + Render khác domain), sameSite PHẢI là 'none'
+    // Trong môi trường dev (cùng localhost), sameSite là 'lax'
+    sameSite: isProd ? 'none' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: '/api/auth',
+    path: '/',
   });
 };
 
@@ -81,6 +84,66 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ success: false, message: 'Tài khoản đã bị vô hiệu hóa' });
     } else {
       console.error('Login error:', error);
+      res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
+    }
+  }
+};
+
+export const refresh = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const token = req.cookies['refresh_token'];
+    if (!token) {
+      res.status(401).json({ success: false, message: 'No refresh token' });
+      return;
+    }
+
+    const result = await authService.refreshTokens(token);
+    
+    setRefreshTokenCookie(res, result.refreshToken);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        accessToken: result.accessToken,
+      },
+    });
+  } catch (error: any) {
+    if (error.message === 'TOKEN_EXPIRED') {
+      res.status(401).json({ success: false, message: 'Refresh token expired, please login again' });
+    } else if (error.message === 'INVALID_USER' || error.name === 'JsonWebTokenError') {
+      res.status(401).json({ success: false, message: 'Invalid refresh token' });
+    } else if (error.message === 'ACCOUNT_INACTIVE') {
+      res.status(401).json({ success: false, message: 'Account disabled' });
+    } else {
+      console.error('Refresh error:', error);
+      res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
+    }
+  }
+};
+
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  res.clearCookie('refresh_token', { path: '/' });
+  res.status(200).json({ success: true, message: 'Logged out successfully' });
+};
+
+export const me = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const user = await authService.getMe(userId);
+    res.status(200).json({
+      success: true,
+      data: { user },
+    });
+  } catch (error: any) {
+    if (error.message === 'USER_NOT_FOUND') {
+      res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+    } else {
+      console.error('Me error:', error);
       res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
     }
   }

@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
  * On-Demand Revalidation endpoint cho SSG pages.
  *
  * Được backend Express gọi sau khi bếp báo hết món để invalidate cache.
- * Sau khi revalidate, lần request tiếp theo tới /menu/[tableId] sẽ
+ * Sau khi revalidate, lần request tiếp theo tới /table/[tableId] sẽ
  * trigger Next.js re-render với data mới nhất từ DB thay vì trả cache cũ.
  *
  * Bảo mật: Dùng secret token trong header để tránh bị gọi tùy tiện.
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { path, type } = body as { path?: string; type?: 'page' | 'layout' };
 
-    // Revalidate path cụ thể được yêu cầu, hoặc mặc định là trang menu
-    const targetPath = path || '/menu/[tableId]';
+    // Revalidate path cụ thể được yêu cầu, hoặc mặc định là trang table
+    const targetPath = path || '/table/[tableId]';
     const targetType = type || 'page';
 
     revalidatePath(targetPath, targetType);

@@ -18,9 +18,6 @@ async function main() {
     create: {
       id: 'singleton',
       restaurantName: 'RestoFlow Demo',
-      managerEmail: 'manager@restoflow.demo',
-      licenseKey: 'RF-DEMO-2025-XXXX',
-      licenseExpiredAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // +1 year
     },
   });
   console.log('✅ SystemConfig created');
@@ -33,12 +30,16 @@ async function main() {
     { email: 'admin@restoflow.demo', role: Role.ADMIN, name: 'Admin RestoFlow' },
     { email: 'manager@restoflow.demo', role: Role.MANAGER, name: 'Nguyễn Văn Manager' },
     { email: 'kitchen@restoflow.demo', role: Role.KITCHEN, name: 'Bếp Trưởng' },
+    { email: 'cashier@restoflow.demo', role: Role.CASHIER, name: 'Thu Ngân RestoFlow' },
   ];
 
   for (const u of users) {
     await prisma.user.upsert({
       where: { email: u.email },
-      update: {},
+      update: {
+        role: u.role,
+        name: u.name,
+      },
       create: {
         email: u.email,
         name: u.name,

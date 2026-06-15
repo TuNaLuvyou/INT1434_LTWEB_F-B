@@ -7,19 +7,20 @@ datasource db {
 }
 
 model SystemConfig {
-  id               String   @id @default("singleton")
-  restaurantName   String
-  managerEmail     String
-  licenseKey       String   @unique
-  licenseExpiredAt DateTime
-  updatedAt        DateTime @updatedAt
+  id                String   @id @default("singleton")
+  restaurantName    String
+  isGeofenceEnabled Boolean  @default(false)
+  restaurantLat     Float?
+  restaurantLng     Float?
+  maxOrderDistance  Int      @default(100)
+  updatedAt         DateTime @updatedAt
 }
 
 enum Role {
   ADMIN
   MANAGER
-  STAFF
   KITCHEN
+  CASHIER
 }
 
 model User {
@@ -31,21 +32,9 @@ model User {
   isActive     Boolean         @default(true)
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
-  devices      TrustedDevice[]
   shifts       Shift[]
 }
 
-model TrustedDevice {
-  id        String    @id @default(uuid())
-  label     String
-  token     String    @unique
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  lastUsed  DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([userId])
-}
 
 enum TableStatus {
   AVAILABLE
@@ -70,15 +59,17 @@ enum SessionStatus {
 }
 
 model TableSession {
-  id         String        @id @default(uuid())
-  tableId    String
-  table      Table         @relation(fields: [tableId], references: [id])
-  status     SessionStatus
-  version    Int           @default(0) // optimistic lock — dùng cho commit 4
-  openedAt   DateTime      @default(now())
-  closedAt   DateTime?
-  orderItems OrderItem[]
-  payment    Payment?
+  id            String        @id @default(uuid())
+  tableId       String
+  table         Table         @relation(fields: [tableId], references: [id])
+  status        SessionStatus
+  version       Int           @default(0) // optimistic lock — dùng cho commit 4
+  openedAt      DateTime      @default(now())
+  lockedAt      DateTime?
+  closedAt      DateTime?
+  createdViaPos Boolean       @default(false)
+  orderItems    OrderItem[]
+  payment       Payment?
 
   @@index([tableId])
 }
@@ -110,6 +101,7 @@ model MenuItem {
 }
 
 enum OrderItemStatus {
+  CART
   PENDING
   PREPARING
   DONE
@@ -129,7 +121,7 @@ model OrderItem {
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 
-  @@unique([sessionId, menuItemId])
+  @@unique([sessionId, menuItemId, status])
   @@index([sessionId])
   @@index([menuItemId])
 }
@@ -237,3 +229,5 @@ model Voucher {
   updatedAt     DateTime     @updatedAt
   payments      Payment[]
 }
+
+

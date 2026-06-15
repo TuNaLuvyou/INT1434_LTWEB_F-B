@@ -1,38 +1,16 @@
 'use client';
 
-/**
- * MenuCard — Thẻ món ăn responsive, thẩm mỹ cao
- *
- * Giao diện responsive:
- *   - Mobile (< 640px): Dạng ngang (horizontal) — ảnh trái 80x80px (rounded-xl, object-cover), thông tin bên phải
- *   - Tablet trở lên (≥ 640px): Dạng đứng (vertical) — ảnh trên tỉ lệ 4:3, thông tin bên dưới
- *
- * Trạng thái Hết món (Sold-out):
- *   - Overlay mờ toàn thẻ, thang độ xám (grayscale)
- *   - Badge "Hết món" màu đỏ sành điệu ở góc trên phải
- *   - Nút "Thêm" bị ẩn hoàn toàn và vô hiệu hóa tương tác
- *
- * Nút "Thêm (+)"
- *   - Dạng tròn rounded-full màu cam nổi bật
- *   - Luôn hiển thị trên Mobile nhằm tối ưu thao tác một chạm
- *   - Ẩn trên Desktop và chỉ xuất hiện mượt mà khi di chuột (hover) qua thẻ
- *
- * Hiệu ứng tương tác:
- *   - Hover scale nhẹ [1.02], bóng mờ shadow tinh tế tăng dần (duration-200)
- */
-
 import Image from 'next/image';
 import { Plus, UtensilsCrossed } from 'lucide-react';
 
-export interface Decimal {
-  toString(): string;
-}
+// 1. Đã xóa interface Decimal dư thừa
 
+// 2. Đổi price thành kiểu number thuần túy
 export type MenuCardItem = {
   id: string;
   name: string;
   description?: string | null;
-  price: Decimal;
+  price: number;
   imageUrl?: string | null;
   isSoldOut: boolean;
 };
@@ -40,18 +18,19 @@ export type MenuCardItem = {
 type MenuCardProps = {
   item: MenuCardItem;
   onAddToCart: (itemId: string) => void;
+  priority?: boolean;
 };
 
-const formatPrice = (price: Decimal): string => {
-  const numericPrice = Number(price?.toString() || 0);
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericPrice);
+// 3. Hàm formatPrice giờ chỉ nhận number, code gọn và an toàn hơn
+const formatPrice = (price: number): string => {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 };
 
-export default function MenuCard({ item, onAddToCart }: MenuCardProps) {
+export default function MenuCard({ item, onAddToCart, priority = false }: MenuCardProps) {
   const { id, name, description, price, imageUrl, isSoldOut } = item;
 
   const handleAddClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Ngăn chặn sự kiện click bùng lên thẻ cha
+    e.stopPropagation();
     if (!isSoldOut) {
       onAddToCart(id);
     }
@@ -100,18 +79,17 @@ export default function MenuCard({ item, onAddToCart }: MenuCardProps) {
       )}
 
       {/* ─────────────────── PHẦN ẢNH ─────────────────── */}
-      {/* Mobile: cố định 80x80px bên trái | sm trở lên: tỉ lệ 4:3 bên trên */}
       <div className="relative shrink-0 w-20 h-20 m-3 sm:m-0 sm:w-full sm:h-auto sm:aspect-[4/3] rounded-xl sm:rounded-none overflow-hidden bg-gradient-to-br from-orange-50/70 to-amber-100/60">
         {imageUrl ? (
           <Image
             src={imageUrl}
             alt={`Hình ảnh món ${name}`}
             fill
+            priority={priority}
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 80px, (max-width: 1024px) 300px, 400px"
           />
         ) : (
-          // Fallback placeholder gradient sang trọng với icon dĩa & thìa chéo
           <div className="absolute inset-0 flex items-center justify-center">
             <UtensilsCrossed
               className="text-orange-400/60"
@@ -121,7 +99,6 @@ export default function MenuCard({ item, onAddToCart }: MenuCardProps) {
           </div>
         )}
 
-        {/* Lớp overlay mờ chồng lên ảnh khi hết món */}
         {isSoldOut && (
           <div className="absolute inset-0 bg-white/30 backdrop-blur-[0.5px]" aria-hidden="true" />
         )}
@@ -146,7 +123,6 @@ export default function MenuCard({ item, onAddToCart }: MenuCardProps) {
             {formatPrice(price)}
           </span>
 
-          {/* Nút Thêm (+) — Ẩn hoàn toàn khi hết món */}
           {!isSoldOut && (
             <button
               onClick={handleAddClick}

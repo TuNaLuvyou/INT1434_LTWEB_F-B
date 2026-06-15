@@ -65,7 +65,7 @@ export async function generateStaticParams() {
     if (!result.success || !result.data) return [];
 
     return result.data.map((table: Table) => ({
-      tableId: table.id,
+      tableId: String(table.tableNumber),
     }));
   } catch (error) {
     console.error('[Menu SSG] Lỗi khi fetch tables trong generateStaticParams:', error);
@@ -78,7 +78,7 @@ export async function generateMetadata({ params }: PageProps) {
   const tableId = resolvedParams?.tableId || '';
 
   return {
-    title: `Thực đơn ${SystemConfig.restaurantName} | Bàn ${tableId.substring(0, 6).toUpperCase()}`,
+    title: `Thực đơn ${SystemConfig.restaurantName} | Bàn ${tableId}`,
     description: `Thực đơn món ăn tại ${SystemConfig.restaurantName} — Gọi món trực tiếp tại bàn.`,
   };
 }
@@ -151,7 +151,9 @@ export default async function MenuPage({ params }: PageProps) {
             {/* Hạt tròn nhấp nháy báo trạng thái đang kết nối */}
             <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" aria-hidden="true" />
             Bàn&nbsp;
-            <span className="font-mono tracking-wider">{tableId.substring(0, 8).toUpperCase()}</span>
+            <span className="font-mono tracking-wider">
+              {tableId.length > 8 ? tableId.substring(0, 8).toUpperCase() : tableId}
+            </span>
           </div>
         </div>
       </header>

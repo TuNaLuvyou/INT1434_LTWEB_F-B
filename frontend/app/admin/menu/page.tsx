@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import { getAccessTokenFromCookie } from "@/lib/auth/client";
 import { 
   Plus, 
   Search, 
@@ -14,10 +16,33 @@ import {
   ChevronRight,
   Filter,
   Utensils,
-  X
+  X,
+  FolderOpen,
+  Scale
 } from "lucide-react";
 import Image from "next/image";
-import MenuItemForm from "@/components/MenuItemForm";
+
+const MenuItemForm = dynamic(() => import("@/components/MenuItemForm"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-12 text-sm font-semibold text-zinc-400">
+      Đang tải form...
+    </div>
+  ),
+});
+
+const CategoryManagerModal = dynamic(() => import("@/components/CategoryManagerModal"), {
+  ssr: false
+});
+
+const BomEditor = dynamic(() => import("@/components/inventory/BomEditor"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center py-12 text-sm font-semibold text-zinc-400">
+      Đang tải định lượng...
+    </div>
+  ),
+});
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -53,26 +78,34 @@ export default function AdminMenuPage() {
   // Trạng thái modal
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [bomItem, setBomItem] = useState<MenuItem | null>(null);
   
   // Trạng thái modal xóa
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<MenuItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteInfoMessage, setDeleteInfoMessage] = useState<string | null>(null);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
 
   // Load dữ liệu
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      // 1. Fetch categories từ api public menu
-      const menuRes = await fetch(`${API_URL}/api/menu`);
-      const menuResult = await menuRes.json();
-      if (menuRes.ok && menuResult.success) {
-        setCategories(menuResult.data.categories || []);
+      const accessToken = getAccessTokenFromCookie();
+
+      // 1. Fetch toàn bộ danh mục từ api admin (bao gồm cả danh mục rỗng)
+      const categoryRes = await fetch(`${API_URL}/api/admin/categories`, {
+        headers: { "Authorization": `Bearer ${accessToken || ""}` }
+      });
+      const categoryResult = await categoryRes.json();
+      if (categoryRes.ok && categoryResult.success) {
+        setCategories(categoryResult.data || []);
       }
 
       // 2. Fetch danh sách món quản lý (bao gồm các món ẩn)
       const adminRes = await fetch(`${API_URL}/api/admin/menu-items`, {
-        headers: { "x-mock-role": "ADMIN" }
+        headers: { "Authorization": `Bearer ${accessToken || ""}` }
       });
       const adminResult = await adminRes.json();
       if (adminRes.ok && adminResult.success) {
@@ -97,9 +130,10 @@ export default function AdminMenuPage() {
     if (!deleteConfirmItem) return;
     setIsDeleting(true);
     try {
+      const accessToken = getAccessTokenFromCookie();
       const response = await fetch(`${API_URL}/api/admin/menu-items/${deleteConfirmItem.id}`, {
         method: "DELETE",
-        headers: { "x-mock-role": "ADMIN" }
+        headers: { "Authorization": `Bearer ${accessToken || ""}` }
       });
       
       const result = await response.json();
@@ -110,12 +144,18 @@ export default function AdminMenuPage() {
       // Reload dữ liệu
       await fetchData();
       setDeleteConfirmItem(null);
+
+      // Hiển thị thông báo phù hợp
+      if (result.deleted === false) {
+        setDeleteInfoMessage(`"${deleteConfirmItem.name}" đã được ẩn khỏi thực đơn (không thể xóa hẳn vì đã phát sinh trong đơn hàng).`);
+      }
     } catch (err: any) {
-      alert(err.message || "Đã có lỗi xảy ra");
+      setDeleteErrorMessage(err.message || "Đã có lỗi xảy ra");
     } finally {
       setIsDeleting(false);
     }
   };
+
 
   // Mở modal thêm mới
   const handleAddNew = () => {
@@ -146,37 +186,65 @@ export default function AdminMenuPage() {
 
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden selection:bg-orange-500 selection:text-white">
-      {/* Background Glow effects */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-orange-600/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-amber-600/5 blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
+      {/* Header */}
+      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="font-bold tracking-tight text-sm sm:text-lg text-white">Quản lý Món ăn</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">Menu</span>
+            </div>
+          </div>
+        </div>
+      </header>
 
-      <div className="max-w-6xl mx-auto relative z-10">
+      {/* Content Area */}
+      <main className="flex-1 overflow-hidden flex flex-col p-6 space-y-4 max-w-7xl w-full mx-auto relative z-10">
         {/* Header Dashboard */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-medium mb-2.5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-medium mb-2">
               <Utensils size={13} className="stroke-[2.5]" />
               <span>Hệ thống RestoFlow • Admin Panel</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
-              Quản lý Món ăn
+            <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
+              Danh Sách Thực Đơn
             </h1>
-            <p className="text-xs text-zinc-400 font-semibold mt-1">
-              Thêm mới, điều chỉnh, cập nhật trạng thái hoạt động và quản trị lưu trữ thực đơn.
-            </p>
           </div>
           
-          <button
-            onClick={handleAddNew}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-amber-500 text-white px-5 py-3 rounded-xl text-sm font-black hover:from-orange-500 hover:to-amber-400 active:scale-98 shadow-lg shadow-orange-500/15 cursor-pointer transition-all self-start sm:self-center"
-          >
-            <Plus size={16} className="stroke-[3]" /> Thêm món mới
-          </button>
+          <div className="flex gap-2 self-start sm:self-center">
+            <button
+              onClick={() => setIsCategoryManagerOpen(true)}
+              className="flex items-center justify-center gap-2 bg-zinc-900 border border-zinc-800 text-zinc-300 px-4 py-2 rounded-xl text-xs font-bold hover:bg-zinc-800 hover:text-white transition-all shadow-sm cursor-pointer"
+            >
+              <FolderOpen size={14} className="stroke-[2.5]" /> Danh mục
+            </button>
+            <button
+              onClick={handleAddNew}
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:from-violet-500 hover:to-indigo-400 active:scale-98 shadow-lg shadow-violet-500/15 cursor-pointer transition-all"
+            >
+              <Plus size={14} className="stroke-[3]" /> Thêm món mới
+            </button>
+          </div>
         </div>
 
-        {/* Thanh lọc & tìm kiếm */}
-        <div className="bg-zinc-900/40 border border-zinc-900 p-4 mb-6 flex flex-col md:flex-row gap-4 rounded-2xl shadow-xl backdrop-blur-md">
+        {/* Banner thông báo sau khi xóa */}
+        {deleteInfoMessage && (
+          <div className="flex items-start gap-3 p-3.5 bg-amber-950/20 border border-amber-500/20 rounded-xl text-amber-300 text-xs font-semibold">
+            <span className="text-lg leading-none mt-0.5">&#9432;</span>
+            <span className="flex-1">{deleteInfoMessage}</span>
+            <button onClick={() => setDeleteInfoMessage(null)} className="text-amber-400 hover:text-white transition-colors shrink-0">&#10005;</button>
+          </div>
+        )}
+        {deleteErrorMessage && (
+          <div className="flex items-start gap-3 p-3.5 bg-red-950/20 border border-red-500/20 rounded-xl text-red-400 text-xs font-semibold">
+            <span className="text-lg leading-none mt-0.5">&#9888;</span>
+            <span className="flex-1">{deleteErrorMessage}</span>
+            <button onClick={() => setDeleteErrorMessage(null)} className="text-red-400 hover:text-white transition-colors shrink-0">&#10005;</button>
+          </div>
+        )}
+        <div className="bg-zinc-900/40 border border-zinc-900 p-4 shrink-0 flex flex-col md:flex-row gap-4 rounded-2xl shadow-xl backdrop-blur-md">
           {/* Ô tìm kiếm */}
           <div className="relative flex-grow">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
@@ -185,7 +253,7 @@ export default function AdminMenuPage() {
               placeholder="Tìm kiếm theo tên món, mô tả..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-zinc-950/80 border border-zinc-800 text-sm font-semibold rounded-xl focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all text-zinc-100 placeholder-zinc-500 shadow-sm"
+              className="w-full pl-10 pr-4 py-2.5 bg-zinc-950/80 border border-zinc-800 text-sm font-semibold rounded-xl focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 transition-all text-zinc-100 placeholder-zinc-500 shadow-sm"
             />
           </div>
 
@@ -195,7 +263,7 @@ export default function AdminMenuPage() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-zinc-950/80 border border-zinc-800 text-sm font-semibold rounded-xl focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all appearance-none cursor-pointer text-zinc-100 placeholder-zinc-500 shadow-sm"
+              className="w-full pl-9 pr-4 py-2.5 bg-zinc-950/80 border border-zinc-800 text-sm font-semibold rounded-xl focus:outline-none focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/10 transition-all appearance-none cursor-pointer text-zinc-100 placeholder-zinc-500 shadow-sm"
             >
               <option value="" className="bg-zinc-950 text-zinc-100">Tất cả danh mục</option>
               {categories.map((cat) => (
@@ -209,12 +277,12 @@ export default function AdminMenuPage() {
 
         {/* Trạng thái Loading / Lỗi */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl">
-            <Loader2 className="animate-spin text-orange-500 mb-3" size={32} />
+          <div className="flex-1 flex flex-col items-center justify-center py-20 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl">
+            <Loader2 className="animate-spin text-violet-500 mb-3" size={32} />
             <p className="text-sm font-bold text-zinc-400">Đang tải danh sách món ăn...</p>
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-16 bg-red-950/10 rounded-2xl border border-red-900/30 p-6 text-center">
+          <div className="flex-1 flex flex-col items-center justify-center py-16 bg-red-950/10 rounded-2xl border border-red-900/30 p-6 text-center">
             <AlertTriangle className="text-red-500 mb-3" size={36} />
             <p className="text-sm font-black text-red-400 mb-2">Đã xảy ra lỗi</p>
             <p className="text-xs text-zinc-400 max-w-md mb-4 leading-relaxed">{error}</p>
@@ -226,8 +294,8 @@ export default function AdminMenuPage() {
             </button>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl text-center px-4">
-            <div className="p-4.5 bg-orange-500/10 rounded-full text-orange-500 mb-4 border border-orange-500/20 animate-pulse">
+          <div className="flex-1 flex flex-col items-center justify-center py-20 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl text-center px-4">
+            <div className="p-4.5 bg-violet-500/10 rounded-full text-violet-500 mb-4 border border-violet-500/20 animate-pulse">
               <Utensils size={32} />
             </div>
             <h3 className="text-base font-extrabold text-zinc-200">Không tìm thấy món ăn nào</h3>
@@ -239,17 +307,17 @@ export default function AdminMenuPage() {
           </div>
         ) : (
           /* Bảng dữ liệu */
-          <div className="bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[700px] border-collapse text-left">
+          <div className="flex-1 min-h-0 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl overflow-hidden flex flex-col">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+              <table className="w-full min-w-[700px] border-collapse text-left whitespace-nowrap">
                 <thead>
                   <tr className="bg-zinc-950/80 border-b border-zinc-900">
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-24">Hình ảnh</th>
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest">Tên món & Mô tả</th>
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-40">Danh mục</th>
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-36">Giá bán</th>
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-36">Trạng thái</th>
-                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-28 text-right">Thao tác</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-24 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Hình ảnh</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Tên món & Mô tả</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-40 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Danh mục</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-36 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Giá bán</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-36 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Trạng thái</th>
+                    <th className="p-4 text-xs font-black text-zinc-400 uppercase tracking-widest w-28 text-right sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900/60">
@@ -269,7 +337,7 @@ export default function AdminMenuPage() {
 
                       {/* Tên món và Mô tả */}
                       <td className="p-4">
-                        <h4 className="text-sm font-black text-zinc-100 line-clamp-1 hover:text-orange-400 transition-colors cursor-default">{item.name}</h4>
+                        <h4 className="text-sm font-black text-zinc-100 line-clamp-1 hover:text-violet-400 transition-colors cursor-default">{item.name}</h4>
                         {item.description ? (
                           <p className="text-[11px] text-zinc-400 line-clamp-2 mt-1 leading-relaxed max-w-md font-semibold">
                             {item.description}
@@ -281,7 +349,7 @@ export default function AdminMenuPage() {
 
                       {/* Danh mục */}
                       <td className="p-4">
-                        <span className="text-xs font-extrabold bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20">
+                        <span className="text-xs font-extrabold bg-violet-500/10 text-violet-400 px-3 py-1 rounded-full border border-violet-500/20">
                           {item.category?.name || "Không rõ"}
                         </span>
                       </td>
@@ -321,8 +389,15 @@ export default function AdminMenuPage() {
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => setBomItem(item)}
+                            className="p-2 bg-zinc-950 text-zinc-400 hover:text-amber-400 hover:border-amber-500/50 rounded-lg cursor-pointer transition-all border border-zinc-800 shadow-sm"
+                            title="Công thức định lượng (BOM)"
+                          >
+                            <Scale size={14} className="stroke-[2.5]" />
+                          </button>
+                          <button
                             onClick={() => handleEdit(item)}
-                            className="p-2 bg-zinc-950 text-zinc-400 hover:text-orange-400 hover:border-orange-500/50 rounded-lg cursor-pointer transition-all border border-zinc-800 shadow-sm"
+                            className="p-2 bg-zinc-950 text-zinc-400 hover:text-violet-400 hover:border-violet-500/50 rounded-lg cursor-pointer transition-all border border-zinc-800 shadow-sm"
                             title="Chỉnh sửa món"
                           >
                             <Edit3 size={14} className="stroke-[2.5]" />
@@ -343,7 +418,7 @@ export default function AdminMenuPage() {
             </div>
           </div>
         )}
-      </div>
+      </main>
 
       {/* Modal Form Thêm/Sửa */}
       {isFormOpen && (
@@ -412,6 +487,29 @@ export default function AdminMenuPage() {
                   "Đúng, hãy xóa"
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Quản lý Danh mục */}
+      {isCategoryManagerOpen && (
+        <CategoryManagerModal 
+          onClose={() => setIsCategoryManagerOpen(false)} 
+          onCategoryChanged={() => fetchData()} // reload danh sách dropdown khi có danh mục mới
+        />
+      )}
+
+      {/* Modal Công thức định lượng (BOM) */}
+      {bomItem && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-zinc-900 shadow-2xl max-w-xl w-full overflow-hidden rounded-2xl animate-in fade-in zoom-in-95 duration-150 relative">
+            <div className="p-6">
+              <BomEditor
+                menuItemId={bomItem.id}
+                menuItemName={bomItem.name}
+                onClose={() => setBomItem(null)}
+              />
             </div>
           </div>
         </div>

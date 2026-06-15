@@ -1,7 +1,7 @@
 import prisma from '../config/prisma';
 import { Role } from '@prisma/client';
 import { hashPassword, comparePassword } from '../utils/password.utils';
-import { generateAccessToken, generateRefreshToken } from '../utils/jwt.utils';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.utils';
 
 export const registerUser = async (data: any) => {
   const existingUser = await prisma.user.findUnique({
@@ -19,7 +19,7 @@ export const registerUser = async (data: any) => {
       email: data.email,
       name: data.name,
       passwordHash: hashedPassword,
-      role: data.role || Role.STAFF,
+      role: data.role || Role.CASHIER,
     },
     select: {
       id: true,
@@ -62,4 +62,49 @@ export const loginUser = async (email: string, plainText: string) => {
   const { passwordHash, ...userWithoutPassword } = user;
 
   return { user: userWithoutPassword, accessToken, refreshToken };
+};
+
+export const refreshTokens = async (token: string) => {
+  try {
+    const payload = verifyRefreshToken(token);
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+    });
+
+    if (!user) {
+      throw new Error('INVALID_USER');
+    }
+
+    if (!user.isActive) {
+      throw new Error('ACCOUNT_INACTIVE');
+    }
+
+    const accessToken = generateAccessToken({ userId: user.id, email: user.email, role: user.role });
+    const refreshToken = generateRefreshToken({ userId: user.id });
+
+    return { accessToken, refreshToken };
+  } catch (error: any) {
+    if (error.name === 'TokenExpiredError') {
+      throw new Error('TOKEN_EXPIRED');
+    }
+    throw error;
+  }
+};
+
+export const getMe = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+    }
+  });
+
+  if (!user) {
+    throw new Error('USER_NOT_FOUND');
+  }
+
+  return user;
 };
