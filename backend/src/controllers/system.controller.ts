@@ -23,7 +23,7 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error('getConfig error:', error);
-    res.status(500).json({ success: false, message: 'Lỗi server' });
+    res.status(500).json({ success: false, message: String(error) });
   }
 };
 
@@ -82,7 +82,7 @@ export const updateConfig = async (req: Request, res: Response): Promise<void> =
     });
   } catch (error) {
     console.error('updateConfig error:', error);
-    res.status(500).json({ success: false, message: 'Lỗi server' });
+    res.status(500).json({ success: false, message: String(error) });
   }
 };
 
