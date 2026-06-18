@@ -18,9 +18,10 @@ interface TableQRCodeProps {
 export default function TableQRCode({ table }: TableQRCodeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Lấy base URL cho app
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
-  const menuUrl = `${appUrl}/table/${table.id}`;
+  // Lấy base URL cho app (ưu tiên window.location.origin để lấy đúng tên miền hiện tại)
+  const origin = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL;
+  const appUrl = origin || 'http://localhost:3000';
+  const menuUrl = `${appUrl}/table/${table.tableNumber}`;
 
   /**
    * Tải xuống QR Code dưới dạng file PNG
