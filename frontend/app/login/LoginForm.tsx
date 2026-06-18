@@ -58,9 +58,9 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
       await fetchCurrentUser(); // load user state
 
       if (redirectUrl) {
-        router.push(redirectUrl);
+        router.replace(redirectUrl);
       } else {
-        router.push('/');
+        router.replace('/');
       }
     } catch (error) {
       setError('root', { message: 'Không thể kết nối server. Thử lại sau.' });
@@ -68,7 +68,7 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {errors.root && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl flex items-center gap-2 text-sm animate-in fade-in">
           <AlertTriangle className="h-5 w-5 flex-shrink-0" />

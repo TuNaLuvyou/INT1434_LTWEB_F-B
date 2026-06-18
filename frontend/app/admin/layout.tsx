@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { useAuthStore } from "@/stores/auth.store";
 import { Loader2 } from 'lucide-react';
@@ -10,11 +11,20 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const { fetchCurrentUser, isLoading, user } = useAuthStore();
 
   useEffect(() => {
     fetchCurrentUser();
   }, [fetchCurrentUser]);
+
+  // Nếu đã load xong mà vẫn không có user → redirect về login
+  // Dùng router.replace để xóa trang admin khỏi history (bấm Back không quay lại được)
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.replace('/login');
+    }
+  }, [isLoading, user, router]);
 
   // Render a beautiful, premium glassmorphic loading screen during initial auth fetch
   if (isLoading && !user) {

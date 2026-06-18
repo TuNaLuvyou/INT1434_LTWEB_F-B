@@ -259,9 +259,8 @@ export default function DashboardPage() {
     }
   }, [isDropdownOpen, customDate]);
 
-  const filteredTransactions = (stats?.recentTransactions || []).filter((t: Transaction, idx: number) => {
-    const matchesSearch = `đơn số ${idx + 1}`.includes(searchQuery.toLowerCase()) ||
-                          t.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  const filteredTransactions = (stats?.recentTransactions || []).filter((t: Transaction) => {
+    const matchesSearch = t.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           t.tableNo.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "All" || t.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -801,7 +800,7 @@ export default function DashboardPage() {
                   <tr key={trans.id} className="hover:bg-zinc-900/20 transition-all">
                     <td className="px-5 py-3 font-mono font-bold text-white">{trans.id}</td>
                     <td className="px-5 py-3">
-                      <div className="font-semibold text-violet-400">Đơn số {idx + 1}</div>
+                      <div className="font-semibold text-violet-400">Đơn số {filteredTransactions.length - idx}</div>
                       <div className="text-[10px] text-zinc-500 font-light mt-0.5">{trans.tableNo}</div>
                     </td>
                     <td className="px-5 py-3 font-mono text-zinc-400">{trans.time}</td>
