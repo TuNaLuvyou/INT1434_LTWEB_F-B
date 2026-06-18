@@ -15,15 +15,17 @@ export function getAccessTokenFromCookie(): string | null {
 
 export async function logout(): Promise<void> {
   try {
+    const token = getAccessTokenFromCookie();
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
     await fetch(`${API_URL}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   } catch (error) {
     console.error('Logout error:', error);
   } finally {
     clearAccessToken();
-    window.location.href = '/login';
+    window.location.replace('/login');
   }
 }

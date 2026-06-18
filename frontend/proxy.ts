@@ -7,52 +7,56 @@ import { AccessTokenPayload } from '@/types/jwt.types';
 // Giải thích:
 // jsonwebtoken dùng Node.js crypto module — không tương thích Edge Runtime
 // jose được viết thuần Web Crypto API (SubtleCrypto) — tương thích mọi runtime
-// Đây là lý do Next.js middleware LUÔN phải dùng jose hoặc thư viện tương tự.
+// Đây là lý do Next.js proxy LUÔN phải dùng jose hoặc thư viện tương tự.
 
-// 1. ROUTE PERMISSION MAP
+// 1. ROLE-BASED PERMISSIONS cho từng nhóm route (sau khi đã xác thực token)
 const ROUTE_PERMISSIONS: Record<string, string[]> = {
-  '/pos': ['ADMIN', 'MANAGER', 'CASHIER'],
-  '/kds': ['ADMIN', 'MANAGER', 'KITCHEN'],
-
-  '/admin/settings': ['ADMIN'], // Must be evaluated before /admin
-  '/admin': ['ADMIN', 'MANAGER'],
-  '/table': ['ADMIN', 'MANAGER', 'CASHIER'],
+  '/pos':            ['ADMIN', 'MANAGER', 'CASHIER'],
+  '/kds':            ['ADMIN', 'MANAGER', 'KITCHEN'],
+  '/admin/settings': ['ADMIN'],             // phải đặt trước /admin để ưu tiên match dài hơn
+  '/admin':          ['ADMIN', 'MANAGER'],
+  '/table':          ['ADMIN', 'MANAGER', 'CASHIER'],
 };
 
-// 2. PUBLIC ROUTES
-const PUBLIC_ROUTES = ['/login'];
+// 2. PUBLIC ROUTES — các route này KHÔNG yêu cầu đăng nhập
+// ⚠️ Mọi route khác đều BẮT BUỘC có token hợp lệ mới được vào.
+function isPublicRoute(pathname: string): boolean {
+  // Trang đăng nhập
+  if (pathname.startsWith('/login')) return true;
 
-// 3. MIDDLEWARE LOGIC
+  // /table/[id] — trang menu QR cho thực khách, không cần tài khoản
+  // Phân biệt với /table (danh sách bàn nội bộ, cần đăng nhập):
+  //   /table/          → false (trailing slash, không hợp lệ)
+  //   /table/abc-123   → true  (có UUID / slug sau /table/)
+  if (pathname.startsWith('/table/') && pathname.slice(7).trim().length > 0) return true;
+
+  return false;
+}
+
+// 3. PROXY LOGIC
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-
-  // Step B: Skip middleware cho public routes
-  // Chỉ các trang /table/[id] (ví dụ: /table/1) là public cho thực khách.
-  // Bản thân trang /table hoặc /table/ (danh sách bàn nội bộ) bắt buộc phải đăng nhập.
-  const isPublicTableRoute = pathname.startsWith('/table/') && pathname.slice(7).trim().length > 0;
-
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route)) || isPublicTableRoute) {
+  // Bước A: Cho qua ngay nếu là route public
+  if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
-  // Step C: Đọc access token từ cookie "access_token"
+  // Bước B: Mọi route còn lại đều cần token — đọc cookie access_token
   const token = request.cookies.get('access_token')?.value;
 
   if (!token) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
+    const res = NextResponse.redirect(loginUrl);
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return res;
   }
 
-  // Step D: Verify JWT bằng jose
-  // Tại sao dùng jose? Vì jsonwebtoken phụ thuộc vào Node.js crypto module.
-  // Next.js Middleware chạy trên Edge Runtime (giống V8 isolates) nên không có core modules của Node.js.
-  // jose là thư viện độc lập tương thích hoàn toàn với Edge Runtime.
-  // Giải thích: Edge Runtime không hỗ trợ crypto, bắt buộc dùng jose.jwtVerify
+  // Bước C: Verify JWT bằng jose (tương thích Edge Runtime)
   const secretKey = process.env.JWT_ACCESS_SECRET;
   if (!secretKey) {
-    console.error('[Middleware] JWT_ACCESS_SECRET is not set!');
+    console.error('[Proxy] JWT_ACCESS_SECRET chưa được cấu hình!');
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -62,23 +66,20 @@ export async function proxy(request: NextRequest) {
     const result = await jwtVerify(token, secret);
     payload = result.payload as AccessTokenPayload;
   } catch (error: any) {
-    console.error('[Middleware] JWT Verification error:', error);
+    console.error('[Proxy] Lỗi xác minh JWT:', error.name);
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
-    
-    // jose throw JWTExpired khi token hết hạn
-    // jose throw JWTInvalid khi signature sai
-    if (error instanceof Error) {
-      if (error.name === 'JWTExpired' || (error as any).code === 'ERR_JWT_EXPIRED') {
-        loginUrl.searchParams.set('reason', 'expired');
-        return NextResponse.redirect(loginUrl);
-      }
+    if (error.name === 'JWTExpired' || error?.code === 'ERR_JWT_EXPIRED') {
+      loginUrl.searchParams.set('reason', 'expired');
     }
-    return NextResponse.redirect(loginUrl);
+    const res = NextResponse.redirect(loginUrl);
+    res.cookies.delete('access_token');
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return res;
   }
 
-  // Step E: Check role permission
-  // Tìm route khớp dài nhất (ưu tiên độ chi tiết)
+  // Bước D: Kiểm tra role nếu route có yêu cầu role cụ thể
+  // Tìm route khớp dài nhất (longest match) để ưu tiên rule chi tiết hơn
   let matchedRoute = '';
   for (const route of Object.keys(ROUTE_PERMISSIONS)) {
     if (pathname.startsWith(route) && route.length > matchedRoute.length) {
@@ -89,24 +90,27 @@ export async function proxy(request: NextRequest) {
   if (matchedRoute) {
     const allowedRoles = ROUTE_PERMISSIONS[matchedRoute];
     if (!allowedRoles.includes(payload.role)) {
-      console.warn(`[Middleware] Forbidden: User role ${payload.role} attempted to access ${pathname}`);
+      console.warn(`[Proxy] Forbidden: role "${payload.role}" cố truy cập "${pathname}"`);
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('reason', 'forbidden');
       return NextResponse.redirect(loginUrl);
     }
   }
 
-  // Step F: Forward request với user info trong header
+  // Bước E: Cho qua — đính kèm user info vào header để Server Components có thể đọc
   const response = NextResponse.next();
   response.headers.set('X-User-Id', payload.userId);
   response.headers.set('X-User-Role', payload.role);
-  
+  // Ngăn trình duyệt cache trang protected → bấm Back sau logout không hiện lại nội dung cũ
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  response.headers.set('Pragma', 'no-cache');
+
   return response;
 }
 
-// 4. MATCHER CONFIG
+// 4. MATCHER — áp dụng proxy cho mọi route, bỏ qua static files của Next.js
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api/).*)',
-  ]
+    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
+  ],
 };
