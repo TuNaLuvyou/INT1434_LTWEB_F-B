@@ -16,6 +16,23 @@ export function useAutoRefresh() {
     pathname.startsWith('/kds')
   ) : false;
 
+  // Xử lý bfcache (Back-Forward Cache):
+  // Khi user bấm Back/Forward, trình duyệt khôi phục trang từ bfcache mà không chạy lại useEffect.
+  // Điều này khiến Zustand store bị stale (user = null) và nút đăng xuất biến mất.
+  // Fix: lắng nghe event pageshow với persisted = true để re-sync trạng thái auth.
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        // Trang được khôi phục từ bfcache → re-sync auth state
+        const { fetchCurrentUser } = useAuthStore.getState();
+        fetchCurrentUser();
+      }
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+
   useEffect(() => {
     // 13 minutes = 780000ms
     const refreshInterval = 13 * 60 * 1000;
@@ -34,20 +51,16 @@ export function useAutoRefresh() {
           console.log('[Auth] Token automatically refreshed');
           
           // Cập nhật lại thông tin user trong store nếu refresh thành công
-          // Tránh lỗi fetchCurrentUser trả về null khi access token cũ đã hết hạn lúc load trang
           const { fetchCurrentUser, user } = useAuthStore.getState();
           if (!user) {
             fetchCurrentUser();
           }
         } else {
           console.warn('[Auth] Auto-refresh failed');
-          // CHỈ văng ra màn hình đăng nhập nếu đang ở trang cần bảo mật
-          // Nếu ở trang public (menu QR của khách), thì kệ không làm gì cả
           if (isProtected) {
-            // Nếu không có token từ cookie (thực sự hết hạn toàn bộ) thì mới văng ra
             const currentToken = getAccessTokenFromCookie();
             if (!currentToken) {
-              router.push('/login?reason=expired');
+              router.replace('/login?reason=expired');
             }
           }
         }
@@ -56,10 +69,10 @@ export function useAutoRefresh() {
       }
     };
 
-    // 1. Gọi ngay 1 lần khi người dùng vừa load web để đảm bảo có token tươi mới nhất
+    // 1. Gọi ngay 1 lần khi người dùng vừa load web
     refreshToken();
 
-    // 2. Sau đó mới thiết lập vòng lặp 13 phút
+    // 2. Sau đó thiết lập vòng lặp 13 phút
     const intervalId = setInterval(refreshToken, refreshInterval);
 
     return () => clearInterval(intervalId);
