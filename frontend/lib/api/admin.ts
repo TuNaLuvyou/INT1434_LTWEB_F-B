@@ -28,6 +28,14 @@ export const deleteIngredient = async (id: string) => {
   return res.json();
 };
 
+export const fetchInventoryLogs = async (page = 1, limit = 20) => {
+  const res = await fetch(`${API}/api/inventory/logs?page=${page}&limit=${limit}`, {
+    headers: getHeaders(),
+    credentials: 'include',
+  });
+  return res.json();
+};
+
 export const fetchAttendanceToday = async () => {
   const res = await fetch(`${API}/api/attendance/today`, { 
     headers: getHeaders(),

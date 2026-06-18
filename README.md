@@ -8,10 +8,10 @@
 
 ## 👥 Thành viên nhóm
 
-| STT | Họ và tên | MSSV | Vai trò |
-|-----|-----------|------|---------|
-| 1 | **Trần Hoàng Đạt** | N23DCCN009 | Nhóm trưởng |
-| 2 | **Phạm Văn Đoàn** | N23DCCN010 | Thành viên |
+| STT | Họ và tên          | MSSV       | Vai trò     |
+| --- | ------------------ | ---------- | ----------- |
+| 1   | **Trần Hoàng Đạt** | N23DCCN009 | Nhóm trưởng |
+| 2   | **Phạm Văn Đoàn**  | N23DCCN010 | Thành viên  |
 
 ---
 
@@ -20,11 +20,12 @@
 **RestoFlow POS** là hệ thống quản lý nhà hàng toàn diện, kết hợp đặt món tại bàn qua mã QR và hệ thống quản trị tại quầy (POS/Cashier). Hệ thống hoạt động theo mô hình **Real-time** đồng bộ trạng thái tức thời giữa khách hàng, nhà bếp (KDS) và thu ngân.
 
 ### Các tính năng cốt lõi:
+
 1. **Gọi món tại bàn qua QR code**: Khách hàng quét mã QR tại bàn để truy cập thực đơn trực tuyến, tạo đơn hàng và theo dõi tiến độ món ăn theo thời gian thực.
 2. **Giới hạn định vị địa lý (Geofencing)**:
-   * Ngăn chặn khách hàng cố tình đặt món từ xa khi không có mặt tại nhà hàng.
-   * Tính toán khoảng cách giữa thiết bị của khách hàng và tọa độ của quán thông qua **Thuật toán Haversine** trên server (`frontend/app/actions/order.actions.ts`).
-   * Tích hợp cơ chế lấy toạ độ tự động có dự phòng chất lượng cao (High accuracy ➔ Low accuracy fallback) tại `frontend/app/admin/settings/SettingsClient.tsx`.
+   - Ngăn chặn khách hàng cố tình đặt món từ xa khi không có mặt tại nhà hàng.
+   - Tính toán khoảng cách giữa thiết bị của khách hàng và tọa độ của quán thông qua **Thuật toán Haversine** trên server (`frontend/app/actions/order.actions.ts`).
+   - Tích hợp cơ chế lấy toạ độ tự động có dự phòng chất lượng cao (High accuracy ➔ Low accuracy fallback) tại `frontend/app/admin/settings/SettingsClient.tsx`.
 3. **Màn hình hiển thị bếp chuyên dụng (KDS)**: Nhận đơn hàng, sắp xếp thứ tự ưu tiên, chuyển trạng thái chế biến thời gian thực.
 4. **Hệ thống POS & Thu ngân**: Hỗ trợ mở phiên bàn, thanh toán, in hoá đơn, quản lý ca làm việc (Shift) và doanh thu.
 5. **Định mức nguyên liệu (BOM - Bill of Materials)**: Tự động trừ nguyên kho sau khi đơn hàng được chế biến thành công.
@@ -35,16 +36,17 @@
 
 ## 🛠️ Công nghệ sử dụng chính
 
-* **Backend:** Node.js, Express.js, TypeScript, Prisma ORM, PostgreSQL (Supabase), Socket.IO, JWT, Nodemailer.
-* **Frontend:** Next.js 15 (App Router), React 19, Tailwind CSS, Zustand, Recharts, Lucide React.
+- **Backend:** Node.js, Express.js, TypeScript, Prisma ORM, PostgreSQL (Supabase), Socket.IO, JWT, Nodemailer.
+- **Frontend:** Next.js 15 (App Router), React 19, Tailwind CSS, Zustand, Recharts, Lucide React.
 
 ---
 
 ## 🚀 Hướng dẫn cài đặt & chạy dự án
 
 ### Yêu cầu hệ thống
-* **Node.js** ≥ 18.x
-* **PostgreSQL** ≥ 14 (hoặc dịch vụ Cloud PostgreSQL như Supabase)
+
+- **Node.js** ≥ 18.x
+- **PostgreSQL** ≥ 14 (hoặc dịch vụ Cloud PostgreSQL như Supabase)
 
 ### 1. Clone repository và chuẩn bị
 
@@ -61,13 +63,17 @@ npm install
 ```
 
 Tạo file `.env` bằng cách sao chép file `.env.example` và cấu hình các thông số (Database, JWT, Mail SMTP...) phù hợp.
-* **Lưu ý**: Dự án dùng cổng **`5001`** làm mặc định cho Backend Server.
+
+- **Lưu ý**: Dự án dùng cổng **`5000`** làm mặc định cho Backend Server.
 
 Khởi tạo database và nạp dữ liệu seed ban đầu:
 
 ```bash
 # Đẩy schema lên Database và tạo Client Prisma
 npx prisma db push
+
+# Tạo Client Prisma
+npx prisma generate
 
 # Nạp dữ liệu mặc định (Admin, Món ăn, Bàn ăn mẫu...)
 npm run db:seed
@@ -77,7 +83,7 @@ Khởi động server dev Backend:
 
 ```bash
 npm run dev
-# Backend chạy tại: http://localhost:5001
+# Backend chạy tại: http://localhost:5000
 ```
 
 ### 3. Cấu hình & Chạy Frontend
@@ -89,7 +95,7 @@ cd frontend
 npm install
 ```
 
-Tạo file `.env` bằng cách sao chép file `.env.example` và cấu hình các thông số (đặc biệt là cổng kết nối API tới Backend `5001`).
+Tạo file `.env` bằng cách sao chép file `.env.example` và cấu hình các thông số (đặc biệt là cổng kết nối API tới Backend `5000`).
 
 Sinh mã Prisma Client cho Next.js Server Components:
 
@@ -110,12 +116,12 @@ npm run dev
 
 Mật khẩu đăng nhập mặc định cho toàn bộ các tài khoản dưới đây là: **`Demo@1234`**
 
-| Vai trò (Role) | Email đăng nhập | Quyền hạn |
-|------|-------|---------|
-| **ADMIN** | `admin@restoflow.demo` | Toàn quyền, cấu hình hệ thống, quản lý tài khoản & doanh thu |
-| **MANAGER** | `manager@restoflow.demo` | Quản lý món ăn, tồn kho nguyên vật liệu, cấu hình mã giảm giá |
-| **CASHIER** | `cashier@restoflow.demo` | Mở ca POS, duyệt hóa đơn tại bàn, thanh toán cho khách |
-| **KITCHEN** | `kitchen@restoflow.demo` | Tiếp nhận và chế biến món ăn thông qua màn hình KDS |
+| Vai trò (Role) | Email đăng nhập          | Quyền hạn                                                     |
+| -------------- | ------------------------ | ------------------------------------------------------------- |
+| **ADMIN**      | `admin@restoflow.demo`   | Toàn quyền, cấu hình hệ thống, quản lý tài khoản & doanh thu  |
+| **MANAGER**    | `manager@restoflow.demo` | Quản lý món ăn, tồn kho nguyên vật liệu, cấu hình mã giảm giá |
+| **CASHIER**    | `cashier@restoflow.demo` | Mở ca POS, duyệt hóa đơn tại bàn, thanh toán cho khách        |
+| **KITCHEN**    | `kitchen@restoflow.demo` | Tiếp nhận và chế biến món ăn thông qua màn hình KDS           |
 
 ---
 
@@ -124,10 +130,10 @@ Mật khẩu đăng nhập mặc định cho toàn bộ các tài khoản dướ
 1. Đăng nhập vào trang quản trị: `http://localhost:3000/login` bằng tài khoản `admin@restoflow.demo`.
 2. Truy cập mục **Cài đặt hệ thống** ở menu bên trái.
 3. Trong tab **Định vị (Geofencing)**:
-   * Bật **Giới hạn định vị**.
-   * Nhập toạ độ vĩ độ/kinh độ của quán (hoặc bấm **Lấy GPS hiện tại** để nhận toạ độ thực tế của thiết bị).
-   * Điều chỉnh **Bán kính cho phép đặt món** (mét).
-   * Bấm **Lưu thay đổi cấu hình**.
+   - Bật **Giới hạn định vị**.
+   - Nhập toạ độ vĩ độ/kinh độ của quán (hoặc bấm **Lấy GPS hiện tại** để nhận toạ độ thực tế của thiết bị).
+   - Điều chỉnh **Bán kính cho phép đặt món** (mét).
+   - Bấm **Lưu thay đổi cấu hình**.
 4. Truy cập trang gọi món của bàn: `http://localhost:3000/table/1`.
 5. Sử dụng tính năng giả lập vị trí của Chrome (DevTools ➔ biểu tượng 3 chấm ➔ **More tools** ➔ **Sensors**) để nhập toạ độ khớp với toạ độ quán và thực hiện gửi món.
 

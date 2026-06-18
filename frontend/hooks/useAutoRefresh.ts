@@ -10,9 +10,11 @@ export function useAutoRefresh() {
   const pathname = usePathname();
   
   // Xác định xem trang hiện tại có phải là trang yêu cầu đăng nhập không
-  const isProtected = pathname.startsWith('/admin') || 
-                      pathname.startsWith('/cashier') || 
-                      pathname.startsWith('/kds');
+  const isProtected = pathname ? (
+    pathname.startsWith('/admin') || 
+    pathname.startsWith('/cashier') || 
+    pathname.startsWith('/kds')
+  ) : false;
 
   useEffect(() => {
     // 13 minutes = 780000ms

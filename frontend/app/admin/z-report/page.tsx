@@ -210,9 +210,11 @@ export default function ZReportPage() {
     if (!fromDate || !toDate) return;
     setExportingExcel(true);
     try {
+      const from = toLocalISOString(fromDate, false);
+      const to = toLocalISOString(toDate, true);
       const params = new URLSearchParams({
-        from: fromDate,
-        to: toDate,
+        from,
+        to,
         type: 'full'
       });
 
