@@ -90,7 +90,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   // ── UI state ──
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
-  type CartItemEntry = CartItem & { status?: string };
+  type CartItemEntry = CartItem & { status?: string; id?: string };
   const [lastOrder, setLastOrder] = useState<CartItemEntry[] | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -113,6 +113,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
           const placedItems = dbItems.filter((oi: any) => oi.status !== 'CART');
           if (placedItems.length > 0) {
             const mapped = placedItems.map((oi: any) => ({
+              id: oi.id,
               menuItemId: oi.menuItemId,
               name: oi.menuItem?.name || oi.menuItemName || '',
               price: Number(oi.unitPrice),
@@ -153,7 +154,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
       setIsSessionClosed(true);
       setSessionClosedStatus((event?.status as any) || 'UNKNOWN');
     }, [clearCart]),
-    useCallback((event: any) => {
+    useCallback(() => {
       if (sessionId) {
         fetchSessionDetails(sessionId);
       }
@@ -412,7 +413,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
     <div className="space-y-3 overflow-y-auto flex-1 pr-1 scrollbar-hide py-1">
       {entries.map((item) => (
         <div
-          key={item.menuItemId}
+          key={item.id ?? item.menuItemId}
           className="flex flex-col gap-2 bg-gray-50/80 rounded-xl p-3 border border-gray-100/50 group"
         >
           <div className="flex items-center gap-3">

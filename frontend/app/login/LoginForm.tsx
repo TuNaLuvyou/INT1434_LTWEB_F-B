@@ -53,7 +53,7 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
         return;
       }
 
-      const { accessToken, user } = result.data;
+      const { accessToken } = result.data;
       setAccessToken(accessToken);
       await fetchCurrentUser(); // load user state
 

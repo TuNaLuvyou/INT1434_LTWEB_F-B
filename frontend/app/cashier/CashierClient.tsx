@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import Image from "next/image";
-import { Archive, Bell, CheckCircle2, ChevronDown, ChevronUp, Clock, Dot, Loader2, X, DollarSign, Sparkles, Plus, Minus, Trash2, Search, Calendar } from "lucide-react";
+import { Archive, Bell, CheckCircle2, ChevronDown, ChevronUp, Clock, Dot, Loader2, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSocket } from "@/hooks/useSocket";
 import type { CashierNewOrderPayload } from "@/types/socket";
@@ -28,6 +28,7 @@ export interface CashierOverviewTable {
 }
 
 type OrderItemStatus = "PENDING" | "PREPARING" | "DONE" | "VOID";
+type SessionGroupStatus = "CART" | OrderItemStatus;
 
 interface OrderItem {
   id: string;
@@ -35,7 +36,7 @@ interface OrderItem {
   menuItemId: string;
   qty: number;
   note: string | null;
-  status: OrderItemStatus;
+  status: SessionGroupStatus;
   unitPrice: string | number;
   menuItem: {
     name: string;
@@ -51,7 +52,30 @@ interface SessionItemsResponse {
   tableId: string;
   tableNumber: number;
   tableLabel: string;
-  groups: Record<OrderItemStatus, OrderItem[]>;
+  groups: Record<SessionGroupStatus, OrderItem[]>;
+}
+
+interface RealtimeSessionItem {
+  id: string;
+  menuItemId: string;
+  menuItemName: string;
+  qty: number;
+  unitPrice: number;
+  status: SessionGroupStatus;
+  note?: string | null;
+  imageUrl?: string | null;
+  createdAt?: string;
+}
+
+interface RealtimeKitchenItemUpdatedPayload {
+  orderItemId: string;
+  sessionId: string;
+  tableId: string;
+  menuItemId?: string;
+  menuItemName?: string;
+  status: OrderItemStatus;
+  previousStatus?: OrderItemStatus;
+  updatedAt: string;
 }
 
 interface Notification {
@@ -108,6 +132,40 @@ const statusBadgeClass: Record<OrderItemStatus, string> = {
   DONE: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
   VOID: "bg-rose-500/15 text-rose-300 border border-rose-500/30",
 };
+
+function createEmptyGroups(): SessionItemsResponse["groups"] {
+  return {
+    CART: [],
+    PENDING: [],
+    PREPARING: [],
+    DONE: [],
+    VOID: [],
+  };
+}
+
+function buildGroupsFromRealtimeItems(items: RealtimeSessionItem[]): SessionItemsResponse["groups"] {
+  const groups = createEmptyGroups();
+
+  for (const item of items) {
+    groups[item.status].push({
+      id: item.id,
+      sessionId: "",
+      menuItemId: item.menuItemId,
+      qty: item.qty,
+      note: item.note ?? null,
+      status: item.status,
+      unitPrice: item.unitPrice,
+      menuItem: {
+        name: item.menuItemName,
+        price: item.unitPrice,
+        imageUrl: item.imageUrl ?? null,
+      },
+      createdAt: item.createdAt || new Date().toISOString(),
+    });
+  }
+
+  return groups;
+}
 
 function formatShortTime(value: string | Date) {
   const date = typeof value === "string" ? new Date(value) : value;
@@ -477,6 +535,62 @@ export default function CashierClient({
     [fetchSessionItems]
   );
 
+  const syncSelectedSessionFromRealtimeItems = useCallback(
+    (payload: { sessionId: string; tableId: string; orderItems: RealtimeSessionItem[] }) => {
+      setSessionItems((prev) => {
+        if (payload.sessionId !== selectedSessionId) return prev;
+
+        const matchedTable = tables.find((table) => table.tableId === payload.tableId);
+        const nextGroups = buildGroupsFromRealtimeItems(payload.orderItems);
+
+        return {
+          sessionId: payload.sessionId,
+          openedAt: prev?.openedAt || matchedTable?.session?.openedAt || new Date().toISOString(),
+          tableId: payload.tableId,
+          tableNumber: prev?.tableNumber || matchedTable?.tableNumber || 0,
+          tableLabel: prev?.tableLabel || matchedTable?.tableLabel || "",
+          groups: nextGroups,
+        };
+      });
+    },
+    [selectedSessionId, tables]
+  );
+
+  const updateTableCountersFromStatusChange = useCallback((payload: RealtimeKitchenItemUpdatedPayload) => {
+    setTables((prev) =>
+      prev.map((table) => {
+        if (table.session?.sessionId !== payload.sessionId || !table.session) return table;
+
+        const nextSession = { ...table.session };
+        const decrementKey =
+          payload.previousStatus === "PENDING"
+            ? "pendingCount"
+            : payload.previousStatus === "PREPARING"
+              ? "preparingCount"
+              : payload.previousStatus === "DONE"
+                ? "doneCount"
+                : null;
+        const incrementKey =
+          payload.status === "PENDING"
+            ? "pendingCount"
+            : payload.status === "PREPARING"
+              ? "preparingCount"
+              : payload.status === "DONE"
+                ? "doneCount"
+                : null;
+
+        if (decrementKey) {
+          nextSession[decrementKey] = Math.max(0, nextSession[decrementKey] - 1);
+        }
+        if (incrementKey) {
+          nextSession[incrementKey] += 1;
+        }
+
+        return { ...table, session: nextSession };
+      })
+    );
+  }, []);
+
   const fetchAvailableVouchers = async () => {
     try {
       const res = await fetch(`${API_URL}/api/vouchers`, {
@@ -588,7 +702,7 @@ export default function CashierClient({
           id: item.id,
           name: item.menuItem.name,
           qty: item.qty,
-          status: item.status,
+          status: item.status as OrderItemStatus,
           unitPrice: Number(item.unitPrice),
         }));
 
@@ -718,7 +832,7 @@ export default function CashierClient({
                   id: item.id,
                   name: item.menuItem.name,
                   qty: item.qty,
-                  status: item.status,
+                  status: item.status as OrderItemStatus,
                   unitPrice: Number(item.unitPrice),
                 })),
               };
@@ -793,9 +907,43 @@ export default function CashierClient({
 
       playCashierBeep();
 
-      if (payload.sessionId === selectedSessionId) {
-        fetchSessionItems(payload.sessionId);
-      }
+      setSessionItems((prev) => {
+        if (payload.sessionId !== selectedSessionId) return prev;
+        const matchedTable = tables.find((table) => table.tableId === payload.tableId);
+        const base = prev || {
+          sessionId: payload.sessionId,
+          openedAt: payload.createdAt,
+          tableId: payload.tableId,
+          tableNumber: matchedTable?.tableNumber || payload.tableNumber || 0,
+          tableLabel: matchedTable?.tableLabel || `Bàn ${payload.tableNumber || ""}`,
+          groups: createEmptyGroups(),
+        };
+
+        return {
+          ...base,
+          groups: {
+            ...base.groups,
+            PENDING: [
+              ...base.groups.PENDING,
+              ...payload.newItems.map((item) => ({
+                id: `${payload.sessionId}:${item.menuItemId}:${item.note || ""}`,
+                sessionId: payload.sessionId,
+                menuItemId: item.menuItemId,
+                qty: item.qty,
+                note: item.note ?? null,
+                status: "PENDING" as const,
+                unitPrice: item.unitPrice,
+                menuItem: {
+                  name: item.menuItemName,
+                  price: item.unitPrice,
+                  imageUrl: null,
+                },
+                createdAt: payload.createdAt,
+              })),
+            ],
+          },
+        };
+      });
     };
 
     const handleAllDone = (payload: { sessionId: string; tableNumber: number; tableLabel?: string }) => {
@@ -832,39 +980,94 @@ export default function CashierClient({
       });
     };
 
-    const handleCartUpdated = (payload: { sessionId: string; tableId: string; isLocked?: boolean }) => {
+    const handleCartUpdated = (payload: {
+      sessionId: string;
+      tableId: string;
+      isLocked?: boolean;
+      orderItems: RealtimeSessionItem[];
+    }) => {
       setTables((prev) =>
         prev.map((table) => {
           if (table.tableId !== payload.tableId) return table;
+          const hasCartOnlyItems = payload.orderItems.some((item) => item.status === "CART");
+          const preparingCount = payload.orderItems.filter((item) => item.status === "PREPARING").length;
+          const doneCount = payload.orderItems.filter((item) => item.status === "DONE").length;
+          const pendingCount = payload.orderItems.filter((item) => item.status === "PENDING").length;
           return {
             ...table,
             session: table.session
               ? {
                   ...table.session,
                   isLocked: payload.isLocked !== undefined ? !!payload.isLocked : table.session.isLocked,
-                  pendingCount: payload.isLocked ? 0 : table.session.pendingCount,
+                  pendingCount: hasCartOnlyItems ? table.session.pendingCount : pendingCount,
+                  preparingCount: hasCartOnlyItems ? table.session.preparingCount : preparingCount,
+                  doneCount: hasCartOnlyItems ? table.session.doneCount : doneCount,
                 }
               : null,
           };
         })
       );
-      if (payload.sessionId === selectedSessionId) {
-        fetchSessionItems(payload.sessionId);
+
+      if (!payload.orderItems.some((item) => item.status === "CART")) {
+        syncSelectedSessionFromRealtimeItems(payload);
       }
+    };
+
+    const handleKitchenItemUpdated = (payload: RealtimeKitchenItemUpdatedPayload) => {
+      updateTableCountersFromStatusChange(payload);
+
+      setSessionItems((prev) => {
+        if (!prev || prev.sessionId !== payload.sessionId) return prev;
+
+        const nextGroups = createEmptyGroups();
+        let movedItem: OrderItem | null = null;
+
+        for (const status of Object.keys(prev.groups) as OrderItemStatus[]) {
+          for (const item of prev.groups[status]) {
+            if (item.id === payload.orderItemId) {
+              movedItem = {
+                ...item,
+                status: payload.status,
+              };
+              continue;
+            }
+            nextGroups[status].push(item);
+          }
+        }
+
+        if (movedItem) {
+          nextGroups[payload.status].push(movedItem);
+        }
+
+        return {
+          ...prev,
+          groups: nextGroups,
+        };
+      });
     };
 
     socket.on("cashier:new-order", handleNewOrder);
     socket.on("session:all-done", handleAllDone);
     socket.on("menu:soldout-notify", handleSoldOut);
     socket.on("cart:updated", handleCartUpdated);
+    socket.on("kitchen:item-updated", handleKitchenItemUpdated);
 
     return () => {
       socket.off("cashier:new-order", handleNewOrder);
       socket.off("session:all-done", handleAllDone);
       socket.off("menu:soldout-notify", handleSoldOut);
       socket.off("cart:updated", handleCartUpdated);
+      socket.off("kitchen:item-updated", handleKitchenItemUpdated);
     };
-  }, [socket, isConnected, addNotification, selectedSessionId, fetchSessionItems]);
+  }, [
+    socket,
+    isConnected,
+    addNotification,
+    selectedSessionId,
+    syncSelectedSessionFromRealtimeItems,
+    tables,
+    updateTableCountersFromStatusChange,
+  ]);
 
   const unreadCount = notifications.filter((item) => !item.isRead).length;
 
@@ -883,7 +1086,7 @@ export default function CashierClient({
   };
 
   const groupedItems = useMemo(() => {
-    return sessionItems?.groups || { PENDING: [], PREPARING: [], DONE: [], VOID: [] };
+    return sessionItems?.groups || createEmptyGroups();
   }, [sessionItems]);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<OrderItemStatus, boolean>>({

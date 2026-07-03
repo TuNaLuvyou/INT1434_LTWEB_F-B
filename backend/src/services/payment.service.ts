@@ -249,6 +249,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
       sessionId,
       tableId: session.tableId,
       tableNumber: session.table.tableNumber,
+      tableLabel: session.table.label,
       items: itemsToSendToKitchen.map(item => ({
         orderItemId: item.id,
         menuItemId: item.menuItemId,
@@ -256,6 +257,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
         qty: item.qty,
         note: item.note || undefined,
         status: 'PENDING',
+        createdAt: item.createdAt.toISOString(),
       })),
       createdAt: paidAt.toISOString(),
     });

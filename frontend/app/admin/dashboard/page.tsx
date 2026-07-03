@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import { 
-  ArrowLeft, 
-  TrendingUp, 
   Users, 
   ShoppingBag, 
   Clock, 
@@ -15,7 +12,6 @@ import {
   ArrowDownRight,
   DollarSign,
   CreditCard,
-  Wallet,
   Loader2
 } from "lucide-react";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";

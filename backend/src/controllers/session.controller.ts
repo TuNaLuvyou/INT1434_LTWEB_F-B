@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import * as sessionService from '../services/session.service';
 import { AppError } from '../utils/app-error';
-import { emitCartUpdated } from '../socket/emit.helpers';
+import { emitCartUpdated, emitTableSessionUpdated } from '../socket/emit.helpers';
 import { InsufficientStockError } from '../services/inventory.service';
 
 import prisma from '../config/prisma';
@@ -164,7 +164,15 @@ export async function handleAddToCart(req: Request, res: Response): Promise<void
         qty: item.qty,
         unitPrice: Number(item.unitPrice),
         status: item.status,
+        note: item.note,
+        imageUrl: item.menuItem.imageUrl,
+        createdAt: item.createdAt.toISOString(),
       })),
+      total,
+    });
+    emitTableSessionUpdated({
+      tableId: session.tableId,
+      sessionId,
       total,
     });
 
@@ -226,7 +234,15 @@ export async function handleDeleteCartItem(req: Request, res: Response): Promise
         qty: item.qty,
         unitPrice: Number(item.unitPrice),
         status: item.status,
+        note: item.note,
+        imageUrl: item.menuItem.imageUrl,
+        createdAt: item.createdAt.toISOString(),
       })),
+      total,
+    });
+    emitTableSessionUpdated({
+      tableId: session.tableId,
+      sessionId,
       total,
     });
 

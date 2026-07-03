@@ -24,6 +24,9 @@ export interface CartUpdatedPayload {
     qty: number;
     unitPrice: number;
     status: string;
+    note?: string | null;
+    imageUrl?: string | null;
+    createdAt?: string;
   }>;
   total: number;
   isLocked?: boolean;
@@ -55,21 +58,27 @@ export interface KitchenTicketPayload {
   sessionId: string;
   tableId: string;
   tableNumber?: number;
+  tableLabel?: string;
   items: Array<{
     orderItemId: string;
+    menuItemId: string;
     menuItemName: string;
     qty: number;
     note?: string;
     status: string;
+    createdAt?: string;
   }>;
   createdAt: string;
 }
 
 export interface KitchenItemUpdatedPayload {
   orderItemId: string;
+  sessionId: string;
   tableId: string;
+  menuItemId?: string;
   menuItemName?: string;
   status: 'PREPARING' | 'DONE' | 'VOID';
+  previousStatus?: 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
   updatedAt: string;
 }
 
@@ -209,7 +218,8 @@ export function emitKitchenNewTicket(payload: KitchenTicketPayload): void {
 export function emitKitchenItemUpdated(payload: KitchenItemUpdatedPayload): void {
   try {
     getIO().to(SOCKET_ROOMS.KITCHEN).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
-    console.log(`[emit] kitchen:item-updated → kitchen | item: ${payload.orderItemId} → ${payload.status}`);
+    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
+    console.log(`[emit] kitchen:item-updated → kitchen & cashier | item: ${payload.orderItemId} → ${payload.status}`);
   } catch (err) {
     console.warn('[emit] emitKitchenItemUpdated failed:', err);
   }

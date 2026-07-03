@@ -7,9 +7,12 @@ import {
   emitOrderStatusChanged,
   emitKitchenItemUpdated,
   emitCartUpdated,
+  emitTableSessionUpdated,
 } from '../socket/emit.helpers';
 
-export async function getCashierOverview(req: Request, res: Response): Promise<void> {
+type RealtimePreviousStatus = 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
+
+export async function getCashierOverview(_req: Request, res: Response): Promise<void> {
   try {
     const tables = await cashierService.getCashierOverview();
     res.status(200).json({ success: true, data: { tables } });
@@ -155,9 +158,12 @@ export async function voidOrderItem(req: Request, res: Response): Promise<void> 
     // 5. Emit: cập nhật màn hình bếp (KDS)
     emitKitchenItemUpdated({
       orderItemId,
+      sessionId,
       tableId,
+      menuItemId: voidedItem.menuItemId,
       menuItemName: voidedItem.menuItem.name,
       status: 'VOID',
+      previousStatus: orderItem.status as RealtimePreviousStatus,
       updatedAt: now,
     });
 
@@ -182,9 +188,17 @@ export async function voidOrderItem(req: Request, res: Response): Promise<void> 
         qty: item.qty,
         unitPrice: Number(item.unitPrice),
         status: item.status,
+        note: item.note,
+        imageUrl: item.menuItem.imageUrl,
+        createdAt: item.createdAt.toISOString(),
       })),
       total: newTotal,
       message: `Món "${voidedItem.menuItem.name}" đã bị huỷ bởi nhà hàng.`,
+    });
+    emitTableSessionUpdated({
+      tableId,
+      sessionId,
+      total: newTotal,
     });
 
     res.status(200).json({
