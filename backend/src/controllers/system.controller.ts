@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 
-export const getConfig = async (req: Request, res: Response): Promise<void> => {
+export const getConfig = async (_req: Request, res: Response): Promise<void> => {
   try {
     let config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
     if (!config) {
@@ -86,24 +86,9 @@ export const updateConfig = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const syncMenu = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-    // Send a revalidate request to Next.js server
-    // For local dev without real webhook, we just mock the success response.
-    // In production, we'd hit /api/revalidate?secret=xyz&tag=menu
-    
-    // Attempt to hit Next.js revalidate endpoint if exists, but for now just mock success
-    res.json({ success: true, message: 'Đã đồng bộ menu cho tất cả bàn' });
-  } catch (error) {
-    console.error('syncMenu error:', error);
-    res.status(500).json({ success: false, message: 'Lỗi đồng bộ menu' });
-  }
-};
-
 import { cleanupOldSessions } from '../services/cleanup.service';
 
-export const cleanupHistory = async (req: Request, res: Response): Promise<void> => {
+export const cleanupHistory = async (_req: Request, res: Response): Promise<void> => {
   try {
     const result = await cleanupOldSessions();
     if (result.success) {
@@ -133,7 +118,7 @@ export const cleanupHistory = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const getOverviewStats = async (req: Request, res: Response): Promise<void> => {
+export const getOverviewStats = async (_req: Request, res: Response): Promise<void> => {
   try {
     const pendingOrdersCount = await prisma.orderItem.count({
       where: { status: { in: ['PENDING', 'PREPARING'] } }

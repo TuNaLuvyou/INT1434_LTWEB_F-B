@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
-import { getConfig, updateConfig, syncMenu, cleanupHistory, getOverviewStats } from '../controllers/system.controller';
+import { getConfig, updateConfig, cleanupHistory, getOverviewStats } from '../controllers/system.controller';
 
 const router = Router();
 

@@ -95,7 +95,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
     // ── Đăng ký domain handlers ───────────────────────────────────────────────
     cartHandler(socket);
     kitchenHandler(socket, io);
-    floorHandler(socket, io);
+    floorHandler(socket);
 
     // ─────────────────────────────────────────────────────────────────────────
     // EVENT: join-room

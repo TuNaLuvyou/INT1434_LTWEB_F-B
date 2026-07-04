@@ -12,7 +12,7 @@
 
 import Image from 'next/image';
 import { Minus, Plus, Trash2, UtensilsCrossed } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { CartItem } from '@/stores/cart.store';
 
 const formatVND = (amount: number): string =>

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 
-export function globalErrorHandler(err: any, req: Request, res: Response, next: NextFunction) {
+export function globalErrorHandler(err: any, _req: Request, res: Response, _next: NextFunction) {
   if (err.name === 'UnauthorizedError' || err.statusCode === 401) {
     return res.status(401).json({
       success: false,

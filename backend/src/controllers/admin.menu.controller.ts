@@ -36,7 +36,7 @@ export const getPublicIdFromUrl = (url: string): string | null => {
 };
 
 // 1. GET /api/admin/menu-items - Lấy danh sách món ăn cho quản lý (bao gồm các món ẩn isActive=false)
-export const getAdminMenuItems = async (req: AuthenticatedRequest, res: Response) => {
+export const getAdminMenuItems = async (_req: AuthenticatedRequest, res: Response) => {
   try {
     const items = await prisma.menuItem.findMany({
       include: {

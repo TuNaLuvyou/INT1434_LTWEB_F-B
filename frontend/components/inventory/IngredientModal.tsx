@@ -12,7 +12,8 @@ const schema = z.object({
   stock:    z.coerce.number().min(0, 'Tồn kho khởi tạo không được âm'),
   minStock: z.coerce.number().min(0, 'Ngưỡng cảnh báo không được âm'),
 });
-type FormData = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormData = z.output<typeof schema>;
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -25,7 +26,7 @@ interface Props {
 export default function IngredientModal({ ingredient, onClose, onSaved }: Props) {
   const isEdit = !!ingredient;
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<any>({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormInput, undefined, FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name:     ingredient?.name || '',
@@ -35,7 +36,7 @@ export default function IngredientModal({ ingredient, onClose, onSaved }: Props)
     },
   });
 
-  const onSubmit = async (values: any) => {
+  const onSubmit = async (values: FormData) => {
     const url = isEdit ? `${API}/api/ingredients/${ingredient.id}` : `${API}/api/ingredients`;
     const method = isEdit ? 'PATCH' : 'POST';
 

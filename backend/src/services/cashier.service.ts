@@ -1,7 +1,7 @@
 import prisma from '../config/prisma';
 import { OrderItemStatus, TableStatus } from '@prisma/client';
 import { AppError } from '../utils/app-error';
-import { emitKitchenNewTicket, emitCartUpdated, emitTableStatusChanged } from '../socket/emit.helpers';
+import { emitKitchenNewTicket, emitCartUpdated, emitTableSessionUpdated, emitTableStatusChanged } from '../socket/emit.helpers';
 
 export interface CashierSessionOverview {
   sessionId: string;
@@ -158,6 +158,12 @@ export async function getCashierSessionItems(sessionId: string): Promise<Cashier
       if (lockedAtTime !== null && itemTime <= lockedAtTime) {
         displayStatus = 'PREPARING';
       }
+    } else if (item.status === 'DELIVERED') {
+      displayStatus = 'DONE';
+    }
+
+    if (!groups[displayStatus]) {
+      groups[displayStatus] = [];
     }
 
     groups[displayStatus].push({
@@ -229,7 +235,7 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
   const now = new Date();
 
   // 2. Chạy transaction để update DB
-  const result = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     // Lock session
     const updatedSession = await tx.tableSession.update({
       where: { id: sessionId },
@@ -266,12 +272,15 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
     sessionId,
     tableId: session.tableId,
     tableNumber: session.table.tableNumber,
+    tableLabel: session.table.label,
     items: pendingItems.map(item => ({
       orderItemId: item.id,
+      menuItemId: item.menuItemId,
       menuItemName: item.menuItem.name,
       qty: item.qty,
       note: item.note || undefined,
       status: 'PENDING', // Gửi PENDING để bếp thấy trong cột "HÀNG CHỜ"
+      createdAt: item.createdAt.toISOString(),
     })),
     createdAt: now.toISOString(),
   });
@@ -288,10 +297,18 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
       qty: item.qty,
       unitPrice: Number(item.unitPrice),
       status: item.status === 'PENDING' ? 'PREPARING' : item.status,
+      note: item.note,
+      imageUrl: item.menuItem.imageUrl,
+      createdAt: item.createdAt.toISOString(),
     })),
     total,
     isLocked: true,
     message: '✅ Order của bạn đang được bếp chuẩn bị',
+  });
+  emitTableSessionUpdated({
+    tableId: session.tableId,
+    sessionId,
+    total,
   });
 
   return {

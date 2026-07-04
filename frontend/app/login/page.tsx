@@ -20,9 +20,7 @@ export default async function LoginPage({
     try {
       const secretKey = process.env.JWT_ACCESS_SECRET || 'fallback';
       const secret = new TextEncoder().encode(secretKey);
-      const { payload } = await jwtVerify(token, secret);
-      
-      const role = payload.role as string;
+      await jwtVerify(token, secret);
       const redirectUrl = resolvedParams.redirect;
       
       if (redirectUrl) {
@@ -77,4 +75,3 @@ export default async function LoginPage({
     </div>
   );
 }
-

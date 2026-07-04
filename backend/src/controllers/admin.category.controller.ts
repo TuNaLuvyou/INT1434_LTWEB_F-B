@@ -18,7 +18,7 @@ const generateSlug = (text: string) => {
 };
 
 // 1. GET /api/admin/categories - Lấy danh sách danh mục
-export const getCategories = async (req: AuthenticatedRequest, res: Response) => {
+export const getCategories = async (_req: AuthenticatedRequest, res: Response) => {
   try {
     const categories = await prisma.category.findMany({
       orderBy: {

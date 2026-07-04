@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
 import { 
@@ -13,7 +13,6 @@ import {
   AlertTriangle, 
   TrendingDown, 
   Loader2, 
-  ChevronRight,
   Filter,
   Utensils,
   X,
