@@ -241,6 +241,14 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
         updatedAt: item.updatedAt.toISOString()
       });
 
+      // Notify customer-facing table room so their progress tracker updates
+      emitOrderStatusChanged(item.session.tableId, {
+        orderItemId: item.id,
+        sessionId: item.sessionId,
+        status: newStatus,
+        menuItemName: item.menuItem.name,
+        updatedAt: item.updatedAt.toISOString()
+      });
     }
 
     if (newStatus === 'DONE') {

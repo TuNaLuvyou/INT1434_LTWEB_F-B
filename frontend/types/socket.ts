@@ -7,6 +7,7 @@ export interface CashierNewOrderPayload {
   tableId: string;
   tableNumber?: number;
   newItems: Array<{
+    id?: string;
     menuItemId: string;
     menuItemName: string;
     qty: number;

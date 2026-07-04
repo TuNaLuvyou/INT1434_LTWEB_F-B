@@ -52,7 +52,7 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
         include: {
           orderItems: {
             where: { status: { not: 'CART' } },
-            select: { status: true, createdAt: true },
+            select: { status: true, createdAt: true, qty: true },
           },
         },
       },
@@ -81,16 +81,14 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
     for (const item of activeSession.orderItems) {
       if (item.status === 'PENDING') {
         const itemTime = new Date(item.createdAt).getTime();
-        // Nếu món PENDING được tạo trước/bằng lúc khóa bàn -> Bếp đang làm (PREPARING)
-        // Nếu món PENDING được tạo sau lúc khóa bàn -> Đây là đợt đặt thêm mới, chờ duyệt (PENDING)
         if (lockedAtTime !== null && itemTime <= lockedAtTime) {
-          preparingCount += 1;
+          preparingCount += item.qty;
         } else {
-          pendingCount += 1;
+          pendingCount += item.qty;
         }
       }
-      if (item.status === 'PREPARING') preparingCount += 1;
-      if (item.status === 'DONE') doneCount += 1;
+      if (item.status === 'PREPARING') preparingCount += item.qty;
+      if (item.status === 'DONE') doneCount += item.qty;
     }
 
     const isLockedSession = Boolean((activeSession as { lockedAt?: Date | null }).lockedAt);
@@ -315,6 +313,6 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
     sessionId,
     lockedAt: now,
     tableStatus: 'OCCUPIED',
-    approvedItemsCount: pendingItems.length,
+    approvedItemsCount: pendingItems.reduce((sum, item) => sum + item.qty, 0),
   };
 }

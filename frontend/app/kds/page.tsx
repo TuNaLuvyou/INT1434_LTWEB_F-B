@@ -315,43 +315,9 @@ export default function KDSPage() {
     });
   };
 
-  const applyKitchenItemUpdate = (payload: KitchenItemRealtimePayload) => {
-    let sessionToArchive: any = null;
-
-    setRawSessions((prev) => {
-      const next = prev
-        .map((session) => {
-          if (session.id !== payload.sessionId) return session;
-
-          const nextOrderItems = session.orderItems.map((item: any) =>
-            item.id === payload.orderItemId
-              ? {
-                  ...item,
-                  status: payload.status,
-                  updatedAt: payload.updatedAt,
-                }
-              : item
-          );
-
-          const updatedSession = { ...session, orderItems: nextOrderItems };
-          const allVoided =
-            nextOrderItems.length > 0 &&
-            nextOrderItems.every((item: any) => item.status === "VOID");
-
-          if (allVoided) {
-            sessionToArchive = updatedSession;
-          }
-
-          return updatedSession;
-        })
-        .filter((session) => session.id !== sessionToArchive?.id);
-
-      return next;
-    });
-
-    if (sessionToArchive) {
-      archiveSession(sessionToArchive);
-    }
+  const applyKitchenItemUpdate = (_payload: KitchenItemRealtimePayload) => {
+    // Refetch full data to avoid ID-mismatch bugs from backend item merging
+    fetchKdsOrders();
   };
 
   // Listen to menu soldout
@@ -663,7 +629,7 @@ export default function KDSPage() {
       
       const result = await response.json();
       if (response.ok && result.success) {
-        // Socket event sẽ tự đồng bộ local state cho tất cả màn KDS
+        fetchKdsOrders();
       } else {
         alert(result.message || "Không thể cập nhật trạng thái");
       }
@@ -686,7 +652,7 @@ export default function KDSPage() {
       });
       const result = await response.json();
       if (response.ok && result.success) {
-        // Socket event VOID sẽ tự cập nhật state local
+        fetchKdsOrders();
       } else {
         alert(result.message || "Không thể hủy món");
       }
@@ -739,12 +705,7 @@ export default function KDSPage() {
   };
 
   const completeOrder = async (sessionId: string) => {
-    const session = rawSessions.find(s => s.id === sessionId);
-    if (session) {
-      archiveSession(session);
-    }
-
-    // Gửi request lên backend để cập nhật DB cho mọi máy KDS khác
+    // 1. Gọi API deliver trước để cập nhật DB
     try {
       const accessToken = getAccessTokenFromCookie();
       const response = await fetch(`${API_URL}/api/kds/orders/${sessionId}/deliver`, {
@@ -755,11 +716,27 @@ export default function KDSPage() {
       });
       const result = await response.json();
       if (!response.ok || !result.success) {
-        console.error("[KDS] Lỗi khi lưu trữ trên DB:", result.message);
+        console.error("[KDS] Lỗi khi giao món trên DB:", result.message);
+        toast.error("Không thể lưu trữ đơn, vui lòng thử lại!");
+        return;
       }
     } catch (err) {
       console.error("[KDS] Lỗi kết nối khi lưu trữ:", err);
+      toast.error("Lỗi kết nối, vui lòng thử lại!");
+      return;
     }
+
+    // 2. Sau khi DB thành công, archive vào localStorage
+    const session = rawSessions.find(s => s.id === sessionId);
+    if (session) {
+      archiveSession(session);
+    }
+
+    // 3. Xoá session khỏi UI list
+    setOrders(prev => prev.filter(o => o.id !== sessionId));
+    setRawSessions(prev => prev.filter(s => s.id !== sessionId));
+
+    toast.success("Đã lưu trữ và giao món thành công!");
   };
 
   const formatTimer = (seconds: number) => {
@@ -825,7 +802,10 @@ export default function KDSPage() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-500" />
             <span className="text-[10px] sm:text-xs text-zinc-400">Chờ/nấu:</span>
-            <span className="font-bold font-mono text-xs sm:text-sm">{orders.filter(o => o.items.some(item => item.status === 'PENDING' || item.status === 'PREPARING')).length}</span>
+            <span className="font-bold font-mono text-xs sm:text-sm">
+              {orders.filter(o => o.items.some(item => item.status === 'PENDING' || item.status === 'PREPARING'))
+                .reduce((sum, o) => sum + o.items.filter(i => i.status === 'PENDING' || i.status === 'PREPARING').reduce((s, i) => s + i.quantity, 0), 0)}
+            </span>
           </div>
 
         </div>
@@ -843,7 +823,8 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Hàng Chờ (Pending)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-amber-400 font-bold border border-zinc-800">
-              {orders.filter(o => o.items.some(item => item.status === 'PENDING')).length}
+              {orders.filter(o => o.items.some(item => item.status === 'PENDING'))
+                .reduce((sum, o) => sum + o.items.filter(i => i.status === 'PENDING').reduce((s, i) => s + i.quantity, 0), 0)} món
             </span>
           </div>
 
@@ -929,7 +910,8 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Đang nấu (Preparing)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-orange-400 font-bold border border-zinc-800">
-              {orders.filter(o => o.items.some(item => item.status === 'PREPARING')).length}
+              {orders.filter(o => o.items.some(item => item.status === 'PREPARING'))
+                .reduce((sum, o) => sum + o.items.filter(i => i.status === 'PREPARING').reduce((s, i) => s + i.quantity, 0), 0)} món
             </span>
           </div>
 
@@ -1010,7 +992,8 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Sẵn Sàng (Ready)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-emerald-400 font-bold border border-zinc-800">
-              {orders.filter(o => o.items.some(item => item.status === 'DONE')).length}
+              {orders.filter(o => o.items.some(item => item.status === 'DONE'))
+                .reduce((sum, o) => sum + o.items.filter(i => i.status === 'DONE').reduce((s, i) => s + i.quantity, 0), 0)} món
             </span>
           </div>
 

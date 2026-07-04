@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { 
   ArrowLeft, 
@@ -14,10 +14,21 @@ import {
   CheckCircle,
   X,
   Loader2,
-  Table as TableIcon
+  LayoutGrid,
+  ChefHat,
 } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
+import CashierClient from "./CashierClient";
+
+function decodeTokenPayload(token: string): { userId?: string; role?: string } | null {
+  try {
+    const payload = token.split(".")[1];
+    return JSON.parse(atob(payload));
+  } catch {
+    return null;
+  }
+}
 
 interface MenuItem {
   id: string;
@@ -28,6 +39,7 @@ interface MenuItem {
   emoji: string;
   description: string;
   imageUrl?: string | null;
+  isSoldOut?: boolean;
 }
 
 interface CartItem {
@@ -73,6 +85,61 @@ export default function POSPage() {
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "TRANSFER" | null>(null);
   const [availableVouchers, setAvailableVouchers] = useState<any[]>([]);
   const [showVoucherDropdown, setShowVoucherDropdown] = useState(false);
+
+  // Tab navigation
+  const [activeTab, setActiveTab] = useState<'tables' | 'menu' | 'cashier'>('tables');
+
+  const [pendingOrderCount, setPendingOrderCount] = useState(0);
+
+  function playPOSBeep() {
+    try {
+      const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextCtor) return;
+      
+      // Use singleton to avoid browser limits
+      if (!(window as any).__posAudioCtx) {
+        (window as any).__posAudioCtx = new AudioContextCtor();
+      }
+      const ctx = (window as any).__posAudioCtx;
+      
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
+      const playChime = (freq: number, startTime: number) => {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(freq, startTime);
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(1.0, startTime + 0.02);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.start(startTime);
+        oscillator.stop(startTime + 0.7);
+      };
+      
+      const now = ctx.currentTime;
+      playChime(880, now);
+      playChime(1108.73, now);
+      playChime(880, now + 0.15);
+      playChime(1108.73, now + 0.15);
+    } catch (e) {
+      console.error('Audio api error', e);
+    }
+  }
+
+  const [cashierUser, setCashierUser] = useState<{ userId: string; role: 'ADMIN' | 'MANAGER' | 'CASHIER' } | null>(null);
+
+  useEffect(() => {
+    const token = getAccessTokenFromCookie();
+    if (!token) return;
+    const decoded = decodeTokenPayload(token);
+    if (decoded?.userId && decoded?.role) {
+      setCashierUser({ userId: decoded.userId, role: decoded.role as any });
+    }
+  }, []);
 
   // Live POS States
   const [menuItems, setMenuItems] = useState<any[]>([]);
@@ -131,7 +198,47 @@ export default function POSPage() {
     }
   };
 
-  // Sync session select
+  const [selectingTableId, setSelectingTableId] = useState<string | null>(null);
+
+  // Select table from grid — auto navigate to menu tab
+  const handleSelectTable = async (tableId: string) => {
+    const table = tables.find((t) => t.id === tableId);
+    if (!table) return;
+    if (table.status === 'OCCUPIED') {
+      alert('Bàn đang có khách, không thể chọn để gọi món mới.');
+      return;
+    }
+    if (tableId !== selectedTableId) {
+      setSelectingTableId(tableId);
+      try {
+        const response = await fetch(`${API_URL}/api/sessions/join`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ tableId, source: 'POS' }),
+        });
+        const result = await response.json();
+        if (response.ok && result.success) {
+          setSelectedTableId(tableId);
+          setSessionId(result.data.session.id);
+          syncCartWithSession(result.data.session);
+        } else {
+          alert(result.message || "Không thể khởi tạo phiên cho bàn");
+          setSelectingTableId(null);
+          return;
+        }
+      } catch (err) {
+        console.error("[POS] Lỗi tham gia phiên bàn:", err);
+        setSelectingTableId(null);
+        return;
+      }
+    }
+    setSelectingTableId(null);
+    setActiveTab('menu');
+  };
+
+  // Sync session select (kept for compatibility)
   const handleTableChange = async (tableId: string) => {
     const selectedTable = tables.find((table) => table.id === tableId);
     if (selectedTable?.status === 'OCCUPIED') {
@@ -143,6 +250,7 @@ export default function POSPage() {
     if (!tableId) {
       setSessionId("");
       setCart([]);
+      setActiveTab('tables');
       return;
     }
     setActionLoading(true);
@@ -166,6 +274,7 @@ export default function POSPage() {
     } finally {
       setActionLoading(false);
     }
+    setActiveTab('menu');
   };
 
   // Map session items to the client cart state
@@ -215,6 +324,28 @@ export default function POSPage() {
     room: 'menu-updates',
   });
 
+  const { socket: orderSocket, isConnected: isOrderConnected } = useSocket({
+    room: 'cashier',
+    token,
+  });
+
+  // Listen to cashier new-order events for a single POS beep
+  useEffect(() => {
+    if (!orderSocket || !isOrderConnected) return;
+
+    const handleNewOrder = () => {
+      playPOSBeep();
+    };
+
+    orderSocket.on('cashier:new-order', handleNewOrder);
+
+    return () => {
+      orderSocket.off('cashier:new-order', handleNewOrder);
+    };
+  }, [orderSocket, isOrderConnected]);
+
+
+
   // Listen to menu sold-out events
   useEffect(() => {
     if (!menuSocket || !isMenuConnected) return;
@@ -254,6 +385,7 @@ export default function POSPage() {
         setSelectedTableId("");
         setSessionId("");
         setCart([]);
+        setActiveTab('tables');
         if (payload.status === 'OCCUPIED') {
           alert('Bàn vừa có khách, vui lòng chọn bàn khác để gọi món.');
         }
@@ -276,18 +408,47 @@ export default function POSPage() {
     return matchesCategory && matchesSearch && item.isActive;
   });
 
+  // Map a MenuItem to a cart-compatible item shape
+  const toCartItem = (item: any, qty: number): CartItem => {
+    const categorySlug = item.category?.slug || "mon-chinh";
+    return {
+      item: {
+        id: item.id,
+        name: item.name,
+        price: Number(item.price),
+        category: item.categoryId,
+        bgColor: categoryGradients[categorySlug] || "from-amber-500 to-orange-600",
+        emoji: categoryEmojis[categorySlug] || "🍲",
+        description: item.description || "",
+        isSoldOut: item.isSoldOut,
+        imageUrl: item.imageUrl,
+      },
+      quantity: qty,
+    };
+  };
+
   const addToCart = async (item: any) => {
     if (item.isSoldOut) {
       alert("Món ăn này đã hết hàng!");
       return;
     }
-    if (!selectedTableId || !sessionId) {
-      alert("Vui lòng chọn bàn trước khi gọi món!");
-      return;
-    }
 
     const existing = cart.find(i => i.item.id === item.id);
     const newQty = existing ? existing.quantity + 1 : 1;
+
+    if (!sessionId) {
+      // Local mode (no table yet)
+      setCart(prev => {
+        const idx = prev.findIndex(i => i.item.id === item.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
+          return next;
+        }
+        return [...prev, toCartItem(item, 1)];
+      });
+      return;
+    }
 
     try {
       const response = await fetch(`${API_URL}/api/sessions/${sessionId}/cart`, {
@@ -313,13 +474,17 @@ export default function POSPage() {
   };
 
   const updateQuantity = async (itemId: string, delta: number) => {
-    if (!sessionId) return;
     const existing = cart.find(i => i.item.id === itemId);
     if (!existing) return;
     const newQty = existing.quantity + delta;
 
     if (newQty <= 0) {
       removeFromCart(itemId);
+      return;
+    }
+
+    if (!sessionId) {
+      setCart(prev => prev.map(i => i.item.id === itemId ? { ...i, quantity: newQty } : i));
       return;
     }
 
@@ -345,7 +510,10 @@ export default function POSPage() {
   };
 
   const removeFromCart = async (itemId: string) => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      setCart(prev => prev.filter(i => i.item.id !== itemId));
+      return;
+    }
     try {
       const response = await fetch(`${API_URL}/api/sessions/${sessionId}/cart/${itemId}?clientTimestamp=${Date.now()}`, {
         method: "DELETE",
@@ -387,7 +555,11 @@ export default function POSPage() {
   };
 
   const handleCheckout = () => {
-    if (cart.length === 0 || !sessionId) return;
+    if (cart.length === 0) return;
+    if (!sessionId) {
+      alert('Vui lòng chọn bàn từ tab "Bàn" trước khi thanh toán.');
+      return;
+    }
     setVoucherCode("");
     setVoucherData(null);
     setVoucherError(null);
@@ -479,7 +651,7 @@ export default function POSPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col font-sans relative">
+    <div className="min-h-screen lg:h-screen bg-zinc-950 flex flex-col font-sans relative lg:overflow-hidden">
       {/* Background Glow */}
       <div className="absolute top-[20%] left-[-5%] w-[40%] h-[40%] rounded-full bg-blue-900/10 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[20%] right-[-5%] w-[40%] h-[40%] rounded-full bg-indigo-900/10 blur-[100px] pointer-events-none" />
@@ -502,310 +674,420 @@ export default function POSPage() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-4">
-            {/* Table Selector Dropdown */}
-            <div className="flex items-center gap-1 sm:gap-2">
-              <TableIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400 shrink-0" />
-              {actionLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
-              ) : (
-                <select
-                  value={selectedTableId}
-                  onChange={(e) => handleTableChange(e.target.value)}
-                  className="bg-zinc-900 border border-zinc-800 text-[10px] sm:text-xs font-bold text-zinc-200 rounded-xl px-2 sm:px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer max-w-[110px] sm:max-w-none"
-                >
-                  <option value="">-- Chọn Bàn --</option>
-                  {tables.map(table => (
-                    <option key={table.id} value={table.id} disabled={table.status === 'OCCUPIED'}>
-                      {table.label} ({table.status === 'OCCUPIED' ? 'Đang HĐ' : 'Trống'})
-                    </option>
-                  ))}
-                </select>
+
+          {/* Tab Navigation */}
+          <div className="flex items-center gap-1 sm:gap-2 bg-zinc-900/60 border border-zinc-800 rounded-xl p-0.5">
+            <button
+              onClick={() => setActiveTab('tables')}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'tables'
+                  ? 'bg-zinc-800 text-white shadow'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>Bàn</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('menu')}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'menu'
+                  ? 'bg-zinc-800 text-white shadow'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <ChefHat className="h-3.5 w-3.5" />
+              <span>Gọi món</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('cashier')}
+              className={`relative flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeTab === 'cashier'
+                  ? 'bg-zinc-800 text-white shadow'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <CreditCard className="h-3.5 w-3.5" />
+              <span>Thu ngân</span>
+              {pendingOrderCount > 0 && (
+                <span className="absolute -top-1 -right-1 sm:static sm:ml-1 h-4 min-w-[16px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center leading-none shadow-lg shadow-rose-500/30 animate-in zoom-in duration-150">
+                  {pendingOrderCount > 99 ? '99+' : pendingOrderCount}
+                </span>
               )}
-            </div>
-            <Link href="/cashier" className="inline-flex items-center gap-1 sm:gap-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-xs font-semibold px-2 sm:px-3 py-1.5 rounded-lg">
-              <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">Thu ngân</span>
-            </Link>
+            </button>
           </div>
         </div>
+
+        {/* Selected table indicator when in menu tab */}
+        {activeTab === 'menu' && selectedTableId && (
+          <div className="border-t border-zinc-900/60 bg-zinc-950/40 px-3 sm:px-6 py-1.5">
+            <div className="max-w-7xl mx-auto flex items-center gap-2 text-[10px] sm:text-xs text-zinc-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Đang phục vụ bàn: <span className="font-bold text-zinc-200">{tables.find(t => t.id === selectedTableId)?.label || selectedTableId}</span>
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-x-hidden max-w-7xl w-full mx-auto p-3 sm:p-4 gap-4 sm:gap-6">
-        
-        {/* Left Section: Menu Catalog */}
-        <div className="flex-1 flex flex-col gap-6">
-          {/* Search and Categories Bar */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center justify-between w-full">
-            <div className="relative w-full sm:max-w-xs shrink-0">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
-              <input 
-                type="text" 
-                placeholder="Tìm món ăn hoặc thức uống..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-900/60 border border-zinc-800 rounded-xl py-2 pl-9 pr-4 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all"
-              />
-            </div>
-
-            {/* Category Selectors */}
-            <div className="flex gap-2 overflow-x-auto w-full flex-1 min-w-0 pb-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
-              <button
-                onClick={() => setSelectedCategory("all")}
-                className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 cursor-pointer ${
-                  selectedCategory === "all"
-                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" 
-                    : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800"
-                }`}
-              >
-                Tất cả
-              </button>
-              {categories.map(cat => {
-                const isActive = selectedCategory === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 cursor-pointer ${
-                      isActive 
-                        ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" 
-                        : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800"
-                    }`}
-                  >
-                    {cat.name}
-                  </button>
-                );
-              })}
-            </div>
+      {/* ========== TAB: BÀN (Table Grid) ========== */}
+      <div className={`flex-1 min-h-0 max-w-7xl w-full mx-auto p-3 sm:p-6 overflow-y-auto ${activeTab === 'tables' ? 'block' : 'hidden'}`}>
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-white tracking-tight">Chọn bàn phục vụ</h2>
           </div>
 
-          {/* Menu Items Grid */}
-          <div className="flex-1 lg:overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5 auto-rows-max pb-10 lg:max-h-[calc(100vh-200px)]">
-            {loading ? (
-              <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 text-zinc-500 font-light">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                <span>Đang tải thực đơn...</span>
-              </div>
-            ) : filteredItems.map(item => {
-              const categorySlug = item.category?.slug || "mon-chinh";
-              const bgColor = categoryGradients[categorySlug] || "from-amber-500 to-orange-600";
-              const emoji = categoryEmojis[categorySlug] || "🍲";
-              const priceNum = Number(item.price);
-              
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+            {tables.map(table => {
+              const isOccupied = table.status === 'OCCUPIED';
+              const isReserved = table.status === 'RESERVED';
+              const isAvailable = table.status === 'AVAILABLE' || table.status === 'EMPTY' || !isOccupied && !isReserved;
+
               return (
-                <div 
-                  key={item.id} 
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => addToCart(item)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      addToCart(item);
-                    }
-                  }}
-                  className={`group relative flex flex-col justify-between h-full bg-zinc-900/40 border rounded-2xl transition-all duration-300 hover:translate-y-[-2px] overflow-hidden cursor-pointer ${
-                    item.isSoldOut ? "border-red-950/60 opacity-60 hover:translate-y-0" : "border-zinc-900 hover:border-zinc-800"
+                <button
+                  key={table.id}
+                  onClick={() => handleSelectTable(table.id)}
+                  disabled={isOccupied || selectingTableId === table.id}
+                  className={`relative group flex flex-col items-center justify-center p-4 sm:p-6 rounded-2xl border transition-all duration-300 cursor-pointer ${
+                    isOccupied
+                      ? 'bg-rose-500/5 border-rose-500/20 text-rose-400 cursor-not-allowed opacity-70'
+                      : selectingTableId === table.id
+                        ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                        : isReserved
+                          ? 'bg-amber-500/5 border-amber-500/20 text-amber-400'
+                          : 'bg-zinc-900/30 border-zinc-800 text-zinc-300 hover:border-emerald-500/40 hover:bg-emerald-500/5 hover:text-emerald-300 hover:shadow-lg hover:shadow-emerald-500/5 active:scale-[0.97]'
                   }`}
                 >
-                  {/* Sold Out Overlay */}
-                  {item.isSoldOut && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center z-10">
-                      <span className="bg-red-500/90 border border-red-400/20 text-white text-[10px] font-black tracking-widest uppercase px-3 py-1.5 rounded-xl shadow-lg">
-                        Hết Món
+                  {/* Table number */}
+                  <span className="text-2xl sm:text-3xl font-black tracking-tight">
+                    {table.tableNumber || table.label?.replace('Bàn ', '') || '?'}
+                  </span>
+                  <span className="text-[10px] font-medium mt-1 opacity-80">
+                    {table.label || `Bàn ${table.tableNumber || ''}`}
+                  </span>
+
+                  {/* Status badge */}
+                  <span className={`mt-2 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                    isOccupied
+                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                      : selectingTableId === table.id
+                        ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                        : isReserved
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  }`}>
+                    {selectingTableId === table.id ? (
+                      <span className="flex items-center gap-1">
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        Đang chọn...
                       </span>
-                    </div>
-                  )}
-
-                  {/* Top Image Banner */}
-                  <div className="relative w-full h-32 bg-zinc-950 overflow-hidden shrink-0 border-b border-zinc-900/40">
-                    {item.imageUrl ? (
-                      <img 
-                        src={item.imageUrl} 
-                        alt={item.name} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                      />
-                    ) : (
-                      <div className={`w-full h-full bg-gradient-to-tr ${bgColor} flex items-center justify-center text-4xl`}>
-                        {emoji}
-                      </div>
-                    )}
-                    {/* Category badge absolute on image */}
-                    <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-950/80 backdrop-blur-md text-zinc-300 border border-zinc-800">
-                      {item.category?.name || "Món ăn"}
-                    </span>
-                  </div>
-
-                  {/* Card Content */}
-                  <div className="p-4 flex-1 flex flex-col justify-between gap-3">
-                    <div>
-                      <h3 className="font-bold text-white group-hover:text-blue-400 transition-colors text-sm mb-1 line-clamp-1">
-                        {item.name}
-                      </h3>
-                      <p className="text-[11px] text-zinc-400 font-light leading-relaxed line-clamp-2">
-                        {item.description || "Chưa có mô tả cho món ăn này."}
-                      </p>
-                    </div>
-
-                    <div className="flex justify-between items-center pt-2 border-t border-zinc-900/60 mt-auto">
-                      <span className="font-mono font-bold text-sm text-zinc-100">
-                        {formatCurrency(priceNum)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                    ) : isOccupied ? 'Có khách' : isReserved ? 'Đã đặt' : 'Trống'}
+                  </span>
+                </button>
               );
             })}
-            {!loading && filteredItems.length === 0 && (
-              <div className="col-span-full py-16 text-center text-zinc-500 font-light">
-                Không tìm thấy món ăn nào khớp với từ khóa tìm kiếm hoặc không hoạt động.
-              </div>
-            )}
           </div>
-        </div>
 
-        {/* Right Section: Cart Panel — LUÔN HIỂN THỊ */}
-        <aside
-          aria-label="Đơn hàng hiện tại"
-          className="w-full lg:w-96 shrink-0 flex flex-col bg-zinc-900/50 border border-zinc-800/60 rounded-3xl overflow-hidden"
-          style={{ maxHeight: 'calc(100vh - 80px)', position: 'sticky', top: '60px' }}
-        >
-          {/* Header */}
-          <div className="flex items-center gap-2.5 px-5 py-4 border-b border-zinc-800/60 bg-zinc-900/60 shrink-0">
-            <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
-              <ShoppingBag className="h-4 w-4 text-blue-400" />
+          {tables.length === 0 && !loading && (
+            <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
+              <p className="text-sm font-light">Không có bàn nào. Vui lòng tải lại trang.</p>
             </div>
-            <h2 className="font-bold text-white text-sm flex-1">Đơn hàng hiện tại</h2>
-            <span className={`font-mono text-xs px-2.5 py-1 rounded-full font-bold border ${
-              cart.length > 0
-                ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                : 'bg-zinc-950 text-zinc-500 border-zinc-800'
-            }`}>
-              {cart.reduce((sum, item) => sum + item.quantity, 0)} món
-            </span>
-          </div>
-
-          {/* Cart Items — scrollable */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 min-h-0">
-            {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center text-zinc-600 py-14 gap-3">
-                <ShoppingBag className="h-10 w-10 stroke-[1]" />
-                <p className="text-xs font-light max-w-[160px] leading-relaxed">
-                  Chưa có món nào. Chọn món từ thực đơn bên trái.
-                </p>
+          )}
+          {loading && (
+            <div className="flex justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+            </div>
+          )}
+        </div>
+      {/* ========== TAB: GỌI MÓN (Menu + Cart) ========== */}
+      <div className={`flex-1 min-h-0 flex flex-col lg:flex-row overflow-x-hidden max-w-7xl w-full mx-auto p-3 sm:p-4 gap-4 sm:gap-6 ${activeTab === 'menu' ? 'flex' : 'hidden'}`}>
+          
+          {/* Left Section: Menu Catalog */}
+          <div className="flex-1 flex flex-col gap-6">
+            {/* Search and Categories Bar */}
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between w-full">
+              <div className="relative w-full sm:max-w-xs shrink-0">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+                <input 
+                  type="text" 
+                  placeholder="Tìm món ăn hoặc thức uống..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-zinc-900/60 border border-zinc-800 rounded-xl py-2 pl-9 pr-4 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-all"
+                />
               </div>
-            ) : (
-              cart.map(cartItem => (
-                <div
-                  key={cartItem.item.id}
-                  className="flex gap-3 bg-zinc-950/50 p-3 rounded-2xl border border-zinc-800/50 group hover:border-zinc-700/60 transition-colors"
+
+              {/* Category Selectors */}
+              <div className="flex gap-2 overflow-x-auto w-full flex-1 min-w-0 pb-2 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+                <button
+                  onClick={() => setSelectedCategory("all")}
+                  className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+                    selectedCategory === "all"
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" 
+                      : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  }`}
                 >
-                  {cartItem.item.imageUrl ? (
-                    <img 
-                      src={cartItem.item.imageUrl} 
-                      alt={cartItem.item.name} 
-                      className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-sm border border-zinc-800/80" 
-                    />
-                  ) : (
-                    <div className={`h-10 w-10 shrink-0 rounded-xl bg-gradient-to-tr ${cartItem.item.bgColor} flex items-center justify-center text-lg shadow-sm`}>
-                      {cartItem.item.emoji}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start gap-1">
-                      <span className="font-semibold text-xs text-zinc-100 truncate block">{cartItem.item.name}</span>
-                      <button
-                        onClick={() => removeFromCart(cartItem.item.id)}
-                        aria-label={`Xóa ${cartItem.item.name}`}
-                        className="text-zinc-700 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="font-mono text-[11px] text-blue-400 font-bold">
-                        {formatCurrency(cartItem.item.price * cartItem.quantity)}
+                  Tất cả
+                </button>
+                {categories.map(cat => {
+                  const isActive = selectedCategory === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+                        isActive 
+                          ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" 
+                          : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Menu Items Grid */}
+            <div className="flex-1 lg:overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5 auto-rows-max pb-10 lg:max-h-[calc(100vh-200px)]">
+              {loading ? (
+                <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 text-zinc-500 font-light">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                  <span>Đang tải thực đơn...</span>
+                </div>
+              ) : filteredItems.map(item => {
+                const categorySlug = item.category?.slug || "mon-chinh";
+                const bgColor = categoryGradients[categorySlug] || "from-amber-500 to-orange-600";
+                const emoji = categoryEmojis[categorySlug] || "🍲";
+                const priceNum = Number(item.price);
+                
+                return (
+                  <div 
+                    key={item.id} 
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => addToCart(item)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        addToCart(item);
+                      }
+                    }}
+                    className={`group relative flex flex-col justify-between h-full bg-zinc-900/40 border rounded-2xl transition-all duration-300 hover:translate-y-[-2px] overflow-hidden cursor-pointer ${
+                      item.isSoldOut ? "border-red-950/60 opacity-60 hover:translate-y-0" : "border-zinc-900 hover:border-zinc-800"
+                    }`}
+                  >
+                    {/* Sold Out Overlay */}
+                    {item.isSoldOut && (
+                      <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] flex items-center justify-center z-10">
+                        <span className="bg-red-500/90 border border-red-400/20 text-white text-[10px] font-black tracking-widest uppercase px-3 py-1.5 rounded-xl shadow-lg">
+                          Hết Món
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Top Image Banner */}
+                    <div className="relative w-full h-32 bg-zinc-950 overflow-hidden shrink-0 border-b border-zinc-900/40">
+                      {item.imageUrl ? (
+                        <img 
+                          src={item.imageUrl} 
+                          alt={item.name} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                        />
+                      ) : (
+                        <div className={`w-full h-full bg-gradient-to-tr ${bgColor} flex items-center justify-center text-4xl`}>
+                          {emoji}
+                        </div>
+                      )}
+                      {/* Category badge absolute on image */}
+                      <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-950/80 backdrop-blur-md text-zinc-300 border border-zinc-800">
+                        {item.category?.name || "Món ăn"}
                       </span>
-                      <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5">
-                        <button
-                          onClick={() => updateQuantity(cartItem.item.id, -1)}
-                          aria-label="Giảm số lượng"
-                          className="h-5 w-5 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition-colors"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="font-mono text-xs text-white min-w-[18px] text-center tabular-nums">{cartItem.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(cartItem.item.id, 1)}
-                          aria-label="Tăng số lượng"
-                          className="h-5 w-5 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition-colors"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
+                    </div>
+
+                    {/* Card Content */}
+                    <div className="p-4 flex-1 flex flex-col justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-white group-hover:text-blue-400 transition-colors text-sm mb-1 line-clamp-1">
+                          {item.name}
+                        </h3>
+                        <p className="text-[11px] text-zinc-400 font-light leading-relaxed line-clamp-2">
+                          {item.description || "Chưa có mô tả cho món ăn này."}
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between items-center pt-2 border-t border-zinc-900/60 mt-auto">
+                        <span className="font-mono font-bold text-sm text-zinc-100">
+                          {formatCurrency(priceNum)}
+                        </span>
                       </div>
                     </div>
                   </div>
+                );
+              })}
+              {!loading && filteredItems.length === 0 && (
+                <div className="col-span-full py-16 text-center text-zinc-500 font-light">
+                  Không tìm thấy món ăn nào khớp với từ khóa tìm kiếm hoặc không hoạt động.
                 </div>
-              ))
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Footer: total + CTA */}
-          <div className="shrink-0 border-t border-zinc-800/60 px-5 py-4 space-y-3 bg-zinc-900/40">
-            {/* Summary rows */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs text-zinc-500">
-                <span>Tạm tính</span>
-                <span className="font-mono text-zinc-300 tabular-nums">{formatCurrency(getSubtotal())}</span>
+          {/* Right Section: Cart Panel — LUÔN HIỂN THỊ */}
+          <aside
+            aria-label="Đơn hàng hiện tại"
+            className="w-full lg:w-96 shrink-0 flex flex-col bg-zinc-900/50 border border-zinc-800/60 rounded-3xl overflow-hidden"
+            style={{ maxHeight: 'calc(100vh - 80px)', position: 'sticky', top: '60px' }}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-2.5 px-5 py-4 border-b border-zinc-800/60 bg-zinc-900/60 shrink-0">
+              <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <ShoppingBag className="h-4 w-4 text-blue-400" />
               </div>
-              <div className="flex justify-between text-xs text-zinc-500">
-                <span>Thuế VAT (10%)</span>
-                <span className="font-mono text-zinc-300 tabular-nums">{formatCurrency(getTax())}</span>
-              </div>
-            </div>
-
-            {/* Total */}
-            <div className="flex justify-between items-center pt-2 border-t border-dashed border-zinc-800">
-              <span className="text-sm font-bold text-white flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-blue-400" />
-                Tổng hóa đơn
-              </span>
-              <span className="font-mono font-extrabold text-lg text-blue-400 tabular-nums">
-                {formatCurrency(getTotal())}
+              <h2 className="font-bold text-white text-sm flex-1">Đơn hàng hiện tại</h2>
+              <span className={`font-mono text-xs px-2.5 py-1 rounded-full font-bold border ${
+                cart.length > 0
+                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                  : 'bg-zinc-950 text-zinc-500 border-zinc-800'
+              }`}>
+                {cart.reduce((sum, item) => sum + item.quantity, 0)} món
               </span>
             </div>
 
-             {/* CTA */}
-             <button
-               onClick={handleCheckout}
-               disabled={cart.length === 0 || actionLoading || !sessionId}
-               className={`
-                 w-full h-12 rounded-2xl font-bold text-sm
-                 flex items-center justify-center gap-2
-                 transition-all duration-150
-                 ${cart.length > 0 && sessionId && !actionLoading
-                   ? 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-lg shadow-blue-500/20 active:scale-[0.98] cursor-pointer'
-                   : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-                 }
-               `}
-             >
-               {actionLoading ? (
-                 <Loader2 className="h-4.5 w-4.5 animate-spin" />
-               ) : (
-                 <CreditCard className="h-4.5 w-4.5" />
-               )}
-               {actionLoading 
-                 ? 'Đang xử lý...' 
-                 : !selectedTableId 
-                   ? 'Vui lòng chọn bàn' 
-                   : cart.length > 0 
-                     ? 'Thanh toán & Đóng phiên' 
-                     : 'Chưa có món nào'}
-             </button>
-          </div>
-        </aside>
-      </div>
+            {/* Cart Items — scrollable */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 min-h-0">
+              {cart.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center text-zinc-600 py-14 gap-3">
+                  <ShoppingBag className="h-10 w-10 stroke-[1]" />
+                  <p className="text-xs font-light max-w-[160px] leading-relaxed">
+                    Chưa có món nào. Chọn món từ thực đơn bên trái.
+                  </p>
+                </div>
+              ) : (
+                cart.map(cartItem => (
+                  <div
+                    key={cartItem.item.id}
+                    className="flex gap-3 bg-zinc-950/50 p-3 rounded-2xl border border-zinc-800/50 group hover:border-zinc-700/60 transition-colors"
+                  >
+                    {cartItem.item.imageUrl ? (
+                      <img 
+                        src={cartItem.item.imageUrl} 
+                        alt={cartItem.item.name} 
+                        className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-sm border border-zinc-800/80" 
+                      />
+                    ) : (
+                      <div className={`h-10 w-10 shrink-0 rounded-xl bg-gradient-to-tr ${cartItem.item.bgColor} flex items-center justify-center text-lg shadow-sm`}>
+                        {cartItem.item.emoji}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-1">
+                        <span className="font-semibold text-xs text-zinc-100 truncate block">{cartItem.item.name}</span>
+                        <button
+                          onClick={() => removeFromCart(cartItem.item.id)}
+                          aria-label={`Xóa ${cartItem.item.name}`}
+                          className="text-zinc-700 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="font-mono text-[11px] text-blue-400 font-bold">
+                          {formatCurrency(cartItem.item.price * cartItem.quantity)}
+                        </span>
+                        <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-0.5">
+                          <button
+                            onClick={() => updateQuantity(cartItem.item.id, -1)}
+                            aria-label="Giảm số lượng"
+                            className="h-5 w-5 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition-colors"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <span className="font-mono text-xs text-white min-w-[18px] text-center tabular-nums">{cartItem.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(cartItem.item.id, 1)}
+                            aria-label="Tăng số lượng"
+                            className="h-5 w-5 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition-colors"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer: total + CTA */}
+            <div className="shrink-0 border-t border-zinc-800/60 px-5 py-4 space-y-3 bg-zinc-900/40">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-zinc-500">
+                  <span>Tạm tính</span>
+                  <span className="font-mono text-zinc-300 tabular-nums">{formatCurrency(getSubtotal())}</span>
+                </div>
+                <div className="flex justify-between text-xs text-zinc-500">
+                  <span>Thuế VAT (10%)</span>
+                  <span className="font-mono text-zinc-300 tabular-nums">{formatCurrency(getTax())}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t border-dashed border-zinc-800">
+                <span className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-blue-400" />
+                  Tổng hóa đơn
+                </span>
+                <span className="font-mono font-extrabold text-lg text-blue-400 tabular-nums">
+                  {formatCurrency(getTotal())}
+                </span>
+              </div>
+
+               <button
+                 onClick={handleCheckout}
+                 disabled={cart.length === 0 || actionLoading}
+                 className={`
+                   w-full h-12 rounded-2xl font-bold text-sm
+                   flex items-center justify-center gap-2
+                   transition-all duration-150
+                   ${cart.length > 0 && !actionLoading
+                     ? 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-lg shadow-blue-500/20 active:scale-[0.98] cursor-pointer'
+                     : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                   }
+                 `}
+               >
+                 {actionLoading ? (
+                   <Loader2 className="h-4.5 w-4.5 animate-spin" />
+                 ) : (
+                   <CreditCard className="h-4.5 w-4.5" />
+                 )}
+                 {actionLoading 
+                   ? 'Đang xử lý...' 
+                   : cart.length === 0
+                     ? 'Chưa có món nào'
+                     : !sessionId
+                       ? 'Chọn bàn để thanh toán'
+                       : 'Thanh toán & Đóng phiên'}
+               </button>
+            </div>
+          </aside>
+        </div>
+
+      {/* ========== TAB: THU NGÂN (Cashier) ========== */}
+      <div className={`flex-1 min-h-0 max-w-7xl w-full mx-auto p-3 sm:p-6 overflow-y-auto ${activeTab === 'cashier' ? 'block' : 'hidden'}`}>
+          {cashierUser ? (
+            <CashierClient 
+              user={cashierUser} 
+              initialTables={[]} 
+              initialSessionItems={null} 
+              initialSelectedSessionId={null} 
+              errorMsg={null}
+              onPendingCountChange={setPendingOrderCount}
+            />
+          ) : (
+            <div className="flex items-center justify-center py-20 text-zinc-500">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span className="text-sm">Đang tải thông tin người dùng...</span>
+            </div>
+          )}
+        </div>
 
       {/* Payment Modal */}
       {isPaymentModalOpen && sessionId && (
