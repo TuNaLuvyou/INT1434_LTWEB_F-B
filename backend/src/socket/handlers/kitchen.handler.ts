@@ -21,6 +21,10 @@ export function kitchenHandler(socket: Socket, io: Server): void {
     sessionId: string;
     tableId: string;
     menuItemId?: string;
+    qty?: number;
+    deltaQty?: number;
+    note?: string | null;
+    removedOrderItemId?: string;
     status: 'PREPARING' | 'DONE' | 'VOID';
     menuItemName?: string;
     previousStatus?: 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
@@ -43,6 +47,10 @@ export function kitchenHandler(socket: Socket, io: Server): void {
       sessionId:    data.sessionId,
       tableId:      data.tableId,
       menuItemId:   data.menuItemId,
+      qty:          data.qty,
+      deltaQty:     data.deltaQty,
+      note:         data.note,
+      removedOrderItemId: data.removedOrderItemId,
       status:       data.status,
       menuItemName: data.menuItemName,
       previousStatus: data.previousStatus,

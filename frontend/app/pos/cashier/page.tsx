@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { getCurrentUser } from '@/lib/auth/getCurrentUser';
-import CashierClient from '@/app/cashier/CashierClient';
+import CashierClient from '@/app/pos/CashierClient';
 
 export const revalidate = 0;
 

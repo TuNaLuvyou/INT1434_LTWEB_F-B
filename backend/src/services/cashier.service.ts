@@ -20,19 +20,21 @@ export interface CashierTableOverview {
   session: CashierSessionOverview | null;
 }
 
+type CashierDisplayStatus = 'CART' | 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
+
 export interface CashierSessionItemsResponse {
   sessionId: string;
   openedAt: Date;
   tableId: string;
   tableNumber: number;
   tableLabel: string;
-  groups: Record<OrderItemStatus, Array<{
+  groups: Record<CashierDisplayStatus, Array<{
     id: string;
     sessionId: string;
     menuItemId: string;
     qty: number;
     note: string | null;
-    status: OrderItemStatus;
+    status: CashierDisplayStatus;
     unitPrice: any;
     menuItem: {
       name: string;
@@ -46,10 +48,17 @@ export interface CashierSessionItemsResponse {
 export async function getCashierOverview(): Promise<CashierTableOverview[]> {
   const tables = await prisma.table.findMany({
     orderBy: { tableNumber: 'asc' },
-    include: {
+    select: {
+      id: true,
+      tableNumber: true,
+      label: true,
+      status: true,
       sessions: {
         where: { status: 'OPEN' },
-        include: {
+        select: {
+          id: true,
+          openedAt: true,
+          lockedAt: true,
           orderItems: {
             where: { status: { not: 'CART' } },
             select: { status: true, createdAt: true, qty: true },
@@ -91,7 +100,7 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
       if (item.status === 'DONE') doneCount += item.qty;
     }
 
-    const isLockedSession = Boolean((activeSession as { lockedAt?: Date | null }).lockedAt);
+    const isLockedSession = Boolean(activeSession.lockedAt);
 
     return {
       tableId: table.id,
@@ -113,12 +122,29 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
 export async function getCashierSessionItems(sessionId: string): Promise<CashierSessionItemsResponse> {
   const session = await prisma.tableSession.findUnique({
     where: { id: sessionId },
-    include: {
-      table: true,
+    select: {
+      id: true,
+      openedAt: true,
+      tableId: true,
+      lockedAt: true,
+      table: {
+        select: {
+          tableNumber: true,
+          label: true,
+        },
+      },
       orderItems: {
         where: { status: { not: 'CART' } },
         orderBy: { createdAt: 'asc' },
-        include: {
+        select: {
+          id: true,
+          sessionId: true,
+          menuItemId: true,
+          qty: true,
+          note: true,
+          status: true,
+          unitPrice: true,
+          createdAt: true,
           menuItem: {
             select: {
               name: true,
@@ -148,7 +174,7 @@ export async function getCashierSessionItems(sessionId: string): Promise<Cashier
   const lockedAtTime = session.lockedAt ? new Date(session.lockedAt).getTime() : null;
 
   for (const item of session.orderItems) {
-    let displayStatus = item.status;
+    let displayStatus = item.status as CashierDisplayStatus;
     if (item.status === 'PENDING') {
       const itemTime = new Date(item.createdAt).getTime();
       // Nếu món PENDING được tạo trước/bằng lúc khóa bàn -> Bếp đang làm (PREPARING)

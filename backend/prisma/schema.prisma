@@ -72,6 +72,7 @@ model TableSession {
   payment       Payment?
 
   @@index([tableId])
+  @@index([status, lockedAt])
 }
 
 model Category {
@@ -124,6 +125,7 @@ model OrderItem {
 
   @@unique([sessionId, menuItemId, status])
   @@index([sessionId])
+  @@index([sessionId, status])
   @@index([menuItemId])
 }
 
@@ -230,5 +232,4 @@ model Voucher {
   updatedAt     DateTime     @updatedAt
   payments      Payment[]
 }
-
 

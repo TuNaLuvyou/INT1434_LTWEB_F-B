@@ -7,8 +7,17 @@ export async function getActiveKdsTickets() {
       status: { in: ['OPEN', 'PAID'] },
       lockedAt: { not: null }, // Phải duyệt bên cashier rồi mới hiện
     },
-    include: {
-      table: true,
+    select: {
+      id: true,
+      tableId: true,
+      openedAt: true,
+      lockedAt: true,
+      table: {
+        select: {
+          tableNumber: true,
+          label: true,
+        },
+      },
       orderItems: {
         where: {
           status: { in: [OrderItemStatus.PENDING, OrderItemStatus.PREPARING] }
@@ -16,9 +25,24 @@ export async function getActiveKdsTickets() {
         orderBy: {
           createdAt: 'asc'
         },
-        include: {
-          menuItem: true
-        }
+        select: {
+          id: true,
+          sessionId: true,
+          menuItemId: true,
+          qty: true,
+          note: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          menuItem: {
+            select: {
+              id: true,
+              name: true,
+              imageUrl: true,
+              isSoldOut: true,
+            },
+          },
+        },
       }
     },
     orderBy: {
@@ -69,10 +93,14 @@ export async function updateOrderItemStatus(orderItemId: string, newStatus: Orde
       }
     });
     await prisma.orderItem.delete({ where: { id: orderItemId } });
-    return updated;
+    return {
+      item: updated,
+      removedOrderItemId: orderItemId,
+      deltaQty: item.qty,
+    };
   }
 
-  return await prisma.orderItem.update({
+  const updated = await prisma.orderItem.update({
     where: { id: orderItemId },
     data: { status: newStatus },
     include: {
@@ -82,6 +110,11 @@ export async function updateOrderItemStatus(orderItemId: string, newStatus: Orde
       menuItem: true
     }
   });
+
+  return {
+    item: updated,
+    deltaQty: item.qty,
+  };
 }
 
 export async function checkAllItemsDone(sessionId: string): Promise<boolean> {

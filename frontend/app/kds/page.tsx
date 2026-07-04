@@ -117,6 +117,10 @@ interface KitchenItemRealtimePayload {
   tableId: string;
   menuItemId?: string;
   menuItemName?: string;
+  qty?: number;
+  deltaQty?: number;
+  note?: string | null;
+  removedOrderItemId?: string;
   status: "PREPARING" | "DONE" | "VOID";
   previousStatus?: "PENDING" | "PREPARING" | "DONE" | "VOID";
   updatedAt: string;
@@ -225,7 +229,17 @@ export default function KDSPage() {
 
   const playBeep = () => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextCtor) return;
+
+      if (!(window as any).__kdsAudioCtx) {
+        (window as any).__kdsAudioCtx = new AudioContextCtor();
+      }
+
+      const ctx = (window as any).__kdsAudioCtx as AudioContext;
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
       
       const playChime = (freq: number, startTime: number) => {
         const oscillator = ctx.createOscillator();
@@ -268,7 +282,7 @@ export default function KDSPage() {
         qty: item.qty,
         note: item.note ?? null,
         status: item.status,
-        createdAt: payload.createdAt,
+        createdAt: item.createdAt || payload.createdAt,
         updatedAt: payload.createdAt,
         menuItem: {
           id: item.menuItemId,
@@ -315,9 +329,62 @@ export default function KDSPage() {
     });
   };
 
-  const applyKitchenItemUpdate = (_payload: KitchenItemRealtimePayload) => {
-    // Refetch full data to avoid ID-mismatch bugs from backend item merging
-    fetchKdsOrders();
+  const applyKitchenItemUpdate = (payload: KitchenItemRealtimePayload) => {
+    setRawSessions((prev) =>
+      prev
+        .map((session) => {
+          if (session.id !== payload.sessionId) return session;
+
+          let foundUpdatedItem = false;
+          const nextItems = session.orderItems
+            .filter((item: any) => item.id !== payload.removedOrderItemId)
+            .map((item: any) => {
+              if (item.id !== payload.orderItemId) return item;
+              foundUpdatedItem = true;
+
+              if (payload.status === "VOID") return null;
+
+              return {
+                ...item,
+                qty: payload.qty ?? item.qty,
+                note: payload.note !== undefined ? payload.note : item.note,
+                status: payload.status,
+                updatedAt: payload.updatedAt,
+                menuItem: {
+                  ...item.menuItem,
+                  id: payload.menuItemId || item.menuItem?.id,
+                  name: payload.menuItemName || item.menuItem?.name,
+                },
+              };
+            })
+            .filter(Boolean);
+
+          if (!foundUpdatedItem && payload.status !== "VOID" && payload.menuItemId && payload.menuItemName) {
+            nextItems.push({
+              id: payload.orderItemId,
+              sessionId: payload.sessionId,
+              menuItemId: payload.menuItemId,
+              qty: payload.qty ?? payload.deltaQty ?? 1,
+              note: payload.note ?? null,
+              status: payload.status,
+              createdAt: payload.updatedAt,
+              updatedAt: payload.updatedAt,
+              menuItem: {
+                id: payload.menuItemId,
+                name: payload.menuItemName,
+                imageUrl: null,
+                isSoldOut: false,
+              },
+            });
+          }
+
+          return {
+            ...session,
+            orderItems: nextItems,
+          };
+        })
+        .filter((session) => session.orderItems.length > 0)
+    );
   };
 
   // Listen to menu soldout
@@ -629,7 +696,19 @@ export default function KDSPage() {
       
       const result = await response.json();
       if (response.ok && result.success) {
-        fetchKdsOrders();
+        setRawSessions((prev) =>
+          prev.map((session) => {
+            if (session.id !== sessionId) return session;
+            return {
+              ...session,
+              orderItems: session.orderItems.map((item: any) =>
+                item.status === (currentStatus === "pending" ? "PENDING" : "PREPARING")
+                  ? { ...item, status: newStatus, updatedAt: new Date().toISOString() }
+                  : item
+              ),
+            };
+          })
+        );
       } else {
         alert(result.message || "Không thể cập nhật trạng thái");
       }
@@ -652,7 +731,17 @@ export default function KDSPage() {
       });
       const result = await response.json();
       if (response.ok && result.success) {
-        fetchKdsOrders();
+        setRawSessions((prev) =>
+          prev
+            .map((session) => {
+              if (session.id !== sessionId) return session;
+              return {
+                ...session,
+                orderItems: session.orderItems.filter((item: any) => item.id !== orderItemId),
+              };
+            })
+            .filter((session) => session.orderItems.length > 0)
+        );
       } else {
         alert(result.message || "Không thể hủy món");
       }

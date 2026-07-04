@@ -73,6 +73,10 @@ interface RealtimeKitchenItemUpdatedPayload {
   tableId: string;
   menuItemId?: string;
   menuItemName?: string;
+  qty?: number;
+  deltaQty?: number;
+  note?: string | null;
+  removedOrderItemId?: string;
   status: OrderItemStatus;
   previousStatus?: OrderItemStatus;
   updatedAt: string;
@@ -614,6 +618,8 @@ export default function CashierClient({
   );
 
   const updateTableCountersFromStatusChange = useCallback((payload: RealtimeKitchenItemUpdatedPayload) => {
+    const changedQty = payload.deltaQty ?? 1;
+
     setTables((prev) =>
       prev.map((table) => {
         if (table.session?.sessionId !== payload.sessionId || !table.session) return table;
@@ -637,10 +643,10 @@ export default function CashierClient({
                 : null;
 
         if (decrementKey) {
-          nextSession[decrementKey] = Math.max(0, nextSession[decrementKey] - 1);
+          nextSession[decrementKey] = Math.max(0, nextSession[decrementKey] - changedQty);
         }
         if (incrementKey) {
-          nextSession[incrementKey] += 1;
+          nextSession[incrementKey] += changedQty;
         }
 
         return { ...table, session: nextSession };
@@ -978,7 +984,7 @@ export default function CashierClient({
           status: "PENDING",
           unitPrice: item.unitPrice,
           menuItem: {
-            name: item.name,
+            name: item.menuItemName,
             price: item.unitPrice,
             imageUrl: null,
           },
@@ -1073,10 +1079,20 @@ export default function CashierClient({
 
         for (const status of Object.keys(prev.groups) as OrderItemStatus[]) {
           for (const item of prev.groups[status]) {
+            if (item.id === payload.removedOrderItemId) {
+              continue;
+            }
+
             if (item.id === payload.orderItemId) {
               movedItem = {
                 ...item,
                 status: payload.status,
+                qty: payload.qty ?? item.qty,
+                note: payload.note !== undefined ? payload.note : item.note,
+                menuItem: {
+                  ...item.menuItem,
+                  name: payload.menuItemName || item.menuItem.name,
+                },
               };
               continue;
             }

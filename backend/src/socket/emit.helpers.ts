@@ -81,6 +81,10 @@ export interface KitchenItemUpdatedPayload {
   tableId: string;
   menuItemId?: string;
   menuItemName?: string;
+  qty?: number;
+  deltaQty?: number;
+  note?: string | null;
+  removedOrderItemId?: string;
   status: 'PREPARING' | 'DONE' | 'VOID';
   previousStatus?: 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
   updatedAt: string;
