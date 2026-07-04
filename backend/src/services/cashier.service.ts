@@ -158,6 +158,12 @@ export async function getCashierSessionItems(sessionId: string): Promise<Cashier
       if (lockedAtTime !== null && itemTime <= lockedAtTime) {
         displayStatus = 'PREPARING';
       }
+    } else if (item.status === 'DELIVERED') {
+      displayStatus = 'DONE';
+    }
+
+    if (!groups[displayStatus]) {
+      groups[displayStatus] = [];
     }
 
     groups[displayStatus].push({

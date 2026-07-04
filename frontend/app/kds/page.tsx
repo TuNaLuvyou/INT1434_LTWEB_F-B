@@ -268,8 +268,8 @@ export default function KDSPage() {
         qty: item.qty,
         note: item.note ?? null,
         status: item.status,
-        createdAt: item.createdAt || payload.createdAt,
-        updatedAt: item.createdAt || payload.createdAt,
+        createdAt: payload.createdAt,
+        updatedAt: payload.createdAt,
         menuItem: {
           id: item.menuItemId,
           name: item.menuItemName,

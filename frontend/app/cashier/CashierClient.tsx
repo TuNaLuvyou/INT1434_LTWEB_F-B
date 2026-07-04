@@ -147,6 +147,8 @@ function buildGroupsFromRealtimeItems(items: RealtimeSessionItem[]): SessionItem
   const groups = createEmptyGroups();
 
   for (const item of items) {
+    if (!item.status || !groups[item.status]) continue;
+
     groups[item.status].push({
       id: item.id,
       sessionId: "",
