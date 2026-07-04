@@ -550,12 +550,20 @@ export default function KDSPage() {
       applyKitchenItemUpdate(payload);
     };
 
+    const handleSessionAllDelivered = (payload: { sessionId: string }) => {
+      console.log('[KDS Socket] Session all delivered:', payload.sessionId);
+      setOrders(prev => prev.filter(order => order.id !== payload.sessionId));
+      setRawSessions(prev => prev.filter(session => session.id !== payload.sessionId));
+    };
+
     kitchenSocket.on('kitchen:new-ticket', handleNewTicket);
     kitchenSocket.on('kitchen:item-updated', handleItemUpdated);
+    kitchenSocket.on('session:all-delivered', handleSessionAllDelivered);
 
     return () => {
       kitchenSocket.off('kitchen:new-ticket', handleNewTicket);
       kitchenSocket.off('kitchen:item-updated', handleItemUpdated);
+      kitchenSocket.off('session:all-delivered', handleSessionAllDelivered);
     };
   }, [kitchenSocket, isKitchenConnected]);
 
@@ -730,10 +738,27 @@ export default function KDSPage() {
     setOrders(prev => prev.filter(order => order.id !== session.id));
   };
 
-  const completeOrder = (sessionId: string) => {
+  const completeOrder = async (sessionId: string) => {
     const session = rawSessions.find(s => s.id === sessionId);
     if (session) {
       archiveSession(session);
+    }
+
+    // Gửi request lên backend để cập nhật DB cho mọi máy KDS khác
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      const response = await fetch(`${API_URL}/api/kds/orders/${sessionId}/deliver`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${accessToken || ''}`,
+        },
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        console.error("[KDS] Lỗi khi lưu trữ trên DB:", result.message);
+      }
+    } catch (err) {
+      console.error("[KDS] Lỗi kết nối khi lưu trữ:", err);
     }
   };
 
@@ -802,15 +827,9 @@ export default function KDSPage() {
             <span className="text-[10px] sm:text-xs text-zinc-400">Chờ/nấu:</span>
             <span className="font-bold font-mono text-xs sm:text-sm">{orders.filter(o => o.items.some(item => item.status === 'PENDING' || item.status === 'PREPARING')).length}</span>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
-            <span className="text-[10px] sm:text-xs text-zinc-400">TB nấu:</span>
-            <span className="font-bold font-mono text-xs sm:text-sm text-amber-400">11:24</span>
-          </div>
+
         </div>
-        <div className="text-[10px] sm:text-xs text-zinc-500 font-light italic hidden sm:block">
-          * Đơn hàng hiển thị cảnh báo đỏ khi chờ vượt quá 10 phút.
-        </div>
+
       </div>
 
       {/* Kanban Columns */}

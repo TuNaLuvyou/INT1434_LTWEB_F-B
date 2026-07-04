@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import * as kdsService from '../services/kds.service';
 import prisma from '../config/prisma';
-import { emitOrderStatusChanged, emitKitchenItemUpdated, emitSessionAllDone, emitCartUpdated, emitTableSessionUpdated } from '../socket/emit.helpers';
+import { emitOrderStatusChanged, emitKitchenItemUpdated, emitSessionAllDone, emitSessionAllDelivered, emitCartUpdated, emitTableSessionUpdated } from '../socket/emit.helpers';
 import { OrderItemStatus } from '@prisma/client';
 import * as ingredientService from '../services/ingredient.service';
 
@@ -397,6 +397,36 @@ export async function voidKdsOrderItem(req: Request, res: Response): Promise<voi
     });
   } catch (error: any) {
     console.error('voidKdsOrderItem error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
+  }
+}
+
+export async function deliverKdsOrder(req: Request, res: Response): Promise<void> {
+  try {
+    const sessionId = req.params.sessionId as string;
+
+    if (!sessionId) {
+      res.status(400).json({ success: false, message: 'Thiếu dữ liệu bắt buộc' });
+      return;
+    }
+
+    // Cập nhật tất cả DONE -> DELIVERED
+    await prisma.orderItem.updateMany({
+      where: {
+        sessionId,
+        status: 'DONE'
+      },
+      data: { status: 'DELIVERED' }
+    });
+
+    // Phát sự kiện socket để đồng bộ tất cả màn hình KDS
+    emitSessionAllDelivered({
+      sessionId
+    });
+
+    res.status(200).json({ success: true, message: 'Giao món thành công' });
+  } catch (error: any) {
+    console.error('deliverKdsOrder error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
   }
 }

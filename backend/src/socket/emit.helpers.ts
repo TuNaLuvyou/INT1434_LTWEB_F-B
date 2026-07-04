@@ -54,6 +54,10 @@ export interface SessionAllDonePayload {
   label?: string;
 }
 
+export interface SessionAllDeliveredPayload {
+  sessionId: string;
+}
+
 export interface KitchenTicketPayload {
   sessionId: string;
   tableId: string;
@@ -151,6 +155,19 @@ export function emitSessionAllDone(payload: SessionAllDonePayload): void {
     console.log(`[emit] session:all-done → cashier | session: ${payload.sessionId}`);
   } catch (err) {
     console.warn('[emit] emitSessionAllDone failed:', err);
+  }
+}
+
+/**
+ * Emit khi KDS giao toàn bộ order items (DONE -> DELIVERED).
+ * Target: room kitchen → KDS xoá khỏi màn hình READY
+ */
+export function emitSessionAllDelivered(payload: SessionAllDeliveredPayload): void {
+  try {
+    getIO().to(SOCKET_ROOMS.KITCHEN).emit(SOCKET_EVENTS.SESSION_ALL_DELIVERED, payload);
+    console.log(`[emit] session:all-delivered → kitchen | session: ${payload.sessionId}`);
+  } catch (err) {
+    console.warn('[emit] emitSessionAllDelivered failed:', err);
   }
 }
 
