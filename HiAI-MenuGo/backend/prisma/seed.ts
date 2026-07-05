@@ -9,22 +9,55 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log('🚀 Bắt đầu quá trình seed dữ liệu...');
+  console.log('🚀 Bắt đầu quá trình seed dữ liệu (Multi-Tenant)...');
+
+  // BƯỚC 0: Tạo Tenant & Branch mẫu
+  const tenant = await prisma.tenant.upsert({
+    where: { domain: 'demo.hiaimenugo.com' },
+    update: {},
+    create: {
+      name: 'HiAI-MenuGo Demo Tenant',
+      domain: 'demo.hiaimenugo.com',
+    },
+  });
+  console.log('✅ Tenant mẫu created:', tenant.id);
+
+  const branch = await prisma.branch.findFirst({ where: { tenantId: tenant.id } }) 
+    || await prisma.branch.create({
+    data: {
+      tenantId: tenant.id,
+      name: 'Chi nhánh Trung tâm',
+      address: '123 Đường Demo, Quận 1',
+    },
+  });
+  console.log('✅ Branch mẫu created:', branch.id);
 
   // BƯỚC 1: SystemConfig
   await prisma.systemConfig.upsert({
-    where: { id: 'singleton' },
+    where: { tenantId: tenant.id },
     update: {},
     create: {
-      id: 'singleton',
+      tenantId: tenant.id,
       restaurantName: 'HiAI-MenuGo Demo',
     },
   });
   console.log('✅ SystemConfig created');
 
-  // BƯỚC 2: User
+  // BƯỚC 2: Platform Admin & Users
   const saltRounds = 10;
   const passwordHash = await bcrypt.hash('Demo@1234', saltRounds);
+
+  // Platform admin
+  await prisma.user.upsert({
+    where: { email: 'platform@hiaimenugo.demo' },
+    update: {},
+    create: {
+      email: 'platform@hiaimenugo.demo',
+      name: 'System Admin',
+      passwordHash,
+      role: Role.PLATFORM_ADMIN,
+    }
+  });
 
   const users = [
     { email: 'admin@hiaimenugo.demo', role: Role.ADMIN, name: 'Admin HiAI-MenuGo' },
@@ -34,7 +67,7 @@ async function main() {
   ];
 
   for (const u of users) {
-    await prisma.user.upsert({
+    const user = await prisma.user.upsert({
       where: { email: u.email },
       update: {
         role: u.role,
@@ -47,8 +80,19 @@ async function main() {
         role: u.role,
       },
     });
+
+    // Link user to tenant
+    await prisma.tenantUser.upsert({
+      where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        userId: user.id,
+        isOwner: u.role === Role.ADMIN,
+      }
+    });
   }
-  console.log('✅ Users created');
+  console.log('✅ Users & TenantUsers created');
 
   // BƯỚC 3: Category
   const categories = [
@@ -60,9 +104,9 @@ async function main() {
   const categoryMap: Record<string, string> = {};
   for (const c of categories) {
     const cat = await prisma.category.upsert({
-      where: { slug: c.slug },
+      where: { tenantId_slug: { tenantId: tenant.id, slug: c.slug } },
       update: {},
-      create: c,
+      create: { ...c, tenantId: tenant.id },
     });
     categoryMap[c.slug] = cat.id;
   }
@@ -80,11 +124,11 @@ async function main() {
 
   const menuItemMap: Record<string, string> = {};
   for (const m of menuItems) {
-    const existing = await prisma.menuItem.findFirst({ where: { name: m.name } });
+    let existing = await prisma.menuItem.findFirst({ where: { name: m.name, tenantId: tenant.id } });
     if (existing) {
       menuItemMap[m.name] = existing.id;
     } else {
-      const created = await prisma.menuItem.create({ data: m });
+      const created = await prisma.menuItem.create({ data: { ...m, tenantId: tenant.id } });
       menuItemMap[m.name] = created.id;
     }
   }
@@ -100,9 +144,9 @@ async function main() {
 
   for (const t of tables) {
     await prisma.table.upsert({
-      where: { tableNumber: t.tableNumber },
+      where: { branchId_tableNumber: { branchId: branch.id, tableNumber: t.tableNumber } },
       update: {},
-      create: t,
+      create: { ...t, tenantId: tenant.id, branchId: branch.id },
     });
   }
   console.log('✅ Tables created');
@@ -118,11 +162,11 @@ async function main() {
 
   const ingredientMap: Record<string, string> = {};
   for (const i of ingredients) {
-    const existing = await prisma.ingredient.findFirst({ where: { name: i.name } });
+    let existing = await prisma.ingredient.findFirst({ where: { name: i.name, tenantId: tenant.id } });
     if (existing) {
       ingredientMap[i.name] = existing.id;
     } else {
-      const created = await prisma.ingredient.create({ data: i });
+      const created = await prisma.ingredient.create({ data: { ...i, tenantId: tenant.id } });
       ingredientMap[i.name] = created.id;
     }
   }
@@ -163,14 +207,14 @@ async function main() {
 
   for (const v of vouchers) {
     await prisma.voucher.upsert({
-      where: { code: v.code },
+      where: { tenantId_code: { tenantId: tenant.id, code: v.code } },
       update: {},
-      create: v,
+      create: { ...v, tenantId: tenant.id },
     });
   }
   console.log('✅ Vouchers created');
 
-  console.log('🎉 Seed dữ liệu hoàn tất!');
+  console.log('🎉 Seed dữ liệu Multi-Tenant hoàn tất!');
 }
 
 main()

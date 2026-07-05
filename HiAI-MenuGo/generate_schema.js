@@ -1,9 +1,14 @@
-generator client {
+const fs = require('fs');
+const path = require('path');
+
+const schemaPath = path.join(__dirname, 'backend/prisma/schema.prisma');
+const schemaContent = `generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -409,3 +414,9 @@ model Voucher {
 
   @@unique([tenantId, code])
 }
+`;
+
+fs.writeFileSync(schemaPath, schemaContent, 'utf8');
+fs.writeFileSync(path.join(__dirname, 'frontend/prisma/schema.prisma'), schemaContent, 'utf8');
+
+console.log('Updated schema.prisma in backend and frontend');
