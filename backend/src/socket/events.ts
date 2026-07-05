@@ -1,5 +1,5 @@
 /**
- * SOCKET_EVENTS — Tất cả event names dùng trong RestoFlow POS
+ * SOCKET_EVENTS — Tất cả event names dùng trong HiAI-MenuGo POS
  *
  * ─── Quy tắc đặt tên ────────────────────────────────────────────────────────
  * - Format:  "<domain>:<action>"
@@ -22,8 +22,6 @@ export const SOCKET_EVENTS = {
   SESSION_CLOSED:         'session:closed',
   /** Emit khi tất cả order items trong session đã hoàn thành (DONE) */
   SESSION_ALL_DONE:       'session:all-done',
-  /** Emit khi KDS giao toàn bộ item của session (DONE -> DELIVERED) */
-  SESSION_ALL_DELIVERED:  'session:all-delivered',
 
   // ─── Kitchen / KDS ──────────────────────────────────────────────────────────
   /** Emit khi khách submit order → KDS hiển thị ticket mới */

@@ -24,9 +24,6 @@ export interface CartUpdatedPayload {
     qty: number;
     unitPrice: number;
     status: string;
-    note?: string | null;
-    imageUrl?: string | null;
-    createdAt?: string;
   }>;
   total: number;
   isLocked?: boolean;
@@ -54,35 +51,25 @@ export interface SessionAllDonePayload {
   label?: string;
 }
 
-export interface SessionAllDeliveredPayload {
-  sessionId: string;
-}
-
 export interface KitchenTicketPayload {
   sessionId: string;
   tableId: string;
   tableNumber?: number;
-  tableLabel?: string;
   items: Array<{
     orderItemId: string;
-    menuItemId: string;
     menuItemName: string;
     qty: number;
     note?: string;
     status: string;
-    createdAt?: string;
   }>;
   createdAt: string;
 }
 
 export interface KitchenItemUpdatedPayload {
   orderItemId: string;
-  sessionId: string;
   tableId: string;
-  menuItemId?: string;
   menuItemName?: string;
   status: 'PREPARING' | 'DONE' | 'VOID';
-  previousStatus?: 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
   updatedAt: string;
 }
 
@@ -159,19 +146,6 @@ export function emitSessionAllDone(payload: SessionAllDonePayload): void {
 }
 
 /**
- * Emit khi KDS giao toàn bộ order items (DONE -> DELIVERED).
- * Target: room kitchen → KDS xoá khỏi màn hình READY
- */
-export function emitSessionAllDelivered(payload: SessionAllDeliveredPayload): void {
-  try {
-    getIO().to(SOCKET_ROOMS.KITCHEN).emit(SOCKET_EVENTS.SESSION_ALL_DELIVERED, payload);
-    console.log(`[emit] session:all-delivered → kitchen | session: ${payload.sessionId}`);
-  } catch (err) {
-    console.warn('[emit] emitSessionAllDelivered failed:', err);
-  }
-}
-
-/**
  * Emit khi một item trong giỏ hàng bị sold-out (bếp toggle).
  * Target: room table:[tableId]
  */
@@ -235,8 +209,7 @@ export function emitKitchenNewTicket(payload: KitchenTicketPayload): void {
 export function emitKitchenItemUpdated(payload: KitchenItemUpdatedPayload): void {
   try {
     getIO().to(SOCKET_ROOMS.KITCHEN).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
-    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
-    console.log(`[emit] kitchen:item-updated → kitchen & cashier | item: ${payload.orderItemId} → ${payload.status}`);
+    console.log(`[emit] kitchen:item-updated → kitchen | item: ${payload.orderItemId} → ${payload.status}`);
   } catch (err) {
     console.warn('[emit] emitKitchenItemUpdated failed:', err);
   }

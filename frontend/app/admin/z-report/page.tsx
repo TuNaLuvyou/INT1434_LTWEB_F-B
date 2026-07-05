@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import {
-  FileText, Mail, Download, RefreshCw,
+  ArrowLeft, FileText, Mail, Download, RefreshCw,
   TrendingUp, ShoppingBag, Tag, BarChart2, Clock, AlertCircle, CheckCircle2, Loader2,
   FileSpreadsheet
 } from "lucide-react";

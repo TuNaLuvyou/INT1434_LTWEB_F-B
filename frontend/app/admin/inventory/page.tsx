@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { 
+  ArrowLeft, 
   Calendar, 
   RefreshCw, 
   Search, 
   Plus, 
   Edit3, 
   Trash2, 
-  AlertTriangle
+  TrendingUp, 
+  AlertTriangle,
+  FileDown
 } from "lucide-react";
 import IngredientModal from "@/components/inventory/IngredientModal";
 import StockAdjustModal from "@/components/inventory/StockAdjustModal";

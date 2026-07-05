@@ -6,7 +6,7 @@ import cloudinary from '../config/cloudinary';
 
 /**
  * Trích xuất public_id từ URL Cloudinary để xóa ảnh
- * Ví dụ: https://res.cloudinary.com/cloud_name/image/upload/v12345678/restoflow/menu-items/abc.jpg -> restoflow/menu-items/abc
+ * Ví dụ: https://res.cloudinary.com/cloud_name/image/upload/v12345678/hiaimenugo/menu-items/abc.jpg -> hiaimenugo/menu-items/abc
  */
 export const getPublicIdFromUrl = (url: string): string | null => {
   try {
@@ -36,7 +36,7 @@ export const getPublicIdFromUrl = (url: string): string | null => {
 };
 
 // 1. GET /api/admin/menu-items - Lấy danh sách món ăn cho quản lý (bao gồm các món ẩn isActive=false)
-export const getAdminMenuItems = async (_req: AuthenticatedRequest, res: Response) => {
+export const getAdminMenuItems = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const items = await prisma.menuItem.findMany({
       include: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import React, { useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Download } from 'lucide-react';
 

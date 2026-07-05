@@ -20,6 +20,11 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
 });
 
+const selectTenantSchema = z.object({
+  tenantId: z.string().uuid('Tenant ID không hợp lệ'),
+  branchId: z.string().uuid('Branch ID không hợp lệ').optional(),
+});
+
 const setRefreshTokenCookie = (res: Response, token: string) => {
   const isProd = process.env.NODE_ENV === 'production';
   res.cookie('refresh_token', token, {
@@ -89,6 +94,42 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+export const selectTenant = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const validatedData = selectTenantSchema.parse(req.body);
+    const userId = (req as any).user?.userId;
+    
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+    
+    const result = await authService.selectTenant(userId, validatedData.tenantId, validatedData.branchId);
+    
+    setRefreshTokenCookie(res, result.refreshToken);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        accessToken: result.accessToken,
+        tenant: result.tenant,
+        permissions: result.permissions
+      },
+    });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ success: false, message: 'Lỗi xác thực dữ liệu', errors: error.issues });
+    } else if (error.message === 'TENANT_ACCESS_DENIED') {
+      res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập tenant này' });
+    } else if (error.message === 'BRANCH_NOT_FOUND') {
+      res.status(404).json({ success: false, message: 'Không tìm thấy chi nhánh' });
+    } else {
+      console.error('Select Tenant error:', error);
+      res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
+    }
+  }
+};
+
 export const refresh = async (req: Request, res: Response): Promise<void> => {
   try {
     const token = req.cookies['refresh_token'];
@@ -121,23 +162,36 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const logout = async (_req: Request, res: Response): Promise<void> => {
+export const logout = async (req: Request, res: Response): Promise<void> => {
   res.clearCookie('refresh_token', { path: '/' });
   res.status(200).json({ success: true, message: 'Logged out successfully' });
 };
 
 export const me = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.userId;
+    const userId = (req as any).user?.userId;
+    const tenantId = (req as any).user?.tenantId;
+    const branchId = (req as any).user?.branchId;
+    const customRole = (req as any).user?.customRole;
+    const permissions = (req as any).user?.permissions;
+
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
       return;
     }
 
-    const user = await authService.getMe(userId);
+    const user = await authService.getMe(userId, tenantId);
     res.status(200).json({
       success: true,
-      data: { user },
+      data: { 
+        user: {
+          ...user,
+          currentTenantId: tenantId,
+          currentBranchId: branchId,
+          customRole,
+          permissions
+        } 
+      },
     });
   } catch (error: any) {
     if (error.message === 'USER_NOT_FOUND') {
