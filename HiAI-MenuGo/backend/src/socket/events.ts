@@ -1,5 +1,5 @@
 /**
- * SOCKET_EVENTS — Tất cả event names dùng trong RestoFlow POS
+ * SOCKET_EVENTS — Tất cả event names dùng trong HiAI-MenuGo POS
  *
  * ─── Quy tắc đặt tên ────────────────────────────────────────────────────────
  * - Format:  "<domain>:<action>"

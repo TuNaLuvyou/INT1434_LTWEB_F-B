@@ -4,7 +4,7 @@ import LoginForm from './LoginForm';
 import { jwtVerify } from 'jose';
 
 export const metadata = {
-  title: 'Đăng nhập | RestoFlow',
+  title: 'Đăng nhập | HiAI-MenuGo',
 };
 
 export default async function LoginPage({
@@ -43,7 +43,7 @@ export default async function LoginPage({
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center text-5xl mb-4 drop-shadow-md">🍽️</div>
         <h2 className="mt-2 text-center text-3xl font-extrabold text-white drop-shadow-lg tracking-tight">
-          RestoFlow
+          HiAI-MenuGo
         </h2>
         <p className="mt-2 text-center text-sm text-gray-300 font-medium tracking-wide uppercase">
           Hệ thống quản lý nhà hàng

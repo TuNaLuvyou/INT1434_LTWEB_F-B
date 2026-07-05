@@ -75,7 +75,7 @@ export default function IngredientModal({ ingredient, onClose, onSaved }: Props)
               {isEdit ? 'Chỉnh sửa nguyên liệu' : 'Thêm nguyên liệu mới'}
             </h3>
             <p className="text-[11px] text-zinc-300 font-normal mt-1">
-              {isEdit ? 'Thay đổi thông số cấu hình nguyên liệu nhà hàng RestoFlow.' : 'Tạo mới một nguyên liệu vào danh sách kho.'}
+              {isEdit ? 'Thay đổi thông số cấu hình nguyên liệu nhà hàng HiAI-MenuGo.' : 'Tạo mới một nguyên liệu vào danh sách kho.'}
             </p>
           </div>
           <button 

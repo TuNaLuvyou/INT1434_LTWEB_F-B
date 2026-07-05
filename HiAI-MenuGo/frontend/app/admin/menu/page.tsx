@@ -206,7 +206,7 @@ export default function AdminMenuPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-xs font-medium mb-2">
               <Utensils size={13} className="stroke-[2.5]" />
-              <span>Hệ thống RestoFlow • Admin Panel</span>
+              <span>Hệ thống HiAI-MenuGo • Admin Panel</span>
             </div>
             <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
               Danh Sách Thực Đơn

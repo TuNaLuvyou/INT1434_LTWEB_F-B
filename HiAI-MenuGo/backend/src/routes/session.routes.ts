@@ -74,7 +74,7 @@ router.patch(
  */
 router.post('/emit/cashier-new-order', (req: Request, res: Response) => {
   const secret = req.headers['x-internal-secret'];
-  const expectedSecret = process.env.INTERNAL_SECRET || 'restoflow-internal';
+  const expectedSecret = process.env.INTERNAL_SECRET || 'hiaimenugo-internal';
 
   if (secret !== expectedSecret) {
     res.status(403).json({ success: false, message: 'Forbidden' });

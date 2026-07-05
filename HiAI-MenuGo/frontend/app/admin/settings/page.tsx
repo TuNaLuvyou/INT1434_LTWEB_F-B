@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export const metadata = {
-  title: 'Cài đặt hệ thống | RestoFlow',
+  title: 'Cài đặt hệ thống | HiAI-MenuGo',
 };
 
 export default async function SettingsPage() {

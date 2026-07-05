@@ -83,7 +83,7 @@ export default function AdminSidebar() {
               <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-[0_0_15px_rgba(124,58,237,0.4)]">
                 <Sparkles className="h-4 w-4 text-white" />
               </div>
-              <span className="font-bold tracking-tight text-white text-sm">RestoFlow Admin</span>
+              <span className="font-bold tracking-tight text-white text-sm">HiAI-MenuGo Admin</span>
             </div>
             <button
               onClick={() => setIsMobileOpen(false)}
@@ -156,7 +156,7 @@ export default function AdminSidebar() {
               <div className={`flex flex-col transition-all duration-300 overflow-hidden whitespace-nowrap ${
                 isCollapsed ? "w-0 opacity-0 ml-0" : "w-auto opacity-100 ml-2"
               }`}>
-                <span className="font-bold tracking-tight text-white text-xs">RestoFlow Admin</span>
+                <span className="font-bold tracking-tight text-white text-xs">HiAI-MenuGo Admin</span>
                 <span className="text-[8px] text-violet-400 font-semibold uppercase tracking-wider">Management</span>
               </div>
             </div>

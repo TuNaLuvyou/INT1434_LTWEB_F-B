@@ -8,7 +8,7 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
       config = await prisma.systemConfig.create({
         data: {
           id: 'singleton',
-          restaurantName: 'RestoFlow POS',
+          restaurantName: 'HiAI-MenuGo POS',
           isGeofenceEnabled: false,
           restaurantLat: null,
           restaurantLng: null,
@@ -55,7 +55,7 @@ export const updateConfig = async (req: Request, res: Response): Promise<void> =
     }
     
     const currentConfig = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
-    const finalRestaurantName = restaurantName || currentConfig?.restaurantName || 'RestoFlow POS';
+    const finalRestaurantName = restaurantName || currentConfig?.restaurantName || 'HiAI-MenuGo POS';
 
     const config = await prisma.systemConfig.upsert({
       where: { id: 'singleton' },

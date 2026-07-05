@@ -89,7 +89,7 @@ app.post('/api/admin/menu/sync', authMiddleware, requireRole(['ADMIN', 'MANAGER'
 
 // Route kiểm tra server
 app.get('/', (req, res) => {
-  res.json({ success: true, message: 'RestoFlow POS Backend API is running!' });
+  res.json({ success: true, message: 'HiAI-MenuGo POS Backend API is running!' });
 });
 
 // Error handling middleware
@@ -106,7 +106,7 @@ initSocket(httpServer);
 
 // Khởi chạy server qua httpServer thay vì app.listen
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Server RestoFlow đang chạy tại: http://localhost:${PORT}`);
+  console.log(`🚀 Server HiAI-MenuGo đang chạy tại: http://localhost:${PORT}`);
   console.log(`🔌 Socket.io sẵn sàng trên cùng port ${PORT}`);
 
   // Khởi động tác vụ tự động dọn dẹp lịch sử bán hàng (> 90 ngày)

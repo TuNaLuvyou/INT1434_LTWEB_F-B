@@ -17,7 +17,7 @@ async function main() {
     update: {},
     create: {
       id: 'singleton',
-      restaurantName: 'RestoFlow Demo',
+      restaurantName: 'HiAI-MenuGo Demo',
     },
   });
   console.log('✅ SystemConfig created');
@@ -27,10 +27,10 @@ async function main() {
   const passwordHash = await bcrypt.hash('Demo@1234', saltRounds);
 
   const users = [
-    { email: 'admin@restoflow.demo', role: Role.ADMIN, name: 'Admin RestoFlow' },
-    { email: 'manager@restoflow.demo', role: Role.MANAGER, name: 'Nguyễn Văn Manager' },
-    { email: 'kitchen@restoflow.demo', role: Role.KITCHEN, name: 'Bếp Trưởng' },
-    { email: 'cashier@restoflow.demo', role: Role.CASHIER, name: 'Thu Ngân RestoFlow' },
+    { email: 'admin@hiaimenugo.demo', role: Role.ADMIN, name: 'Admin HiAI-MenuGo' },
+    { email: 'manager@hiaimenugo.demo', role: Role.MANAGER, name: 'Nguyễn Văn Manager' },
+    { email: 'kitchen@hiaimenugo.demo', role: Role.KITCHEN, name: 'Bếp Trưởng' },
+    { email: 'cashier@hiaimenugo.demo', role: Role.CASHIER, name: 'Thu Ngân HiAI-MenuGo' },
   ];
 
   for (const u of users) {
