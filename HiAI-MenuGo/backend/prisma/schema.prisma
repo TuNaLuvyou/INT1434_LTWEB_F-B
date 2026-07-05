@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SystemConfig {
+  id                String   @id @default("singleton")
+  restaurantName    String
+  isGeofenceEnabled Boolean  @default(false)
+  restaurantLat     Float?
+  restaurantLng     Float?
+  maxOrderDistance  Int      @default(100)
+  updatedAt         DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  KITCHEN
+  CASHIER
+}
+
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  name         String
+  role         Role
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  shifts       Shift[]
+}
+
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+}
+
+model Table {
+  id          String         @id @default(uuid())
+  tableNumber Int            @unique
+  label       String
+  status      TableStatus
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  sessions    TableSession[]
+}
+
+enum SessionStatus {
+  OPEN
+  PAID
+  CANCELLED
+}
+
+model TableSession {
+  id            String        @id @default(uuid())
+  tableId       String
+  table         Table         @relation(fields: [tableId], references: [id])
+  status        SessionStatus
+  version       Int           @default(0) // optimistic lock — dùng cho commit 4
+  openedAt      DateTime      @default(now())
+  lockedAt      DateTime?
+  closedAt      DateTime?
+  createdViaPos Boolean       @default(false)
+  orderItems    OrderItem[]
+  payment       Payment?
+
+  @@index([tableId])
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  name      String
+  slug      String     @unique
+  sortOrder Int        @default(0)
+  menuItems MenuItem[]
+}
+
+model MenuItem {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal     @db.Decimal(10, 2)
+  imageUrl    String?
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id])
+  isSoldOut   Boolean     @default(false)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+  bom         BOM[]
+
+  @@index([categoryId])
+}
+
+enum OrderItemStatus {
+  CART
+  PENDING
+  PREPARING
+  DONE
+  VOID
+}
+
+model OrderItem {
+  id         String          @id @default(uuid())
+  sessionId  String
+  session    TableSession    @relation(fields: [sessionId], references: [id])
+  menuItemId String
+  menuItem   MenuItem        @relation(fields: [menuItemId], references: [id])
+  qty        Int
+  unitPrice  Decimal         @db.Decimal(10, 2)
+  note       String?
+  status     OrderItemStatus
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([sessionId, menuItemId, status])
+  @@index([sessionId])
+  @@index([menuItemId])
+}
+
+model Ingredient {
+  id        String         @id @default(cuid())
+  name      String
+  unit      String
+  stock     Decimal
+  minStock  Decimal
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  bom       BOM[]
+  logs      InventoryLog[]
+}
+
+model BOM {
+  id           String     @id @default(cuid())
+  menuItemId   String
+  menuItem     MenuItem   @relation(fields: [menuItemId], references: [id])
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  quantity     Decimal
+
+  @@unique([menuItemId, ingredientId])
+  @@index([menuItemId])
+  @@index([ingredientId])
+}
+
+model InventoryLog {
+  id           String     @id @default(cuid())
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  delta        Decimal
+  reason       String
+  orderId      String?
+  createdBy    String?
+  createdAt    DateTime   @default(now())
+
+  @@index([ingredientId])
+  @@index([createdAt])
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+model Shift {
+  id            String      @id @default(cuid())
+  cashierId     String
+  cashier       User        @relation(fields: [cashierId], references: [id])
+  openFloat     Decimal
+  closeFloat    Decimal?
+  cashTotal     Decimal?
+  transferTotal Decimal?
+  orderCount    Int?
+  status        ShiftStatus
+  openedAt      DateTime    @default(now())
+  closedAt      DateTime?
+  payments      Payment[]
+
+  @@index([cashierId])
+  @@index([status])
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  sessionId      String        @unique
+  session        TableSession  @relation(fields: [sessionId], references: [id])
+  shiftId        String
+  shift          Shift         @relation(fields: [shiftId], references: [id])
+  subtotal       Decimal
+  discountAmount Decimal       @default(0)
+  total          Decimal
+  method         PaymentMethod
+  voucherId      String?
+  voucher        Voucher?      @relation(fields: [voucherId], references: [id])
+  paidAt         DateTime      @default(now())
+
+  @@index([shiftId])
+  @@index([paidAt])
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+model Voucher {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  discountType  DiscountType
+  discountValue Decimal
+  maxUsage      Int?
+  usedCount     Int          @default(0)
+  isActive      Boolean      @default(true)
+  expiredAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  payments      Payment[]
+}
+
+
