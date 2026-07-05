@@ -87,9 +87,11 @@ import { syncMenu } from './controllers/system.controller';
 import { authMiddleware, requireRole } from './middlewares/auth.middleware';
 app.post('/api/admin/menu/sync', authMiddleware, requireRole(['ADMIN', 'MANAGER']), syncMenu as any);
 
-// Route kiểm tra server
-app.get('/', (req, res) => {
-  res.json({ success: true, message: 'HiAI-MenuGo POS Backend API is running!' });
+import { ApiResponse } from './utils/response';
+
+// Route kiểm tra server (Health Check)
+app.get('/api/health', (req, res) => {
+  return ApiResponse.success(res, { timestamp: new Date().toISOString() }, 'HiAI-MenuGo POS Backend API is running!');
 });
 
 // Error handling middleware

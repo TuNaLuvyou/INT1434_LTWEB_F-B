@@ -1,12 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt.utils';
 import { Role } from '@prisma/client';
+import { ApiResponse } from '../utils/response';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
     userId: string;
     email: string;
     role: Role;
+    // Prepared for SaaS phase
+    tenantId?: string;
+    branchId?: string;
   };
 }
 
@@ -14,13 +18,13 @@ export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: N
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Vui lòng đăng nhập để tiếp tục' });
+      ApiResponse.error(res, 'UNAUTHORIZED', 'Vui lòng đăng nhập để tiếp tục', 401);
       return;
     }
 
     const token = authHeader.split(' ')[1];
     if (!token) {
-      res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Vui lòng đăng nhập để tiếp tục' });
+      ApiResponse.error(res, 'UNAUTHORIZED', 'Vui lòng đăng nhập để tiếp tục', 401);
       return;
     }
 
@@ -29,9 +33,9 @@ export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: N
     next();
   } catch (error: any) {
     if (error.name === 'TokenExpiredError') {
-      res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Vui lòng đăng nhập để tiếp tục (Token expired)' });
+      ApiResponse.error(res, 'TOKEN_EXPIRED', 'Phiên đăng nhập đã hết hạn', 401);
     } else {
-      res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Vui lòng đăng nhập để tiếp tục' });
+      ApiResponse.error(res, 'UNAUTHORIZED', 'Vui lòng đăng nhập để tiếp tục', 401);
     }
   }
 };
@@ -39,13 +43,13 @@ export const authMiddleware = (req: AuthenticatedRequest, res: Response, next: N
 export const requireRole = (roles: Role[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
-      res.status(401).json({ success: false, code: 'UNAUTHORIZED', message: 'Vui lòng đăng nhập để tiếp tục' });
+      ApiResponse.error(res, 'UNAUTHORIZED', 'Vui lòng đăng nhập để tiếp tục', 401);
       return;
     }
 
     if (!roles.includes(req.user.role)) {
       console.warn(`[RBAC] Forbidden: ${req.user.role} trying to access ${req.method} ${req.originalUrl}`);
-      res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Bạn không có quyền thực hiện thao tác này' });
+      ApiResponse.error(res, 'FORBIDDEN', 'Bạn không có quyền thực hiện thao tác này', 403);
       return;
     }
 
