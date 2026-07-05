@@ -43,6 +43,55 @@ async function main() {
   });
   console.log('✅ SystemConfig created');
 
+  // BƯỚC 1.5: Permissions & Roles
+  const perms = [
+    'MENU_VIEW', 'MENU_CREATE', 'MENU_EDIT', 'MENU_DELETE',
+    'ORDER_VIEW', 'ORDER_CREATE', 'ORDER_EDIT', 'ORDER_DELETE',
+    'TABLE_VIEW', 'TABLE_MANAGE',
+    'KITCHEN_VIEW', 'KITCHEN_MANAGE',
+    'INVENTORY_VIEW', 'INVENTORY_MANAGE',
+    'REPORT_VIEW'
+  ];
+
+  for (const p of perms) {
+    await prisma.permission.upsert({
+      where: { code: p },
+      update: {},
+      create: { code: p, description: `Quyền ${p}` }
+    });
+  }
+  
+  const customRoles = [
+    { name: 'OWNER', perms: ['ALL'] },
+    { name: 'MANAGER', perms: ['MENU_VIEW', 'MENU_CREATE', 'MENU_EDIT', 'ORDER_VIEW', 'ORDER_CREATE', 'ORDER_EDIT', 'TABLE_VIEW', 'TABLE_MANAGE', 'KITCHEN_VIEW', 'INVENTORY_VIEW', 'INVENTORY_MANAGE', 'REPORT_VIEW'] },
+    { name: 'CASHIER', perms: ['ORDER_VIEW', 'ORDER_CREATE', 'ORDER_EDIT', 'TABLE_VIEW', 'TABLE_MANAGE'] },
+    { name: 'WAITER', perms: ['ORDER_VIEW', 'ORDER_CREATE', 'TABLE_VIEW'] },
+    { name: 'KITCHEN_STAFF', perms: ['KITCHEN_VIEW', 'KITCHEN_MANAGE'] },
+    { name: 'BAR_STAFF', perms: ['KITCHEN_VIEW', 'KITCHEN_MANAGE'] } // Assuming bar uses KDS too
+  ];
+
+  for (const cr of customRoles) {
+    const createdRole = await prisma.customRole.upsert({
+      where: { tenantId_name: { tenantId: tenant.id, name: cr.name } },
+      update: {},
+      create: { tenantId: tenant.id, name: cr.name }
+    });
+
+    if (cr.perms[0] !== 'ALL') {
+      for (const p of cr.perms) {
+        const permRecord = await prisma.permission.findUnique({ where: { code: p } });
+        if (permRecord) {
+          await prisma.rolePermission.upsert({
+            where: { roleId_permissionId: { roleId: createdRole.id, permissionId: permRecord.id } },
+            update: {},
+            create: { roleId: createdRole.id, permissionId: permRecord.id }
+          });
+        }
+      }
+    }
+  }
+  console.log('✅ Permissions & Roles created');
+
   // BƯỚC 2: Platform Admin & Users
   const saltRounds = 10;
   const passwordHash = await bcrypt.hash('Demo@1234', saltRounds);
@@ -82,12 +131,24 @@ async function main() {
     });
 
     // Link user to tenant
+    const roleMapping: Record<string, string> = {
+      [Role.ADMIN]: 'OWNER',
+      [Role.MANAGER]: 'MANAGER',
+      [Role.CASHIER]: 'CASHIER',
+      [Role.KITCHEN]: 'KITCHEN_STAFF'
+    };
+
+    const targetRole = await prisma.customRole.findUnique({
+      where: { tenantId_name: { tenantId: tenant.id, name: roleMapping[u.role] } }
+    });
+
     await prisma.tenantUser.upsert({
       where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },
       update: {},
       create: {
         tenantId: tenant.id,
         userId: user.id,
+        roleId: targetRole?.id,
         isOwner: u.role === Role.ADMIN,
       }
     });
