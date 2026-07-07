@@ -1633,7 +1633,7 @@ export default function CashierClient({
           {/* Tables Section */}
           <div className="space-y-3">
             <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider ml-1">Sơ đồ bàn phục vụ</div>
-            <div className="space-y-2 max-h-[480px] overflow-y-auto scrollbar-thin pr-1">
+            <div className="space-y-1.5 max-h-[480px] overflow-y-auto scrollbar-thin pr-1">
               {tables.map((table) => {
                 const pendingCount = table.session?.pendingCount || 0;
                 const preparingCount = table.session?.preparingCount || 0;
@@ -1643,18 +1643,22 @@ export default function CashierClient({
                 const isServing = preparingCount > 0 || doneCount > 0;
                 const isSelected = table.tableId === selectedTableId;
 
+                let statusDot = "bg-zinc-600";
                 let statusLabel = "Trống";
-                let statusClass = "bg-zinc-950 text-zinc-500 border border-zinc-900";
+                let statusClass = "text-zinc-500";
 
                 if (isPending) {
-                  statusLabel = "Chờ duyệt";
-                  statusClass = "bg-orange-500/10 text-orange-400 border border-orange-500/20 animate-pulse font-bold";
+                  statusDot = "bg-orange-400 animate-pulse";
+                  statusLabel = `${pendingCount} món`;
+                  statusClass = "text-orange-400 font-bold";
                 } else if (isAllDone) {
-                  statusLabel = "Hoàn thành";
-                  statusClass = "bg-purple-500/10 text-purple-400 border border-purple-500/20 font-bold";
+                  statusDot = "bg-purple-400";
+                  statusLabel = "Xong";
+                  statusClass = "text-purple-400 font-bold";
                 } else if (isServing) {
-                  statusLabel = "Đang phục vụ";
-                  statusClass = "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold";
+                  statusDot = "bg-emerald-400";
+                  statusLabel = "Đang PV";
+                  statusClass = "text-emerald-400 font-bold";
                 }
 
                 return (
@@ -1665,26 +1669,17 @@ export default function CashierClient({
                       handleSelectTable(table);
                       setActiveTab("details");
                     }}
-                    className={`w-full rounded-2xl border px-4 py-3.5 text-left transition-all duration-300 hover:scale-[0.99] ${
+                    className={`w-full rounded-xl border px-3.5 py-2.5 text-left transition-all ${
                       isSelected
-                        ? "border-zinc-500 bg-zinc-900 text-zinc-100 shadow-[0_12px_24px_rgba(0,0,0,0.4)]"
-                        : "border-zinc-900 bg-zinc-900/30 text-zinc-300"
+                        ? "border-zinc-500 bg-zinc-900 text-zinc-100"
+                        : "border-zinc-900 bg-zinc-900/20 text-zinc-400 hover:bg-zinc-900/40"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-bold text-zinc-100">Bàn {table.tableNumber}</div>
-                        <div className={`text-[10px] ${isSelected ? "text-zinc-400" : "text-zinc-500"}`}>{table.tableLabel}</div>
-                      </div>
-                      <span className={`text-[10px] px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold ${statusClass}`}>
-                        {statusLabel}
-                      </span>
+                    <div className="flex items-center gap-2.5">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot}`} />
+                      <span className="text-sm font-bold text-zinc-100 shrink-0">Bàn {table.tableNumber}</span>
+                      <span className={`text-[10px] ml-auto font-semibold ${statusClass}`}>{statusLabel}</span>
                     </div>
-                    {pendingCount > 0 && (
-                      <div className={`mt-2.5 text-[10px] font-bold inline-flex items-center gap-1 bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-lg border border-orange-500/20`}>
-                        Chờ duyệt: {pendingCount} món
-                      </div>
-                    )}
                   </button>
                 );
               })}
