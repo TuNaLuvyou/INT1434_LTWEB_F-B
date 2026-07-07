@@ -20,6 +20,11 @@ export function kitchenHandler(socket: Socket, io: Server): void {
     orderItemId: string;
     sessionId: string;
     tableId: string;
+    menuItemId?: string;
+    qty?: number;
+    deltaQty?: number;
+    note?: string | null;
+    removedOrderItemId?: string;
     status: 'PREPARING' | 'DONE' | 'VOID';
     menuItemName?: string;
   }) => {
@@ -39,6 +44,11 @@ export function kitchenHandler(socket: Socket, io: Server): void {
     io.to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, {
       orderItemId:  data.orderItemId,
       tableId:      data.tableId,
+      menuItemId:   data.menuItemId,
+      qty:          data.qty,
+      deltaQty:     data.deltaQty,
+      note:         data.note,
+      removedOrderItemId: data.removedOrderItemId,
       status:       data.status,
       menuItemName: data.menuItemName,
       updatedAt:    new Date().toISOString(),

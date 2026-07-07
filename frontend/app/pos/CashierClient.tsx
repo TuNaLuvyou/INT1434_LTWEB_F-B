@@ -51,7 +51,38 @@ interface SessionItemsResponse {
   tableId: string;
   tableNumber: number;
   tableLabel: string;
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
+  groups: Record<SessionGroupStatus, OrderItem[]>;
+}
+
+interface RealtimeSessionItem {
+  id: string;
+  menuItemId: string;
+  menuItemName: string;
+  qty: number;
+  unitPrice: number;
+  status: SessionGroupStatus;
+  note?: string | null;
+  imageUrl?: string | null;
+  createdAt?: string;
+}
+
+interface RealtimeKitchenItemUpdatedPayload {
+  orderItemId: string;
+  sessionId: string;
+  tableId: string;
+  menuItemId?: string;
+  menuItemName?: string;
+  qty?: number;
+  deltaQty?: number;
+  note?: string | null;
+  removedOrderItemId?: string;
+  status: OrderItemStatus;
+  previousStatus?: OrderItemStatus;
+  updatedAt: string;
+=======
   groups: Record<OrderItemStatus, OrderItem[]>;
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
 }
 
 interface Notification {
@@ -88,6 +119,8 @@ interface CashierClientProps {
   initialSessionItems: SessionItemsResponse | null;
   initialSelectedSessionId: string | null;
   errorMsg: string | null;
+  disableSound?: boolean;
+  onPendingCountChange?: (count: number) => void;
 }
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", {
@@ -129,21 +162,34 @@ function playCashierBeep() {
       (window as Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextCtor) return;
 
-    const ctx = new AudioContextCtor();
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
+    if (!(window as any).__cashierAudioCtx) {
+      (window as any).__cashierAudioCtx = new AudioContextCtor();
+    }
+    const ctx = (window as any).__cashierAudioCtx;
+    
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
 
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(640, ctx.currentTime);
-
-    gainNode.gain.setValueAtTime(0.06, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + 0.2);
+    const playChime = (freq: number, startTime: number) => {
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(freq, startTime);
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(1.0, startTime + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + 0.7);
+    };
+    
+    const now = ctx.currentTime;
+    playChime(880, now);
+    playChime(1108.73, now);
+    playChime(880, now + 0.15);
+    playChime(1108.73, now + 0.15);
   } catch (error) {
     console.error("Audio api error", error);
   }
@@ -178,9 +224,27 @@ export default function CashierClient({
   initialSessionItems,
   initialSelectedSessionId,
   errorMsg,
+  disableSound = false,
+  onPendingCountChange,
 }: CashierClientProps) {
   const [tables, setTables] = useState<CashierOverviewTable[]>(initialTables);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(initialSelectedSessionId);
+
+  // Loop sound while there are pending orders
+  useEffect(() => {
+    const totalPending = tables.reduce((sum, t) => sum + (t.session?.pendingCount || 0), 0);
+    
+    if (onPendingCountChange) {
+      onPendingCountChange(totalPending);
+    }
+
+    if (disableSound || totalPending === 0) return;
+    
+    const interval = setInterval(() => {
+      playCashierBeep();
+    }, 1000); // Ring every 1 second
+    return () => clearInterval(interval);
+  }, [tables, disableSound, onPendingCountChange]);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(
     initialTables.find((table) => table.session?.sessionId === initialSelectedSessionId)?.tableId || null
   );
@@ -188,6 +252,28 @@ export default function CashierClient({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(true);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
+
+  // Auto-fetch tables if initialTables is empty
+  useEffect(() => {
+    if (initialTables.length > 0) return;
+    const fetchOverview = async () => {
+      try {
+        const token = getAccessTokenFromCookie();
+        const res = await fetch(`${API_URL}/api/cashier/overview`, {
+          headers: { Authorization: `Bearer ${token || ""}` },
+        });
+        if (res.ok) {
+          const result = await res.json();
+          if (result.success && Array.isArray(result.data?.tables)) {
+            setTables(result.data.tables);
+          }
+        }
+      } catch (err) {
+        console.error("[CashierClient] Lỗi fetch overview:", err);
+      }
+    };
+    fetchOverview();
+  }, [initialTables]);
   const [activeTab, setActiveTab] = useState<"tables" | "details">(initialSelectedSessionId ? "details" : "tables");
   const [now, setNow] = useState(new Date());
   const [isApproving, setIsApproving] = useState(false);
@@ -477,6 +563,67 @@ export default function CashierClient({
     [fetchSessionItems]
   );
 
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
+  const syncSelectedSessionFromRealtimeItems = useCallback(
+    (payload: { sessionId: string; tableId: string; orderItems: RealtimeSessionItem[] }) => {
+      setSessionItems((prev) => {
+        if (payload.sessionId !== selectedSessionId) return prev;
+
+        const matchedTable = tables.find((table) => table.tableId === payload.tableId);
+        const nextGroups = buildGroupsFromRealtimeItems(payload.orderItems);
+
+        return {
+          sessionId: payload.sessionId,
+          openedAt: prev?.openedAt || matchedTable?.session?.openedAt || new Date().toISOString(),
+          tableId: payload.tableId,
+          tableNumber: prev?.tableNumber || matchedTable?.tableNumber || 0,
+          tableLabel: prev?.tableLabel || matchedTable?.tableLabel || "",
+          groups: nextGroups,
+        };
+      });
+    },
+    [selectedSessionId, tables]
+  );
+
+  const updateTableCountersFromStatusChange = useCallback((payload: RealtimeKitchenItemUpdatedPayload) => {
+    const changedQty = payload.deltaQty ?? 1;
+
+    setTables((prev) =>
+      prev.map((table) => {
+        if (table.session?.sessionId !== payload.sessionId || !table.session) return table;
+
+        const nextSession = { ...table.session };
+        const decrementKey =
+          payload.previousStatus === "PENDING"
+            ? "pendingCount"
+            : payload.previousStatus === "PREPARING"
+              ? "preparingCount"
+              : payload.previousStatus === "DONE"
+                ? "doneCount"
+                : null;
+        const incrementKey =
+          payload.status === "PENDING"
+            ? "pendingCount"
+            : payload.status === "PREPARING"
+              ? "preparingCount"
+              : payload.status === "DONE"
+                ? "doneCount"
+                : null;
+
+        if (decrementKey) {
+          nextSession[decrementKey] = Math.max(0, nextSession[decrementKey] - changedQty);
+        }
+        if (incrementKey) {
+          nextSession[incrementKey] += changedQty;
+        }
+
+        return { ...table, session: nextSession };
+      })
+    );
+  }, []);
+
+=======
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
   const fetchAvailableVouchers = async () => {
     try {
       const res = await fetch(`${API_URL}/api/vouchers`, {
@@ -791,11 +938,43 @@ export default function CashierClient({
         })
       );
 
-      playCashierBeep();
+      if (!disableSound) {
+        playCashierBeep();
+      }
 
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
+      setSessionItems((prev) => {
+        if (payload.sessionId !== selectedSessionId || !prev) return prev;
+        
+        const newOrderItems: OrderItem[] = (payload.newItems || []).map((item) => ({
+          id: item.id || (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `temp-${Date.now()}-${Math.random()}`),
+          sessionId: payload.sessionId,
+          menuItemId: item.menuItemId,
+          qty: item.qty,
+          note: null,
+          status: "PENDING",
+          unitPrice: item.unitPrice,
+          menuItem: {
+            name: item.menuItemName,
+            price: item.unitPrice,
+            imageUrl: null,
+          },
+          createdAt: payload.createdAt || new Date().toISOString(),
+        }));
+
+        return {
+          ...prev,
+          groups: {
+            ...prev.groups,
+            PENDING: [...(prev.groups?.PENDING || []), ...newOrderItems],
+          },
+        };
+      });
+=======
       if (payload.sessionId === selectedSessionId) {
         fetchSessionItems(payload.sessionId);
       }
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
     };
 
     const handleAllDone = (payload: { sessionId: string; tableNumber: number; tableLabel?: string }) => {
@@ -836,6 +1015,13 @@ export default function CashierClient({
       setTables((prev) =>
         prev.map((table) => {
           if (table.tableId !== payload.tableId) return table;
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
+          const hasCartOnlyItems = payload.orderItems.some((item) => item.status === "CART");
+          const preparingCount = payload.orderItems.filter((item) => item.status === "PREPARING").reduce((sum, item) => sum + (item.qty || 1), 0);
+          const doneCount = payload.orderItems.filter((item) => item.status === "DONE").reduce((sum, item) => sum + (item.qty || 1), 0);
+          const pendingCount = payload.orderItems.filter((item) => item.status === "PENDING").reduce((sum, item) => sum + (item.qty || 1), 0);
+=======
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
           return {
             ...table,
             session: table.session
@@ -853,6 +1039,52 @@ export default function CashierClient({
       }
     };
 
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
+    const handleKitchenItemUpdated = (payload: RealtimeKitchenItemUpdatedPayload) => {
+      updateTableCountersFromStatusChange(payload);
+
+      setSessionItems((prev) => {
+        if (!prev || prev.sessionId !== payload.sessionId) return prev;
+
+        const nextGroups = createEmptyGroups();
+        let movedItem: OrderItem | null = null;
+
+        for (const status of Object.keys(prev.groups) as OrderItemStatus[]) {
+          for (const item of prev.groups[status]) {
+            if (item.id === payload.removedOrderItemId) {
+              continue;
+            }
+
+            if (item.id === payload.orderItemId) {
+              movedItem = {
+                ...item,
+                status: payload.status,
+                qty: payload.qty ?? item.qty,
+                note: payload.note !== undefined ? payload.note : item.note,
+                menuItem: {
+                  ...item.menuItem,
+                  name: payload.menuItemName || item.menuItem.name,
+                },
+              };
+              continue;
+            }
+            nextGroups[status].push(item);
+          }
+        }
+
+        if (movedItem) {
+          nextGroups[payload.status].push(movedItem);
+        }
+
+        return {
+          ...prev,
+          groups: nextGroups,
+        };
+      });
+    };
+
+=======
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
     socket.on("cashier:new-order", handleNewOrder);
     socket.on("session:all-done", handleAllDone);
     socket.on("menu:soldout-notify", handleSoldOut);
@@ -864,7 +1096,20 @@ export default function CashierClient({
       socket.off("menu:soldout-notify", handleSoldOut);
       socket.off("cart:updated", handleCartUpdated);
     };
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
+  }, [
+    socket,
+    isConnected,
+    addNotification,
+    selectedSessionId,
+    syncSelectedSessionFromRealtimeItems,
+    tables,
+    updateTableCountersFromStatusChange,
+    fetchSessionItems,
+  ]);
+=======
   }, [socket, isConnected, addNotification, selectedSessionId, fetchSessionItems]);
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
 
   const unreadCount = notifications.filter((item) => !item.isRead).length;
 
@@ -919,7 +1164,7 @@ export default function CashierClient({
             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusBadgeClass[status]}`}>
               {statusLabels[status]}
             </span>
-            <span className="text-xs font-semibold text-zinc-400">{items.length} món</span>
+            <span className="text-xs font-semibold text-zinc-400">{items.reduce((sum, i) => sum + i.qty, 0)} món</span>
           </div>
           {isCollapsed ? <ChevronDown className="h-4 w-4 text-zinc-500" /> : <ChevronUp className="h-4 w-4 text-zinc-500" />}
         </button>
@@ -1085,7 +1330,7 @@ export default function CashierClient({
                   {isDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsDropdownOpen(false)} />
-                      <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur-xl shadow-2xl p-2.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 space-y-1 max-h-[65vh] overflow-y-auto">
+                      <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur-xl shadow-2xl p-2.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 space-y-1 max-h-[65vh] overflow-y-auto scrollbar-thin">
                         <div>
                           <div className="px-2.5 py-1 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Chọn ngày cụ thể</div>
                           <div className="px-2.5 py-1.5 space-y-1.5">
@@ -1257,7 +1502,7 @@ export default function CashierClient({
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
+            <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-5 space-y-3">
               {filteredArchivedSessions.length === 0 ? (
                 <div className="text-xs text-zinc-500 italic text-center py-10">
                   Chưa có phiên nào được lưu trong thời gian này.
@@ -1360,7 +1605,7 @@ export default function CashierClient({
                     Đọc tất cả
                   </button>
                 </div>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-thin pr-1">
                   {notifications.length === 0 ? (
                     <div className="text-xs text-zinc-500 italic py-2 text-center">Chưa có thông báo nào</div>
                   ) : (
@@ -1388,7 +1633,7 @@ export default function CashierClient({
           {/* Tables Section */}
           <div className="space-y-3">
             <div className="text-xs font-bold text-zinc-400 uppercase tracking-wider ml-1">Sơ đồ bàn phục vụ</div>
-            <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[480px] overflow-y-auto scrollbar-thin pr-1">
               {tables.map((table) => {
                 const pendingCount = table.session?.pendingCount || 0;
                 const preparingCount = table.session?.preparingCount || 0;
@@ -1490,7 +1735,7 @@ export default function CashierClient({
                     ))}
                   </div>
                 ) : (
-                  <div className="flex-1 space-y-4 py-6 max-h-[500px] overflow-y-auto pr-1">
+                  <div className="flex-1 space-y-4 py-6 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">
                     {renderItemsGroup("PENDING")}
                     {renderItemsGroup("PREPARING")}
                     {renderItemsGroup("DONE")}
@@ -1546,11 +1791,11 @@ export default function CashierClient({
               </button>
             </div>
 
-            <div className="overflow-y-auto px-6 py-5 space-y-5 flex-1">
+            <div className="overflow-y-auto scrollbar-thin px-6 py-5 space-y-5 flex-1">
               {/* Danh sach mon an */}
               <div>
                 <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-3">Chi tiết hóa đơn</div>
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-thin pr-1">
                   {[
                     ...groupedItems.PENDING,
                     ...groupedItems.PREPARING,
@@ -1601,7 +1846,7 @@ export default function CashierClient({
                     {showVoucherDropdown && (
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setShowVoucherDropdown(false)} />
-                        <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl z-50 divide-y divide-zinc-800">
+                        <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto scrollbar-thin bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl z-50 divide-y divide-zinc-800">
                           {availableVouchers.filter(v => v.code.toLowerCase().includes(voucherCode.toLowerCase())).length === 0 ? (
                             <div className="p-3 text-xs text-zinc-500 text-center">Không tìm thấy voucher</div>
                           ) : (

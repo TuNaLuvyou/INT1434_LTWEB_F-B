@@ -283,9 +283,10 @@ export async function submitOrder(
         '@/lib/socket/socket-emit'
       );
 
-      const newItemsPayload = items.map((item) => {
+      const newItemsPayload = items.map((item, index) => {
         const menuItem = menuItemMap.get(item.menuItemId)!;
         return {
+          id: createdIds[index],
           menuItemId: item.menuItemId,
           menuItemName: menuItem.name,
           qty: item.qty,
