@@ -109,7 +109,7 @@ export const updateSoldOut = async (req: AuthenticatedRequest, res: Response) =>
  */
 async function triggerNextRevalidation(): Promise<void> {
   const nextUrl = process.env.NEXTJS_URL || 'http://localhost:3000';
-  const secret = process.env.REVALIDATION_SECRET || 'restoflow_revalidation_secret';
+  const secret = process.env.REVALIDATION_SECRET || 'hiaimenugo_revalidation_secret';
 
   const response = await fetch(`${nextUrl}/api/revalidate`, {
     method: 'POST',

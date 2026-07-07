@@ -2,7 +2,7 @@ import prisma from '../config/prisma';
 import { SessionStatus } from '@prisma/client';
 import { emitTableStatusChanged, emitSessionClosed, emitKitchenNewTicket } from '../socket/emit.helpers';
 import { AppError } from '../utils/app-error';
-import { deductInventory } from './inventory.service';
+import { deductInventory, InsufficientStockError } from './inventory.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -294,7 +294,6 @@ export async function updateSessionStatus(
         sessionId,
         tableId: session.tableId,
         tableNumber: session.table.tableNumber,
-        tableLabel: session.table.label,
         items: itemsToSendToKitchen.map(item => ({
           orderItemId: item.id,
           menuItemId: item.menuItemId,
@@ -302,7 +301,6 @@ export async function updateSessionStatus(
           qty: item.qty,
           note: item.note || undefined,
           status: 'PENDING',
-          createdAt: item.createdAt.toISOString(),
         })),
         createdAt: now.toISOString(),
       });

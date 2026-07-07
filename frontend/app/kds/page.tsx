@@ -94,34 +94,6 @@ interface MenuItem {
   };
 }
 
-interface KitchenRealtimePayload {
-  sessionId: string;
-  tableId: string;
-  tableNumber?: number;
-  tableLabel?: string;
-  items: Array<{
-    orderItemId: string;
-    menuItemId: string;
-    menuItemName: string;
-    qty: number;
-    note?: string;
-    status: string;
-    createdAt?: string;
-  }>;
-  createdAt: string;
-}
-
-interface KitchenItemRealtimePayload {
-  orderItemId: string;
-  sessionId: string;
-  tableId: string;
-  menuItemId?: string;
-  menuItemName?: string;
-  status: "PREPARING" | "DONE" | "VOID";
-  previousStatus?: "PENDING" | "PREPARING" | "DONE" | "VOID";
-  updatedAt: string;
-}
-
 export default function KDSPage() {
   const [orders, setOrders] = useState<KDSOther[]>([]);
   const [isVoidingId, setIsVoidingId] = useState<string | null>(null);
@@ -226,131 +198,22 @@ export default function KDSPage() {
   const playBeep = () => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
       
-      const playChime = (freq: number, startTime: number) => {
-        const oscillator = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        
-        oscillator.type = 'triangle';
-        oscillator.frequency.setValueAtTime(freq, startTime);
-        
-        gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(1.0, startTime + 0.02);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        
-        oscillator.start(startTime);
-        oscillator.stop(startTime + 0.7);
-      };
-
-      const now = ctx.currentTime;
-      // First ring
-      playChime(880, now);
-      playChime(1108.73, now);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
       
-      // Second ring
-      playChime(880, now + 0.15);
-      playChime(1108.73, now + 0.15);
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
       
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.2);
     } catch (e) {
       console.error('Audio api error', e);
-    }
-  };
-
-  const appendOrCreateKitchenSession = (payload: KitchenRealtimePayload) => {
-    setRawSessions((prev) => {
-      const nextItems = payload.items.map((item) => ({
-        id: item.orderItemId,
-        sessionId: payload.sessionId,
-        menuItemId: item.menuItemId,
-        qty: item.qty,
-        note: item.note ?? null,
-        status: item.status,
-        createdAt: payload.createdAt,
-        updatedAt: payload.createdAt,
-        menuItem: {
-          id: item.menuItemId,
-          name: item.menuItemName,
-          imageUrl: null,
-          isSoldOut: false,
-        },
-      }));
-
-      const existingIndex = prev.findIndex((session) => session.id === payload.sessionId);
-      if (existingIndex === -1) {
-        return [
-          {
-            id: payload.sessionId,
-            tableId: payload.tableId,
-            openedAt: payload.createdAt,
-            lockedAt: payload.createdAt,
-            table: {
-              tableNumber: payload.tableNumber || 0,
-              label: payload.tableLabel || `Bàn ${payload.tableNumber || ""}`,
-            },
-            orderItems: nextItems,
-          },
-          ...prev,
-        ];
-      }
-
-      return prev.map((session, index) => {
-        if (index !== existingIndex) return session;
-        const existingIds = new Set(session.orderItems.map((item: any) => item.id));
-        return {
-          ...session,
-          table: {
-            ...session.table,
-            tableNumber: payload.tableNumber || session.table?.tableNumber || 0,
-            label: payload.tableLabel || session.table?.label || `Bàn ${payload.tableNumber || ""}`,
-          },
-          orderItems: [
-            ...session.orderItems,
-            ...nextItems.filter((item) => !existingIds.has(item.id)),
-          ],
-        };
-      });
-    });
-  };
-
-  const applyKitchenItemUpdate = (payload: KitchenItemRealtimePayload) => {
-    let sessionToArchive: any = null;
-
-    setRawSessions((prev) => {
-      const next = prev
-        .map((session) => {
-          if (session.id !== payload.sessionId) return session;
-
-          const nextOrderItems = session.orderItems.map((item: any) =>
-            item.id === payload.orderItemId
-              ? {
-                  ...item,
-                  status: payload.status,
-                  updatedAt: payload.updatedAt,
-                }
-              : item
-          );
-
-          const updatedSession = { ...session, orderItems: nextOrderItems };
-          const allVoided =
-            nextOrderItems.length > 0 &&
-            nextOrderItems.every((item: any) => item.status === "VOID");
-
-          if (allVoided) {
-            sessionToArchive = updatedSession;
-          }
-
-          return updatedSession;
-        })
-        .filter((session) => session.id !== sessionToArchive?.id);
-
-      return next;
-    });
-
-    if (sessionToArchive) {
-      archiveSession(sessionToArchive);
     }
   };
 
@@ -382,6 +245,8 @@ export default function KDSPage() {
   const [rangeType, setRangeType] = useState<"today" | "yesterday" | "7days" | "30days" | "90days" | "custom">("today");
   const [customDate, setCustomDate] = useState<string>("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [tempCustomDateText, setTempCustomDateText] = useState<string>("");
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const [rangeStartText, setRangeStartText] = useState<string>("");
   const [rangeEndText, setRangeEndText] = useState<string>("");
@@ -538,32 +403,18 @@ export default function KDSPage() {
   useEffect(() => {
     if (!kitchenSocket || !isKitchenConnected) return;
 
-    const handleNewTicket = (payload: KitchenRealtimePayload) => {
-      console.log('[KDS Socket] Nhận ticket mới realtime:', payload.sessionId);
-      appendOrCreateKitchenSession(payload);
+    const handleUpdate = () => {
+      console.log('[KDS Socket] Nhận được thay đổi đơn hàng từ socket, cập nhật...');
+      playBeep();
+      fetchKdsOrders();
     };
 
-    const handleItemUpdated = (payload: KitchenItemRealtimePayload & { type?: string; menuItemId?: string; isSoldOut?: boolean }) => {
-      if (payload.type === "soldout") {
-        return;
-      }
-      applyKitchenItemUpdate(payload);
-    };
-
-    const handleSessionAllDelivered = (payload: { sessionId: string }) => {
-      console.log('[KDS Socket] Session all delivered:', payload.sessionId);
-      setOrders(prev => prev.filter(order => order.id !== payload.sessionId));
-      setRawSessions(prev => prev.filter(session => session.id !== payload.sessionId));
-    };
-
-    kitchenSocket.on('kitchen:new-ticket', handleNewTicket);
-    kitchenSocket.on('kitchen:item-updated', handleItemUpdated);
-    kitchenSocket.on('session:all-delivered', handleSessionAllDelivered);
+    kitchenSocket.on('kitchen:new-ticket', handleUpdate);
+    kitchenSocket.on('kitchen:item-updated', handleUpdate);
 
     return () => {
-      kitchenSocket.off('kitchen:new-ticket', handleNewTicket);
-      kitchenSocket.off('kitchen:item-updated', handleItemUpdated);
-      kitchenSocket.off('session:all-delivered', handleSessionAllDelivered);
+      kitchenSocket.off('kitchen:new-ticket', handleUpdate);
+      kitchenSocket.off('kitchen:item-updated', handleUpdate);
     };
   }, [kitchenSocket, isKitchenConnected]);
 
@@ -594,6 +445,7 @@ export default function KDSPage() {
 
       // Xác định trạng thái chung của ticket dựa trên các items
       let status: "pending" | "preparing" | "ready" = "pending";
+      const hasPending = activeItems.some((item: any) => item.status === "PENDING");
       const hasPreparing = activeItems.some((item: any) => item.status === "PREPARING");
       const allDone = activeItems.every((item: any) => item.status === "DONE" || item.status === "VOID");
       
@@ -605,13 +457,8 @@ export default function KDSPage() {
         status = "pending";
       }
 
-      let ticketTime = new Date(session.openedAt).getTime();
-      if (activeItems.length > 0) {
-        // Lấy thời gian của món mới nhất được gọi để đếm từ 0 khi có món mới thêm vào
-        ticketTime = Math.max(...activeItems.map((oi: any) => new Date(oi.createdAt || session.openedAt).getTime()));
-      }
-      
-      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - ticketTime) / 1000));
+      const openedTime = new Date(session.openedAt).getTime();
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - openedTime) / 1000));
 
       return {
         id: session.id,
@@ -619,7 +466,7 @@ export default function KDSPage() {
         tableNo: session.table?.label || `Bàn ${session.table?.tableNumber || ""}`,
         items,
         status,
-        createdAt: new Date(ticketTime),
+        createdAt: new Date(session.openedAt),
         elapsedSeconds
       };
     }).filter(Boolean) as KDSOther[];
@@ -630,18 +477,12 @@ export default function KDSPage() {
   // Timers updating every second
   useEffect(() => {
     const timer = setInterval(() => {
-      setOrders(prev => {
-        // Beep continuously if there are pending orders
-        const hasPending = prev.some(order => order.items.some(item => item.status === 'PENDING'));
-        if (hasPending) {
-          playBeep();
-        }
-
-        return prev.map(order => ({
+      setOrders(prev => 
+        prev.map(order => ({
           ...order,
           elapsedSeconds: order.elapsedSeconds + 1
-        }));
-      });
+        }))
+      );
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -663,7 +504,7 @@ export default function KDSPage() {
       
       const result = await response.json();
       if (response.ok && result.success) {
-        // Socket event sẽ tự đồng bộ local state cho tất cả màn KDS
+        fetchKdsOrders();
       } else {
         alert(result.message || "Không thể cập nhật trạng thái");
       }
@@ -686,7 +527,28 @@ export default function KDSPage() {
       });
       const result = await response.json();
       if (response.ok && result.success) {
-        // Socket event VOID sẽ tự cập nhật state local
+        setRawSessions((prev) => {
+          const nextSessions = prev.map((session) => {
+            if (session.id !== sessionId) return session;
+            const nextItems = session.orderItems.map((item: any) =>
+              item.id === orderItemId ? { ...item, status: "VOID" } : item
+            );
+            return { ...session, orderItems: nextItems };
+          });
+
+          const updatedSession = nextSessions.find((session) => session.id === sessionId);
+          if (updatedSession) {
+            const allVoided = updatedSession.orderItems.every((item: any) => item.status === "VOID");
+            if (allVoided) {
+              archiveSession(updatedSession);
+              return nextSessions.filter((session) => session.id !== sessionId);
+            }
+          }
+
+          return nextSessions;
+        });
+
+        fetchKdsOrders();
       } else {
         alert(result.message || "Không thể hủy món");
       }
@@ -714,9 +576,6 @@ export default function KDSPage() {
       localStorage.setItem("kds_archived_item_ids", JSON.stringify(updatedArchived));
     }
 
-    // Tránh lưu trùng session ID
-    if (archivedOrders.some(a => a.id === session.id)) return;
-
     const archiveEntry: ArchivedKdsOrder = {
       id: session.id,
       orderNo: `ORD-${session.id.substring(0, 4).toUpperCase()}`,
@@ -738,27 +597,10 @@ export default function KDSPage() {
     setOrders(prev => prev.filter(order => order.id !== session.id));
   };
 
-  const completeOrder = async (sessionId: string) => {
+  const completeOrder = (sessionId: string) => {
     const session = rawSessions.find(s => s.id === sessionId);
     if (session) {
       archiveSession(session);
-    }
-
-    // Gửi request lên backend để cập nhật DB cho mọi máy KDS khác
-    try {
-      const accessToken = getAccessTokenFromCookie();
-      const response = await fetch(`${API_URL}/api/kds/orders/${sessionId}/deliver`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${accessToken || ''}`,
-        },
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        console.error("[KDS] Lỗi khi lưu trữ trên DB:", result.message);
-      }
-    } catch (err) {
-      console.error("[KDS] Lỗi kết nối khi lưu trữ:", err);
     }
   };
 
@@ -825,11 +667,17 @@ export default function KDSPage() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-500" />
             <span className="text-[10px] sm:text-xs text-zinc-400">Chờ/nấu:</span>
-            <span className="font-bold font-mono text-xs sm:text-sm">{orders.filter(o => o.items.some(item => item.status === 'PENDING' || item.status === 'PREPARING')).length}</span>
+            <span className="font-bold font-mono text-xs sm:text-sm">{orders.filter(o => o.status !== "ready").length}</span>
           </div>
-
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
+            <span className="text-[10px] sm:text-xs text-zinc-400">TB nấu:</span>
+            <span className="font-bold font-mono text-xs sm:text-sm text-amber-400">11:24</span>
+          </div>
         </div>
-
+        <div className="text-[10px] sm:text-xs text-zinc-500 font-light italic hidden sm:block">
+          * Đơn hàng hiển thị cảnh báo đỏ khi chờ vượt quá 10 phút.
+        </div>
       </div>
 
       {/* Kanban Columns */}
@@ -843,16 +691,14 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Hàng Chờ (Pending)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-amber-400 font-bold border border-zinc-800">
-              {orders.filter(o => o.items.some(item => item.status === 'PENDING')).length}
+              {orders.filter(o => o.status === "pending").length}
             </span>
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-none">
-            {orders.filter(o => o.items.some(item => item.status === 'PENDING')).map(order => {
-              const pendingItems = order.items.filter(item => item.status === 'PENDING');
-              return (
+            {orders.filter(o => o.status === "pending").map(order => (
               <div 
-                key={`${order.id}-pending`} 
+                key={order.id} 
                 className="bg-zinc-900/60 border border-zinc-900 rounded-2xl p-4 flex flex-col justify-between hover:border-zinc-800 transition-all duration-300 relative group overflow-hidden"
               >
                 {/* Hot Alert glow for urgent orders */}
@@ -863,7 +709,7 @@ export default function KDSPage() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-mono font-bold text-xs text-white">{order.orderNo}</span>
-                    <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border font-mono text-[10px] font-bold ${getUrgencyColor(order.elapsedSeconds, 'pending')}`}>
+                    <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border font-mono text-[10px] font-bold ${getUrgencyColor(order.elapsedSeconds, order.status)}`}>
                       {order.elapsedSeconds > 600 ? <AlertTriangle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
                       <span>{formatTimer(order.elapsedSeconds)}</span>
                     </div>
@@ -874,19 +720,21 @@ export default function KDSPage() {
                   </div>
 
                   <ul className="space-y-2 mb-4">
-                    {pendingItems.map((item, idx) => (
+                    {order.items.map((item, idx) => (
                       <li key={idx} className="bg-zinc-950/40 p-2.5 rounded-lg border border-zinc-900/60 flex flex-col gap-1.5 hover:border-zinc-800/80 transition-all duration-300">
                         <div className="flex justify-between items-center text-xs group/item">
                           <span className="text-zinc-400 font-light flex items-center gap-2">
                             {item.name}
-                            <button
-                              onClick={() => handleVoidKdsItem(order.id, item.id, item.name)}
-                              disabled={isVoidingId === item.id}
-                              className="text-[10px] text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all duration-200"
-                              title="Báo hết món & Huỷ"
-                            >
-                              {isVoidingId === item.id ? "Đang huỷ..." : "Hết món"}
-                            </button>
+                            {(item.status === 'PENDING' || item.status === 'PREPARING') && (
+                              <button
+                                onClick={() => handleVoidKdsItem(order.id, item.id, item.name)}
+                                disabled={isVoidingId === item.id}
+                                className="text-[10px] text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all duration-200"
+                                title="Báo hết món & Huỷ"
+                              >
+                                {isVoidingId === item.id ? "Đang huỷ..." : "Hết món"}
+                              </button>
+                            )}
                           </span>
                           <span className="font-mono font-bold text-white bg-zinc-800 border border-zinc-800 px-1.5 py-0.5 rounded shrink-0">
                             x{item.quantity}
@@ -910,9 +758,8 @@ export default function KDSPage() {
                   Bắt đầu chế biến
                 </button>
               </div>
-              );
-            })}
-            {orders.filter(o => o.items.some(item => item.status === 'PENDING')).length === 0 && (
+            ))}
+            {orders.filter(o => o.status === "pending").length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-center text-zinc-600 py-16">
                 <ChefHat className="h-7 w-7 stroke-[1.2] mb-2" />
                 <p className="text-xs font-light">Không có đơn hàng nào đang chờ nấu.</p>
@@ -929,22 +776,20 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Đang nấu (Preparing)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-orange-400 font-bold border border-zinc-800">
-              {orders.filter(o => o.items.some(item => item.status === 'PREPARING')).length}
+              {orders.filter(o => o.status === "preparing").length}
             </span>
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-none">
-            {orders.filter(o => o.items.some(item => item.status === 'PREPARING')).map(order => {
-              const preparingItems = order.items.filter(item => item.status === 'PREPARING');
-              return (
+            {orders.filter(o => o.status === "preparing").map(order => (
               <div 
-                key={`${order.id}-preparing`} 
+                key={order.id} 
                 className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-4 flex flex-col justify-between hover:border-zinc-700/80 transition-all duration-300 relative overflow-hidden"
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-mono font-bold text-xs text-white">{order.orderNo}</span>
-                    <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border font-mono text-[10px] font-bold ${getUrgencyColor(order.elapsedSeconds, 'preparing')}`}>
+                    <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border font-mono text-[10px] font-bold ${getUrgencyColor(order.elapsedSeconds, order.status)}`}>
                       <Flame className="h-3 w-3 text-orange-500 animate-bounce" />
                       <span>{formatTimer(order.elapsedSeconds)}</span>
                     </div>
@@ -955,19 +800,21 @@ export default function KDSPage() {
                   </div>
 
                   <ul className="space-y-2 mb-4">
-                    {preparingItems.map((item, idx) => (
+                    {order.items.map((item, idx) => (
                       <li key={idx} className="bg-zinc-950/40 p-2.5 rounded-lg border border-zinc-900/60 flex flex-col gap-1.5 hover:border-zinc-800/80 transition-all duration-300">
                         <div className="flex justify-between items-center text-xs group/item">
                           <span className="text-zinc-300 font-medium flex items-center gap-2">
                             {item.name}
-                            <button
-                              onClick={() => handleVoidKdsItem(order.id, item.id, item.name)}
-                              disabled={isVoidingId === item.id}
-                              className="text-[10px] text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all duration-200"
-                              title="Báo hết món & Huỷ"
-                            >
-                              {isVoidingId === item.id ? "Đang huỷ..." : "Hết món"}
-                            </button>
+                            {(item.status === 'PENDING' || item.status === 'PREPARING') && (
+                              <button
+                                onClick={() => handleVoidKdsItem(order.id, item.id, item.name)}
+                                disabled={isVoidingId === item.id}
+                                className="text-[10px] text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-all duration-200"
+                                title="Báo hết món & Huỷ"
+                              >
+                                {isVoidingId === item.id ? "Đang huỷ..." : "Hết món"}
+                              </button>
+                            )}
                           </span>
                           <span className="font-mono font-bold text-white bg-orange-950/20 border border-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded shrink-0">
                             x{item.quantity}
@@ -991,9 +838,8 @@ export default function KDSPage() {
                   Hoàn tất món ăn
                 </button>
               </div>
-              );
-            })}
-            {orders.filter(o => o.items.some(item => item.status === 'PREPARING')).length === 0 && (
+            ))}
+            {orders.filter(o => o.status === "preparing").length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-center text-zinc-600 py-16">
                 <Flame className="h-7 w-7 stroke-[1.2] mb-2" />
                 <p className="text-xs font-light">Không có món ăn nào đang chế biến.</p>
@@ -1010,17 +856,14 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Sẵn Sàng (Ready)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-emerald-400 font-bold border border-zinc-800">
-              {orders.filter(o => o.items.some(item => item.status === 'DONE')).length}
+              {orders.filter(o => o.status === "ready").length}
             </span>
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-none">
-            {orders.filter(o => o.items.some(item => item.status === 'DONE')).map(order => {
-              const doneItems = order.items.filter(item => item.status === 'DONE');
-              const allDone = order.items.every(item => item.status === 'DONE' || item.status === 'VOID');
-              return (
+            {orders.filter(o => o.status === "ready").map(order => (
               <div 
-                key={`${order.id}-ready`} 
+                key={order.id} 
                 className="bg-zinc-900/60 border border-emerald-950/60 rounded-2xl p-4 flex flex-col justify-between hover:border-emerald-800 transition-all duration-300 relative overflow-hidden"
               >
                 {/* Visual glow on edges for ready orders */}
@@ -1029,6 +872,10 @@ export default function KDSPage() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-mono font-bold text-xs text-white">{order.orderNo}</span>
+                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg border font-mono text-[10px] font-bold text-emerald-400 border-emerald-500/20 bg-emerald-500/5">
+                      <Check className="h-3 w-3 text-emerald-400" />
+                      <span>{formatTimer(order.elapsedSeconds)}</span>
+                    </div>
                   </div>
 
                   <div className="flex justify-between items-center bg-zinc-950/60 p-2 rounded-lg border border-zinc-800/40 mb-3">
@@ -1036,7 +883,7 @@ export default function KDSPage() {
                   </div>
 
                   <ul className="space-y-2 mb-4 opacity-75">
-                    {doneItems.map((item, idx) => (
+                    {order.items.map((item, idx) => (
                       <li key={idx} className="bg-zinc-950/40 p-2.5 rounded-lg border border-zinc-900/60 flex flex-col gap-1.5">
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-zinc-400 line-through decoration-zinc-600">{item.name}</span>
@@ -1054,7 +901,6 @@ export default function KDSPage() {
                   </ul>
                 </div>
 
-                {allDone && (
                 <button 
                   onClick={() => completeOrder(order.id)}
                   className="w-full h-9 rounded-xl bg-zinc-850 hover:bg-emerald-600 border border-zinc-800 hover:border-emerald-500 text-zinc-300 hover:text-white flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-wider transition-all duration-300 active:scale-95 cursor-pointer"
@@ -1062,11 +908,9 @@ export default function KDSPage() {
                   <Archive className="h-3.5 w-3.5" />
                   Lưu trữ & Giao món
                 </button>
-                )}
               </div>
-              );
-            })}
-            {orders.filter(o => o.items.some(item => item.status === 'DONE')).length === 0 && (
+            ))}
+            {orders.filter(o => o.status === "ready").length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-center text-zinc-600 py-16">
                 <Check className="h-7 w-7 stroke-[1.2] mb-2" />
                 <p className="text-xs font-light">Không có đơn hàng nào sẵn sàng trả khách.</p>
@@ -1399,12 +1243,12 @@ export default function KDSPage() {
               <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
                 {filteredArchivedOrders.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredArchivedOrders.map((order, archiveIdx) => {
+                    {filteredArchivedOrders.map((order) => {
                       const doneCount = order.items.filter(item => item.status === "DONE").length;
                       const voidCount = order.items.filter(item => item.status === "VOID").length;
                       const isCancelled = voidCount === order.items.length;
                       return (
-                      <div key={`${order.id}-${archiveIdx}`} className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-5 flex flex-col hover:border-zinc-700 transition-colors">
+                      <div key={order.id} className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-5 flex flex-col hover:border-zinc-700 transition-colors">
                         <div className="flex items-center justify-between mb-4">
                           <span className="font-mono font-bold text-sm text-zinc-100">{order.orderNo}</span>
                           <span className={`text-[10px] px-2.5 py-1 rounded-lg border font-bold uppercase tracking-wider ${isCancelled ? "bg-rose-500/10 text-rose-400 border-rose-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20"}`}>

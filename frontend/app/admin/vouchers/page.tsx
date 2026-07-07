@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
+  ArrowLeft,
   Ticket,
   Percent,
   Plus,
@@ -9,7 +11,9 @@ import {
   Calendar,
   Sparkles,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  TrendingDown,
+  UserCheck
 } from "lucide-react";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
 

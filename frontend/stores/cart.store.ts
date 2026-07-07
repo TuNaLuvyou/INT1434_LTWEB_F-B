@@ -417,7 +417,7 @@ export const useCartStore = create<CartStore>()(
     }),
 
     {
-      name: 'restoflow-cart',
+      name: 'hiaimenugo-cart',
 
       // Dùng sessionStorage: tồn tại trong tab, mất khi đóng tab
       storage: createJSONStorage(() => {

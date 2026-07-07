@@ -15,7 +15,7 @@ import { revalidatePath } from 'next/cache';
 export async function POST(request: NextRequest) {
   // Kiểm tra secret token
   const secret = request.headers.get('x-revalidation-secret');
-  const expectedSecret = process.env.REVALIDATION_SECRET || 'restoflow_revalidation_secret';
+  const expectedSecret = process.env.REVALIDATION_SECRET || 'hiaimenugo_revalidation_secret';
 
   if (secret !== expectedSecret) {
     return NextResponse.json(

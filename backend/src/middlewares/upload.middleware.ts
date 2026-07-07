@@ -5,7 +5,7 @@ import cloudinary from '../config/cloudinary';
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'restoflow/menu-items',
+    folder: 'hiaimenugo/menu-items',
     allowed_formats: ['jpg', 'png', 'webp'],
     transformation: [{ width: 800, height: 800, crop: 'limit', quality: 'auto' }],
   } as any,

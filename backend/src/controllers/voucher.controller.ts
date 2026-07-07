@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import * as voucherService from '../services/voucher.service';
 import { AppError } from '../utils/app-error';
 
-export async function getAllVouchersHandler(_req: Request, res: Response): Promise<void> {
+export async function getAllVouchersHandler(req: Request, res: Response): Promise<void> {
   try {
     const vouchers = await voucherService.getAllVouchers();
     res.status(200).json({ success: true, data: vouchers });

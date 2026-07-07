@@ -83,14 +83,15 @@ app.use('/api/admin/users', adminUserRoutes);
 app.use('/api/system', systemRoutes);
 
 // Admin sync menu
+import { syncMenu } from './controllers/system.controller';
 import { authMiddleware, requireRole } from './middlewares/auth.middleware';
-app.post('/api/admin/menu/sync', authMiddleware, requireRole(['ADMIN', 'MANAGER']), (_req, res) => {
-  res.json({ success: true, message: 'Đã đồng bộ menu cho tất cả bàn' });
-});
+app.post('/api/admin/menu/sync', authMiddleware, requireRole(['ADMIN', 'MANAGER']), syncMenu as any);
 
-// Route kiểm tra server
-app.get('/', (_req, res) => {
-  res.json({ success: true, message: 'RestoFlow POS Backend API is running!' });
+import { ApiResponse } from './utils/response';
+
+// Route kiểm tra server (Health Check)
+app.get('/api/health', (req, res) => {
+  return ApiResponse.success(res, { timestamp: new Date().toISOString() }, 'HiAI-MenuGo POS Backend API is running!');
 });
 
 // Error handling middleware
@@ -107,7 +108,7 @@ initSocket(httpServer);
 
 // Khởi chạy server qua httpServer thay vì app.listen
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Server RestoFlow đang chạy tại: http://localhost:${PORT}`);
+  console.log(`🚀 Server HiAI-MenuGo đang chạy tại: http://localhost:${PORT}`);
   console.log(`🔌 Socket.io sẵn sàng trên cùng port ${PORT}`);
 
   // Khởi động tác vụ tự động dọn dẹp lịch sử bán hàng (> 90 ngày)

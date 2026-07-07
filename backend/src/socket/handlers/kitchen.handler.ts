@@ -20,10 +20,8 @@ export function kitchenHandler(socket: Socket, io: Server): void {
     orderItemId: string;
     sessionId: string;
     tableId: string;
-    menuItemId?: string;
     status: 'PREPARING' | 'DONE' | 'VOID';
     menuItemName?: string;
-    previousStatus?: 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
   }) => {
     console.log(`[kitchenHandler] Item ${data.orderItemId} → ${data.status} (bởi socket ${socket.id})`);
 
@@ -40,12 +38,9 @@ export function kitchenHandler(socket: Socket, io: Server): void {
     // 2. Notify cashier (để thu ngân theo dõi tiến độ)
     io.to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, {
       orderItemId:  data.orderItemId,
-      sessionId:    data.sessionId,
       tableId:      data.tableId,
-      menuItemId:   data.menuItemId,
       status:       data.status,
       menuItemName: data.menuItemName,
-      previousStatus: data.previousStatus,
       updatedAt:    new Date().toISOString(),
     });
   });

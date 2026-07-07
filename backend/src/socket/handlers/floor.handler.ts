@@ -1,4 +1,5 @@
-import { Socket } from 'socket.io';
+import { Socket, Server } from 'socket.io';
+import { SOCKET_EVENTS, SOCKET_ROOMS } from '../events';
 
 /**
  * floorHandler — xử lý events liên quan màn hình sơ đồ bàn (Floor Plan)
@@ -11,7 +12,7 @@ import { Socket } from 'socket.io';
  * - table:status-changed   → khi bàn đổi AVAILABLE/OCCUPIED/RESERVED
  * - table:session-updated  → khi session thêm order (cập nhật tổng tiền realtime)
  */
-export function floorHandler(socket: Socket): void {
+export function floorHandler(socket: Socket, io: Server): void {
   // Cashier/Admin request cập nhật trạng thái bàn thủ công (ví dụ: đặt bàn)
   socket.on('floor:request-status-update', (data: {
     tableId: string;

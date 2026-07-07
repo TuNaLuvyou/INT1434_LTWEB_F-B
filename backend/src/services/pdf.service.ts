@@ -270,7 +270,7 @@ export async function generateZReportPDF(data: ZReportData): Promise<Buffer> {
       .font(fontRegular)
       .fontSize(7)
       .text(
-        `Tài liệu này được tạo tự động bởi hệ thống RestoFlow POS lúc ${formatDateTime(data.summary.generatedAt)}. Vui lòng không chỉnh sửa.`,
+        `Tài liệu này được tạo tự động bởi hệ thống HiAI-MenuGo POS lúc ${formatDateTime(data.summary.generatedAt)}. Vui lòng không chỉnh sửa.`,
         50,
         footerY,
         { width: contentWidth, align: 'center' }

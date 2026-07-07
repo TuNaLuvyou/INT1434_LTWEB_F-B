@@ -90,7 +90,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   // ── UI state ──
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
-  type CartItemEntry = CartItem & { status?: string; id?: string };
+  type CartItemEntry = CartItem & { status?: string };
   const [lastOrder, setLastOrder] = useState<CartItemEntry[] | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -113,7 +113,6 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
           const placedItems = dbItems.filter((oi: any) => oi.status !== 'CART');
           if (placedItems.length > 0) {
             const mapped = placedItems.map((oi: any) => ({
-              id: oi.id,
               menuItemId: oi.menuItemId,
               name: oi.menuItem?.name || oi.menuItemName || '',
               price: Number(oi.unitPrice),
@@ -154,7 +153,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
       setIsSessionClosed(true);
       setSessionClosedStatus((event?.status as any) || 'UNKNOWN');
     }, [clearCart]),
-    useCallback(() => {
+    useCallback((event: any) => {
       if (sessionId) {
         fetchSessionDetails(sessionId);
       }
@@ -413,7 +412,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
     <div className="space-y-3 overflow-y-auto flex-1 pr-1 scrollbar-hide py-1">
       {entries.map((item) => (
         <div
-          key={item.id ?? item.menuItemId}
+          key={item.menuItemId}
           className="flex flex-col gap-2 bg-gray-50/80 rounded-xl p-3 border border-gray-100/50 group"
         >
           <div className="flex items-center gap-3">
@@ -1012,7 +1011,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             <>
               <h2 className="text-xl font-black text-gray-900 mb-2">Thanh toán thành công!</h2>
               <p className="text-sm text-gray-500 max-w-sm mb-8 leading-relaxed">
-                Hóa đơn cho bàn của bạn đã được thanh toán hoàn tất. Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ của RestoFlow!
+                Hóa đơn cho bàn của bạn đã được thanh toán hoàn tất. Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ của HiAI-MenuGo!
               </p>
               <div className="text-xs text-gray-400 font-medium">
                 Chúc quý khách một ngày tốt lành và hẹn gặp lại!
@@ -1025,7 +1024,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                 Đơn của bàn bạn đã bị huỷ do hết món. Vui lòng liên hệ nhân viên để được hỗ trợ thêm.
               </p>
               <div className="text-xs text-gray-400 font-medium">
-                RestoFlow luôn sẵn sàng phục vụ quý khách.
+                HiAI-MenuGo luôn sẵn sàng phục vụ quý khách.
               </div>
             </>
           ) : (

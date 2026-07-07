@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Search, 
   RefreshCw, 
@@ -11,6 +12,7 @@ import {
   AlertCircle,
   ChevronRight,
   QrCode,
+  Flame,
   ArrowLeft,
   Loader2,
   Table as TableIcon,
@@ -30,6 +32,7 @@ interface Table {
 }
 
 export default function TableSelectionInternalPage() {
+  const router = useRouter();
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
