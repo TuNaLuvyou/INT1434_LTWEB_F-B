@@ -862,19 +862,10 @@ export default function KDSPage() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-500" />
             <span className="text-[10px] sm:text-xs text-zinc-400">Chờ/nấu:</span>
-<<<<<<< HEAD
             <span className="font-bold font-mono text-xs sm:text-sm">
               {orders.filter(o => o.items.some(item => item.status === 'PENDING' || item.status === 'PREPARING'))
                 .reduce((sum, o) => sum + o.items.filter(i => i.status === 'PENDING' || i.status === 'PREPARING').reduce((s, i) => s + i.quantity, 0), 0)}
             </span>
-=======
-            <span className="font-bold font-mono text-xs sm:text-sm">{orders.filter(o => o.status !== "ready").length}</span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
-            <span className="text-[10px] sm:text-xs text-zinc-400">TB nấu:</span>
-            <span className="font-bold font-mono text-xs sm:text-sm text-amber-400">11:24</span>
->>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e
           </div>
         </div>
         <div className="text-[10px] sm:text-xs text-zinc-500 font-light italic hidden sm:block">
@@ -893,12 +884,8 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Hàng Chờ (Pending)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-amber-400 font-bold border border-zinc-800">
-<<<<<<< HEAD
               {orders.filter(o => o.items.some(item => item.status === 'PENDING'))
                 .reduce((sum, o) => sum + o.items.filter(i => i.status === 'PENDING').reduce((s, i) => s + i.quantity, 0), 0)} món
-=======
-              {orders.filter(o => o.status === "pending").length}
->>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e
             </span>
           </div>
 
@@ -983,12 +970,8 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Đang nấu (Preparing)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-orange-400 font-bold border border-zinc-800">
-<<<<<<< HEAD
               {orders.filter(o => o.items.some(item => item.status === 'PREPARING'))
                 .reduce((sum, o) => sum + o.items.filter(i => i.status === 'PREPARING').reduce((s, i) => s + i.quantity, 0), 0)} món
-=======
-              {orders.filter(o => o.status === "preparing").length}
->>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e
             </span>
           </div>
 
@@ -1068,12 +1051,8 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Sẵn Sàng (Ready)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-emerald-400 font-bold border border-zinc-800">
-<<<<<<< HEAD
               {orders.filter(o => o.items.some(item => item.status === 'DONE'))
                 .reduce((sum, o) => sum + o.items.filter(i => i.status === 'DONE').reduce((s, i) => s + i.quantity, 0), 0)} món
-=======
-              {orders.filter(o => o.status === "ready").length}
->>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e
             </span>
           </div>
 

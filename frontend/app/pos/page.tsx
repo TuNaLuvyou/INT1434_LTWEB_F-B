@@ -386,14 +386,8 @@ export default function POSPage() {
         setSelectedTableId("");
         setSessionId("");
         setCart([]);
-<<<<<<< HEAD
         setActiveTab('tables');
-        if (payload.status === 'OCCUPIED') {
-          alert('Bàn vừa có khách, vui lòng chọn bàn khác để gọi món.');
-        }
-=======
         alert('Bàn vừa có khách, vui lòng chọn bàn khác để gọi món.');
->>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e
       }
     };
 

@@ -121,6 +121,8 @@ export async function joinOrCreateSession(tableId: string, createdViaPos?: boole
     prisma.tableSession.create({
       data: {
         tableId: actualTableId,
+        tenantId: table.tenantId,
+        branchId: table.branchId,
         status: 'OPEN',
         version: 0,
         createdViaPos: !!createdViaPos,
