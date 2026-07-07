@@ -198,12 +198,9 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
       .map(i => ({ menuItemId: i.menuItemId, qty: i.qty }));
 
     if (itemsToDeduct.length > 0) {
-      try {
-        await deductInventory(itemsToDeduct, sessionId, 'SYSTEM_CASHIER', tx as any);
-      } catch (deductErr: any) {
-        // Khong co BOM hoac thieu stock → bo qua, khong fail payment
+      await deductInventory(itemsToDeduct, sessionId, 'SYSTEM_CASHIER', tx as any).catch((deductErr: any) => {
         console.warn('[processPayment] deductInventory skip:', deductErr?.message);
-      }
+      });
     }
 
     // Dong session -> PAID va set lockedAt (quan trong de KDS bep hien thi)

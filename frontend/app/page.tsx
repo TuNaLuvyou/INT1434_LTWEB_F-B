@@ -6,15 +6,12 @@ import {
   Store, 
   ChefHat, 
   BarChart3, 
-  BookOpen, 
   ArrowRight, 
   Activity, 
   Clock, 
   TrendingUp, 
   Layers,
-  Utensils,
   Table,
-  UserCheck,
   LogOut
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth.store";

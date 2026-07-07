@@ -145,19 +145,6 @@ export function emitSessionAllDone(payload: SessionAllDonePayload): void {
   }
 }
 
-/**
- * Emit khi một item trong giỏ hàng bị sold-out (bếp toggle).
- * Target: room table:[tableId]
- */
-export function emitCartItemSoldOut(tableId: string, payload: { menuItemId: string; isSoldOut: boolean }): void {
-  try {
-    getIO().to(SOCKET_ROOMS.table(tableId)).emit(SOCKET_EVENTS.CART_ITEM_SOLD_OUT, payload);
-    console.log(`[emit] cart:item-soldout → room table:${tableId} | item: ${payload.menuItemId}`);
-  } catch (err) {
-    console.warn('[emit] emitCartItemSoldOut failed:', err);
-  }
-}
-
 // ─── Floor Plan helpers ───────────────────────────────────────────────────────
 
 /**
@@ -243,30 +230,6 @@ export function emitCashierNewOrder(payload: CashierNewOrderPayload): void {
   }
 }
 
-/**
- * Emit khi cashier cần confirm void một item.
- * Target: room cashier
- */
-export function emitCashierVoidConfirm(payload: { orderItemId: string; tableId: string; menuItemName: string }): void {
-  try {
-    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.CASHIER_VOID_CONFIRM, payload);
-    console.log(`[emit] cashier:void-confirm → cashier | item: ${payload.orderItemId}`);
-  } catch (err) {
-    console.warn('[emit] emitCashierVoidConfirm failed:', err);
-  }
-}
-
 // ─── Menu helpers ─────────────────────────────────────────────────────────────
 
-/**
- * Emit khi admin/bếp toggle sold-out một menu item.
- * Target: room menu-updates → tất cả trang /menu cập nhật realtime
- */
-export function emitMenuSoldOut(payload: MenuSoldOutPayload): void {
-  try {
-    getIO().to(SOCKET_ROOMS.MENU_UPDATES).emit(SOCKET_EVENTS.MENU_SOLD_OUT, payload);
-    console.log(`[emit] menu:soldout → menu-updates | item: ${payload.menuItemId} → isSoldOut: ${payload.isSoldOut}`);
-  } catch (err) {
-    console.warn('[emit] emitMenuSoldOut failed:', err);
-  }
-}
+

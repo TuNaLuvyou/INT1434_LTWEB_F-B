@@ -18,7 +18,11 @@ interface JwtPayload {
 
 function verifyToken(token: string): JwtPayload | null {
   try {
-    const secret = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET || 'hiaimenugo_jwt_secret_key';
+    const secret = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET;
+    if (!secret) {
+      console.error('[Socket.io] JWT_SECRET chưa được cấu hình!');
+      return null;
+    }
     return jwt.verify(token, secret) as JwtPayload;
   } catch {
     return null;

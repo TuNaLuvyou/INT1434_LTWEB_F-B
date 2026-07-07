@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import { 
-  ArrowLeft, 
   TrendingUp, 
   Users, 
   ShoppingBag, 
@@ -613,7 +611,7 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-1">
               <h3 className="font-mono text-base sm:text-2xl font-bold tracking-tight text-white leading-tight">
-                {stats?.avgCookingTime || 11.4} Phút
+                {stats?.avgCookingTime ?? 11.4} Phút
               </h3>
               <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-emerald-400">
                 <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400" />
