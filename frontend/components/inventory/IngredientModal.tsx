@@ -12,8 +12,7 @@ const schema = z.object({
   stock:    z.coerce.number().min(0, 'Tồn kho khởi tạo không được âm'),
   minStock: z.coerce.number().min(0, 'Ngưỡng cảnh báo không được âm'),
 });
-type FormInput = z.input<typeof schema>;
-type FormData = z.output<typeof schema>;
+type FormData = z.infer<typeof schema>;
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -26,7 +25,7 @@ interface Props {
 export default function IngredientModal({ ingredient, onClose, onSaved }: Props) {
   const isEdit = !!ingredient;
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormInput, undefined, FormData>({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<any>({
     resolver: zodResolver(schema),
     defaultValues: {
       name:     ingredient?.name || '',
@@ -36,7 +35,7 @@ export default function IngredientModal({ ingredient, onClose, onSaved }: Props)
     },
   });
 
-  const onSubmit = async (values: FormData) => {
+  const onSubmit = async (values: any) => {
     const url = isEdit ? `${API}/api/ingredients/${ingredient.id}` : `${API}/api/ingredients`;
     const method = isEdit ? 'PATCH' : 'POST';
 
@@ -76,7 +75,7 @@ export default function IngredientModal({ ingredient, onClose, onSaved }: Props)
               {isEdit ? 'Chỉnh sửa nguyên liệu' : 'Thêm nguyên liệu mới'}
             </h3>
             <p className="text-[11px] text-zinc-300 font-normal mt-1">
-              {isEdit ? 'Thay đổi thông số cấu hình nguyên liệu nhà hàng RestoFlow.' : 'Tạo mới một nguyên liệu vào danh sách kho.'}
+              {isEdit ? 'Thay đổi thông số cấu hình nguyên liệu nhà hàng HiAI-MenuGo.' : 'Tạo mới một nguyên liệu vào danh sách kho.'}
             </p>
           </div>
           <button 

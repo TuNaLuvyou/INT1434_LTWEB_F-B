@@ -1,11 +1,9 @@
 import { Request, Response } from 'express';
 import * as kdsService from '../services/kds.service';
 import prisma from '../config/prisma';
-import { emitOrderStatusChanged, emitKitchenItemUpdated, emitSessionAllDone, emitSessionAllDelivered, emitCartUpdated, emitTableSessionUpdated } from '../socket/emit.helpers';
+import { emitOrderStatusChanged, emitKitchenItemUpdated, emitSessionAllDone, emitCartUpdated } from '../socket/emit.helpers';
 import { OrderItemStatus } from '@prisma/client';
 import * as ingredientService from '../services/ingredient.service';
-
-type RealtimePreviousStatus = 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
 
 type KdsStatusChangeEvent = {
   orderItemId: string;
@@ -103,13 +101,11 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
       removedOrderItemId: statusUpdate.removedOrderItemId,
       sessionId: updatedItem.sessionId,
       tableId: updatedItem.session.tableId,
-      menuItemId: updatedItem.menuItemId,
       menuItemName: updatedItem.menuItem.name,
       qty: updatedItem.qty,
       deltaQty: statusUpdate.deltaQty,
       note: updatedItem.note,
       status: status,
-      previousStatus: currentStatus as RealtimePreviousStatus,
       updatedAt: updatedItem.updatedAt.toISOString()
     });
 
@@ -142,12 +138,17 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
   }
 }
 
-export async function getKdsOrders(_req: Request, res: Response): Promise<void> {
+export async function getKdsOrders(req: Request, res: Response): Promise<void> {
   try {
     const sessions = await prisma.tableSession.findMany({
       where: {
         status: { in: ['OPEN', 'PAID'] },
         lockedAt: { not: null }, // Phải duyệt bên cashier rồi mới hiện
+        orderItems: {
+          some: {
+            status: { in: ['PENDING', 'PREPARING', 'DONE'] }
+          }
+        }
       },
       select: {
         id: true,
@@ -191,23 +192,7 @@ export async function getKdsOrders(_req: Request, res: Response): Promise<void> 
         openedAt: 'asc'
       }
     });
-
-    // Chỉ hiển thị món đã được duyệt:
-    // - PENDING items phải có createdAt <= lockedAt (đã qua duyệt)
-    // - PREPARING/DONE luôn hiển thị (đã qua duyệt từ trước)
-    const filteredSessions = sessions
-      .map(session => ({
-        ...session,
-        orderItems: session.orderItems.filter(item => {
-          if (item.status === 'PENDING') {
-            return session.lockedAt && new Date(item.createdAt) <= new Date(session.lockedAt);
-          }
-          return true;
-        })
-      }))
-      .filter(session => session.orderItems.length > 0);
-
-    res.status(200).json({ success: true, data: filteredSessions });
+    res.status(200).json({ success: true, data: sessions });
   } catch (error: any) {
     console.error('getKdsOrders error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
@@ -226,7 +211,6 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
 
     const targetStatus = newStatus === 'PREPARING' ? 'PENDING' : 'PREPARING';
 
-    // Lấy các item cần update
     const session = await prisma.tableSession.findUnique({
       where: { id: sessionId },
       select: {
@@ -275,7 +259,6 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
         });
 
         if (existing) {
-          // Merge
           const updated = await tx.orderItem.update({
             where: { id: existing.id },
             data: { 
@@ -298,7 +281,6 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
             updatedAt: updated.updatedAt,
           });
         } else {
-          // Chỉ cập nhật trạng thái
           const updated = await tx.orderItem.update({
             where: { id: item.id },
             data: { status: newStatus }
@@ -331,7 +313,6 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
         deltaQty: item.deltaQty,
         note: item.note,
         status: newStatus,
-        previousStatus: targetStatus,
         updatedAt: item.updatedAt.toISOString()
       });
 
@@ -446,15 +427,12 @@ export async function voidKdsOrderItem(req: Request, res: Response): Promise<voi
 
     emitKitchenItemUpdated({
       orderItemId,
-      sessionId,
       tableId,
-      menuItemId: voidedItem.menuItemId,
       menuItemName: voidedItem.menuItem.name,
       qty: voidedItem.qty,
       deltaQty: voidedItem.qty,
       note: voidedItem.note,
       status: 'VOID',
-      previousStatus: orderItem.status as RealtimePreviousStatus,
       updatedAt: now,
     });
 
@@ -478,17 +456,9 @@ export async function voidKdsOrderItem(req: Request, res: Response): Promise<voi
         qty: item.qty,
         unitPrice: Number(item.unitPrice),
         status: item.status,
-        note: item.note,
-        imageUrl: item.menuItem.imageUrl,
-        createdAt: item.createdAt.toISOString(),
       })),
       total: newTotal,
       message: `Món "${voidedItem.menuItem.name}" đã bị huỷ bởi nhà bếp do hết món.`,
-    });
-    emitTableSessionUpdated({
-      tableId,
-      sessionId,
-      total: newTotal,
     });
 
     res.status(200).json({
@@ -558,11 +528,6 @@ export async function deliverKdsOrder(req: Request, res: Response): Promise<void
           });
         }
       }
-    });
-
-    // Phát sự kiện socket để đồng bộ tất cả màn hình KDS
-    emitSessionAllDelivered({
-      sessionId
     });
 
     res.status(200).json({ success: true, message: 'Giao món thành công' });

@@ -68,7 +68,7 @@ export async function getZReportData(from: string, to: string): Promise<ZReportD
     select: { restaurantName: true },
   });
 
-  const restaurantName = sysConfig?.restaurantName ?? 'RestoFlow Restaurant';
+  const restaurantName = sysConfig?.restaurantName ?? 'HiAI-MenuGo Restaurant';
   const managerEmail = process.env.MANAGER_EMAIL ?? 'manager@restaurant.com';
 
   // ── 2. KPI tổng quan ───────────────────────────────────────────────────────

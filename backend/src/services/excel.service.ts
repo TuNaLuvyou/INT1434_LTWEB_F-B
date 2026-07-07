@@ -7,7 +7,7 @@ export class ExcelService {
   async generateRevenueReport(res: Response, from: Date, to: Date, type: 'full' | 'summary'): Promise<void> {
     console.time('[Excel] generate');
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'RestoFlow System';
+    workbook.creator = 'HiAI-MenuGo System';
     workbook.created = new Date();
 
     await this.buildRevenueSummarySheet(workbook, from, to);
@@ -19,7 +19,7 @@ export class ExcelService {
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="restoflow-report-${from.toISOString().split('T')[0]}-${to.toISOString().split('T')[0]}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="hiaimenugo-report-${from.toISOString().split('T')[0]}-${to.toISOString().split('T')[0]}.xlsx"`);
     
     await workbook.xlsx.write(res);
     res.end();
@@ -28,7 +28,7 @@ export class ExcelService {
 
   private async buildRevenueSummarySheet(wb: ExcelJS.Workbook, from: Date, to: Date): Promise<void> {
     const sheet = wb.addWorksheet('Tổng quan doanh thu');
-    sheet.protect('restoflow', { selectLockedCells: true });
+    sheet.protect('hiaimenugo', { selectLockedCells: true });
 
     sheet.columns = [
       { header: 'Ngày', key: 'date', width: 15 },
@@ -106,7 +106,7 @@ export class ExcelService {
 
   private async buildOrderDetailsSheet(wb: ExcelJS.Workbook, from: Date, to: Date): Promise<void> {
     const sheet = wb.addWorksheet('Chi tiết đơn hàng');
-    sheet.protect('restoflow', { selectLockedCells: true });
+    sheet.protect('hiaimenugo', { selectLockedCells: true });
 
     sheet.columns = [
       { header: 'Mã đơn', key: 'id', width: 25 },
@@ -193,7 +193,7 @@ export class ExcelService {
 
   private async buildBestSellersSheet(wb: ExcelJS.Workbook, from: Date, to: Date): Promise<void> {
     const sheet = wb.addWorksheet('Top món bán chạy');
-    sheet.protect('restoflow', { selectLockedCells: true });
+    sheet.protect('hiaimenugo', { selectLockedCells: true });
 
     sheet.columns = [
       { header: 'Hạng', key: 'rank', width: 8 },
@@ -219,7 +219,9 @@ export class ExcelService {
         }
       },
       _sum: {
-        qty: true,
+        qty: true
+      },
+      _avg: {
         unitPrice: true
       }
     });
@@ -230,7 +232,7 @@ export class ExcelService {
         where: { id: oi.menuItemId },
         include: { category: true }
       });
-      const rev = Number(oi._sum.unitPrice || 0) * Number(oi._sum.qty || 0); // approx
+      const rev = Number(oi._avg.unitPrice || 0) * Number(oi._sum.qty || 0);
       totalRevenue += rev;
       return {
         name: menuItem?.name || 'Unknown',
@@ -278,7 +280,7 @@ export class ExcelService {
 
   private async buildShiftSummarySheet(wb: ExcelJS.Workbook, from: Date, to: Date): Promise<void> {
     const sheet = wb.addWorksheet('Báo cáo ca');
-    sheet.protect('restoflow', { selectLockedCells: true });
+    sheet.protect('hiaimenugo', { selectLockedCells: true });
 
     sheet.columns = [
       { header: 'Ca', key: 'id', width: 20 },

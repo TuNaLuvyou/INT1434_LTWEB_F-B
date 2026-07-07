@@ -1,4 +1,4 @@
-# 🍽️ RestoFlow POS — Hệ thống Quản lý Nhà hàng Thông minh Real-time
+# 🍽️ HiAI-MenuGo POS — Hệ thống Quản lý Nhà hàng Thông minh Real-time
 
 > **Môn học:** INT1434 — Lập trình Web  
 > **Lớp:** D23CQCN01-N  
@@ -17,7 +17,7 @@
 
 ## 📋 Tổng quan dự án
 
-**RestoFlow POS** là hệ thống quản lý nhà hàng toàn diện, kết hợp đặt món tại bàn qua mã QR và hệ thống quản trị tại quầy (POS/Cashier). Hệ thống hoạt động theo mô hình **Real-time** đồng bộ trạng thái tức thời giữa khách hàng, nhà bếp (KDS) và thu ngân.
+**HiAI-MenuGo POS** là hệ thống quản lý nhà hàng toàn diện, kết hợp đặt món tại bàn qua mã QR và hệ thống quản trị tại quầy (POS/Cashier). Hệ thống hoạt động theo mô hình **Real-time** đồng bộ trạng thái tức thời giữa khách hàng, nhà bếp (KDS) và thu ngân.
 
 ### Các tính năng cốt lõi:
 
@@ -118,16 +118,16 @@ Mật khẩu đăng nhập mặc định cho toàn bộ các tài khoản dướ
 
 | Vai trò (Role) | Email đăng nhập          | Quyền hạn                                                     |
 | -------------- | ------------------------ | ------------------------------------------------------------- |
-| **ADMIN**      | `admin@restoflow.demo`   | Toàn quyền, cấu hình hệ thống, quản lý tài khoản & doanh thu  |
-| **MANAGER**    | `manager@restoflow.demo` | Quản lý món ăn, tồn kho nguyên vật liệu, cấu hình mã giảm giá |
-| **CASHIER**    | `cashier@restoflow.demo` | Mở ca POS, duyệt hóa đơn tại bàn, thanh toán cho khách        |
-| **KITCHEN**    | `kitchen@restoflow.demo` | Tiếp nhận và chế biến món ăn thông qua màn hình KDS           |
+| **ADMIN**      | `admin@hiaimenugo.demo`   | Toàn quyền, cấu hình hệ thống, quản lý tài khoản & doanh thu  |
+| **MANAGER**    | `manager@hiaimenugo.demo` | Quản lý món ăn, tồn kho nguyên vật liệu, cấu hình mã giảm giá |
+| **CASHIER**    | `cashier@hiaimenugo.demo` | Mở ca POS, duyệt hóa đơn tại bàn, thanh toán cho khách        |
+| **KITCHEN**    | `kitchen@hiaimenugo.demo` | Tiếp nhận và chế biến món ăn thông qua màn hình KDS           |
 
 ---
 
 ## ⚙️ Thiết lập Geofencing (Định vị) để thử nghiệm local
 
-1. Đăng nhập vào trang quản trị: `http://localhost:3000/login` bằng tài khoản `admin@restoflow.demo`.
+1. Đăng nhập vào trang quản trị: `http://localhost:3000/login` bằng tài khoản `admin@hiaimenugo.demo`.
 2. Truy cập mục **Cài đặt hệ thống** ở menu bên trái.
 3. Trong tab **Định vị (Geofencing)**:
    - Bật **Giới hạn định vị**.
@@ -148,6 +148,6 @@ Mật khẩu đăng nhập mặc định cho toàn bộ các tài khoản dướ
 ---
 
 <div align="center">
-  <strong>RestoFlow POS</strong> — Được phát triển với ❤️ bởi nhóm PTIT D23CQCN01-N<br/>
+  <strong>HiAI-MenuGo POS</strong> — Được phát triển với ❤️ bởi nhóm PTIT D23CQCN01-N<br/>
   Trần Hoàng Đạt (N23DCCN009) · Phạm Văn Đoàn (N23DCCN010)
 </div>

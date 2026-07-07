@@ -10,6 +10,7 @@ import {
   Minus, 
   Trash2, 
   CreditCard, 
+  DollarSign, 
   Sparkles, 
   CheckCircle,
   X,
@@ -381,14 +382,18 @@ export default function POSPage() {
           t.id === payload.tableId ? { ...t, status: payload.status } : t
         )
       );
-      if (payload.tableId === selectedTableId && payload.status !== 'RESERVED') {
+      if (payload.status === 'OCCUPIED' && payload.tableId === selectedTableId) {
         setSelectedTableId("");
         setSessionId("");
         setCart([]);
+<<<<<<< HEAD
         setActiveTab('tables');
         if (payload.status === 'OCCUPIED') {
           alert('Bàn vừa có khách, vui lòng chọn bàn khác để gọi món.');
         }
+=======
+        alert('Bàn vừa có khách, vui lòng chọn bàn khác để gọi món.');
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e
       }
     };
 
@@ -399,7 +404,7 @@ export default function POSPage() {
       cashierSocket.off('table:session-updated', handleSessionUpdate);
       cashierSocket.off('table:status-changed', handleTableStatusChanged);
     };
-  }, [cashierSocket, isCashierConnected, sessionId, selectedTableId]);
+  }, [cashierSocket, isCashierConnected, sessionId]);
 
   const filteredItems = menuItems.filter(item => {
     const matchesCategory = selectedCategory === "all" || item.categoryId === selectedCategory;
@@ -1353,3 +1358,4 @@ export default function POSPage() {
     </div>
   );
 }
+

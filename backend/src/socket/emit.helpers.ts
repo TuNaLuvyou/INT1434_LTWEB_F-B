@@ -24,9 +24,6 @@ export interface CartUpdatedPayload {
     qty: number;
     unitPrice: number;
     status: string;
-    note?: string | null;
-    imageUrl?: string | null;
-    createdAt?: string;
   }>;
   total: number;
   isLocked?: boolean;
@@ -54,39 +51,29 @@ export interface SessionAllDonePayload {
   label?: string;
 }
 
-export interface SessionAllDeliveredPayload {
-  sessionId: string;
-}
-
 export interface KitchenTicketPayload {
   sessionId: string;
   tableId: string;
   tableNumber?: number;
-  tableLabel?: string;
   items: Array<{
     orderItemId: string;
-    menuItemId: string;
     menuItemName: string;
     qty: number;
     note?: string;
     status: string;
-    createdAt?: string;
   }>;
   createdAt: string;
 }
 
 export interface KitchenItemUpdatedPayload {
   orderItemId: string;
-  sessionId: string;
   tableId: string;
-  menuItemId?: string;
   menuItemName?: string;
   qty?: number;
   deltaQty?: number;
   note?: string | null;
   removedOrderItemId?: string;
   status: 'PREPARING' | 'DONE' | 'VOID';
-  previousStatus?: 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
   updatedAt: string;
 }
 
@@ -162,32 +149,6 @@ export function emitSessionAllDone(payload: SessionAllDonePayload): void {
   }
 }
 
-/**
- * Emit khi KDS giao toàn bộ order items (DONE -> DELIVERED).
- * Target: room kitchen → KDS xoá khỏi màn hình READY
- */
-export function emitSessionAllDelivered(payload: SessionAllDeliveredPayload): void {
-  try {
-    getIO().to(SOCKET_ROOMS.KITCHEN).emit(SOCKET_EVENTS.SESSION_ALL_DELIVERED, payload);
-    console.log(`[emit] session:all-delivered → kitchen | session: ${payload.sessionId}`);
-  } catch (err) {
-    console.warn('[emit] emitSessionAllDelivered failed:', err);
-  }
-}
-
-/**
- * Emit khi một item trong giỏ hàng bị sold-out (bếp toggle).
- * Target: room table:[tableId]
- */
-export function emitCartItemSoldOut(tableId: string, payload: { menuItemId: string; isSoldOut: boolean }): void {
-  try {
-    getIO().to(SOCKET_ROOMS.table(tableId)).emit(SOCKET_EVENTS.CART_ITEM_SOLD_OUT, payload);
-    console.log(`[emit] cart:item-soldout → room table:${tableId} | item: ${payload.menuItemId}`);
-  } catch (err) {
-    console.warn('[emit] emitCartItemSoldOut failed:', err);
-  }
-}
-
 // ─── Floor Plan helpers ───────────────────────────────────────────────────────
 
 /**
@@ -239,8 +200,7 @@ export function emitKitchenNewTicket(payload: KitchenTicketPayload): void {
 export function emitKitchenItemUpdated(payload: KitchenItemUpdatedPayload): void {
   try {
     getIO().to(SOCKET_ROOMS.KITCHEN).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
-    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
-    console.log(`[emit] kitchen:item-updated → kitchen & cashier | item: ${payload.orderItemId} → ${payload.status}`);
+    console.log(`[emit] kitchen:item-updated → kitchen | item: ${payload.orderItemId} → ${payload.status}`);
   } catch (err) {
     console.warn('[emit] emitKitchenItemUpdated failed:', err);
   }
@@ -274,30 +234,6 @@ export function emitCashierNewOrder(payload: CashierNewOrderPayload): void {
   }
 }
 
-/**
- * Emit khi cashier cần confirm void một item.
- * Target: room cashier
- */
-export function emitCashierVoidConfirm(payload: { orderItemId: string; tableId: string; menuItemName: string }): void {
-  try {
-    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.CASHIER_VOID_CONFIRM, payload);
-    console.log(`[emit] cashier:void-confirm → cashier | item: ${payload.orderItemId}`);
-  } catch (err) {
-    console.warn('[emit] emitCashierVoidConfirm failed:', err);
-  }
-}
-
 // ─── Menu helpers ─────────────────────────────────────────────────────────────
 
-/**
- * Emit khi admin/bếp toggle sold-out một menu item.
- * Target: room menu-updates → tất cả trang /menu cập nhật realtime
- */
-export function emitMenuSoldOut(payload: MenuSoldOutPayload): void {
-  try {
-    getIO().to(SOCKET_ROOMS.MENU_UPDATES).emit(SOCKET_EVENTS.MENU_SOLD_OUT, payload);
-    console.log(`[emit] menu:soldout → menu-updates | item: ${payload.menuItemId} → isSoldOut: ${payload.isSoldOut}`);
-  } catch (err) {
-    console.warn('[emit] emitMenuSoldOut failed:', err);
-  }
-}
+

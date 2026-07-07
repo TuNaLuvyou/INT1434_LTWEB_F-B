@@ -6,7 +6,7 @@ import CashierClient from '@/app/pos/CashierClient';
 export const revalidate = 0;
 
 export async function generateMetadata() {
-  return { title: 'Thu ngân | RestoFlow (POS)' };
+  return { title: 'Thu ngân | HiAI-MenuGo (POS)' };
 }
 
 type Role = 'ADMIN' | 'MANAGER' | 'CASHIER';

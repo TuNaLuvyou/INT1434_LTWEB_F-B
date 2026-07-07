@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
-import { getKdsTickets, updateKdsItemStatus, getKdsOrders, updateKdsOrderStatus, voidKdsOrderItem, deliverKdsOrder } from '../controllers/kds.controller';
+import { getKdsTickets, updateKdsItemStatus, getKdsOrders, updateKdsOrderStatus, voidKdsOrderItem } from '../controllers/kds.controller';
 
 const router = Router();
 
@@ -10,7 +10,6 @@ router.patch('/items/:orderItemId/status', authMiddleware, requireRole(['ADMIN',
 
 router.get('/orders', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'KITCHEN']), getKdsOrders);
 router.patch('/orders/:sessionId/status', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'KITCHEN']), updateKdsOrderStatus);
-router.patch('/orders/:sessionId/deliver', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'KITCHEN']), deliverKdsOrder);
 
 // KDS Void Item: Cho phép bếp huỷ món khi hết hàng trực tiếp từ màn hình bếp
 router.patch('/sessions/:sessionId/items/:orderItemId/void', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'KITCHEN']), voidKdsOrderItem);

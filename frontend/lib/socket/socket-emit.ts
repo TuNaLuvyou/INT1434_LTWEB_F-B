@@ -26,7 +26,7 @@ export async function emitCashierNewOrder(
     headers: {
       'Content-Type': 'application/json',
       // Internal secret để backend validate nguồn gốc request
-      'X-Internal-Secret': process.env.INTERNAL_SECRET || 'restoflow-internal',
+      'X-Internal-Secret': process.env.INTERNAL_SECRET || 'hiaimenugo-internal',
     },
     body: JSON.stringify(payload),
   });

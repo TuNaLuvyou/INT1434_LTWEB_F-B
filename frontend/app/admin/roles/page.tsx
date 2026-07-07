@@ -241,7 +241,7 @@ export default function RolesPage() {
           <div className="shrink-0 flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-white">Quản Lý Quyền Tài Khoản</h2>
-              <p className="text-xs text-zinc-400 font-light mt-0.5">Thay đổi vai trò quyền lực của các tài khoản nhân viên trong hệ thống RestoFlow.</p>
+              <p className="text-xs text-zinc-400 font-light mt-0.5">Thay đổi vai trò quyền lực của các tài khoản nhân viên trong hệ thống HiAI-MenuGo.</p>
             </div>
           </div>
 
@@ -358,7 +358,7 @@ export default function RolesPage() {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="text-base font-extrabold text-white">Tạo Tài Khoản Mới</h3>
-                <p className="text-[11px] text-zinc-300 font-normal mt-1">Thêm nhân viên mới vào hệ thống RestoFlow.</p>
+                <p className="text-[11px] text-zinc-300 font-normal mt-1">Thêm nhân viên mới vào hệ thống HiAI-MenuGo.</p>
               </div>
               <button 
                 onClick={() => setIsModalOpen(false)}
@@ -402,7 +402,7 @@ export default function RolesPage() {
                   <input
                     type="email"
                     required
-                    placeholder="name@restoflow.com"
+                    placeholder="name@hiaimenugo.com"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/10 transition-all font-medium"

@@ -2,10 +2,15 @@ import prisma from '../config/prisma';
 import { OrderItemStatus } from '@prisma/client';
 
 export async function getActiveKdsTickets() {
-  const sessions = await prisma.tableSession.findMany({
+  return await prisma.tableSession.findMany({
     where: {
       status: { in: ['OPEN', 'PAID'] },
       lockedAt: { not: null }, // Phải duyệt bên cashier rồi mới hiện
+      orderItems: {
+        some: {
+          status: { in: [OrderItemStatus.PENDING, OrderItemStatus.PREPARING] }
+        }
+      }
     },
     select: {
       id: true,
@@ -49,21 +54,6 @@ export async function getActiveKdsTickets() {
       openedAt: 'asc'
     }
   });
-
-  // Chỉ hiển thị món đã được duyệt:
-  // - PENDING items phải có createdAt <= lockedAt (đã qua duyệt)
-  // - PREPARING items luôn hiển thị (đã qua duyệt từ trước)
-  return sessions
-    .map(session => ({
-      ...session,
-      orderItems: session.orderItems.filter(item => {
-        if (item.status === OrderItemStatus.PENDING) {
-          return session.lockedAt && new Date(item.createdAt) <= new Date(session.lockedAt);
-        }
-        return true;
-      })
-    }))
-    .filter(session => session.orderItems.length > 0);
 }
 
 export async function updateOrderItemStatus(orderItemId: string, newStatus: OrderItemStatus) {

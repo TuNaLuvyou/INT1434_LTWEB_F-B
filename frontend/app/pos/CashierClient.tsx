@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import Image from "next/image";
-import { Archive, Bell, CheckCircle2, ChevronDown, ChevronUp, Clock, Dot, Loader2, Calendar } from "lucide-react";
+import { Archive, Bell, CheckCircle2, ChevronDown, ChevronUp, Clock, Dot, Loader2, X, DollarSign, Sparkles, Plus, Minus, Trash2, Search, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSocket } from "@/hooks/useSocket";
 import type { CashierNewOrderPayload } from "@/types/socket";
@@ -28,7 +28,6 @@ export interface CashierOverviewTable {
 }
 
 type OrderItemStatus = "PENDING" | "PREPARING" | "DONE" | "VOID";
-type SessionGroupStatus = "CART" | OrderItemStatus;
 
 interface OrderItem {
   id: string;
@@ -36,7 +35,7 @@ interface OrderItem {
   menuItemId: string;
   qty: number;
   note: string | null;
-  status: SessionGroupStatus;
+  status: OrderItemStatus;
   unitPrice: string | number;
   menuItem: {
     name: string;
@@ -52,6 +51,7 @@ interface SessionItemsResponse {
   tableId: string;
   tableNumber: number;
   tableLabel: string;
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
   groups: Record<SessionGroupStatus, OrderItem[]>;
 }
 
@@ -80,6 +80,9 @@ interface RealtimeKitchenItemUpdatedPayload {
   status: OrderItemStatus;
   previousStatus?: OrderItemStatus;
   updatedAt: string;
+=======
+  groups: Record<OrderItemStatus, OrderItem[]>;
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
 }
 
 interface Notification {
@@ -138,42 +141,6 @@ const statusBadgeClass: Record<OrderItemStatus, string> = {
   DONE: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
   VOID: "bg-rose-500/15 text-rose-300 border border-rose-500/30",
 };
-
-function createEmptyGroups(): SessionItemsResponse["groups"] {
-  return {
-    CART: [],
-    PENDING: [],
-    PREPARING: [],
-    DONE: [],
-    VOID: [],
-  };
-}
-
-function buildGroupsFromRealtimeItems(items: RealtimeSessionItem[]): SessionItemsResponse["groups"] {
-  const groups = createEmptyGroups();
-
-  for (const item of items) {
-    if (!item.status || !groups[item.status]) continue;
-
-    groups[item.status].push({
-      id: item.id,
-      sessionId: "",
-      menuItemId: item.menuItemId,
-      qty: item.qty,
-      note: item.note ?? null,
-      status: item.status,
-      unitPrice: item.unitPrice,
-      menuItem: {
-        name: item.menuItemName,
-        price: item.unitPrice,
-        imageUrl: item.imageUrl ?? null,
-      },
-      createdAt: item.createdAt || new Date().toISOString(),
-    });
-  }
-
-  return groups;
-}
 
 function formatShortTime(value: string | Date) {
   const date = typeof value === "string" ? new Date(value) : value;
@@ -596,6 +563,7 @@ export default function CashierClient({
     [fetchSessionItems]
   );
 
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
   const syncSelectedSessionFromRealtimeItems = useCallback(
     (payload: { sessionId: string; tableId: string; orderItems: RealtimeSessionItem[] }) => {
       setSessionItems((prev) => {
@@ -654,6 +622,8 @@ export default function CashierClient({
     );
   }, []);
 
+=======
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
   const fetchAvailableVouchers = async () => {
     try {
       const res = await fetch(`${API_URL}/api/vouchers`, {
@@ -765,7 +735,7 @@ export default function CashierClient({
           id: item.id,
           name: item.menuItem.name,
           qty: item.qty,
-          status: item.status as OrderItemStatus,
+          status: item.status,
           unitPrice: Number(item.unitPrice),
         }));
 
@@ -895,7 +865,7 @@ export default function CashierClient({
                   id: item.id,
                   name: item.menuItem.name,
                   qty: item.qty,
-                  status: item.status as OrderItemStatus,
+                  status: item.status,
                   unitPrice: Number(item.unitPrice),
                 })),
               };
@@ -972,6 +942,7 @@ export default function CashierClient({
         playCashierBeep();
       }
 
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
       setSessionItems((prev) => {
         if (payload.sessionId !== selectedSessionId || !prev) return prev;
         
@@ -999,6 +970,11 @@ export default function CashierClient({
           },
         };
       });
+=======
+      if (payload.sessionId === selectedSessionId) {
+        fetchSessionItems(payload.sessionId);
+      }
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
     };
 
     const handleAllDone = (payload: { sessionId: string; tableNumber: number; tableLabel?: string }) => {
@@ -1035,39 +1011,35 @@ export default function CashierClient({
       });
     };
 
-    const handleCartUpdated = (payload: {
-      sessionId: string;
-      tableId: string;
-      isLocked?: boolean;
-      orderItems: RealtimeSessionItem[];
-    }) => {
+    const handleCartUpdated = (payload: { sessionId: string; tableId: string; isLocked?: boolean }) => {
       setTables((prev) =>
         prev.map((table) => {
           if (table.tableId !== payload.tableId) return table;
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
           const hasCartOnlyItems = payload.orderItems.some((item) => item.status === "CART");
           const preparingCount = payload.orderItems.filter((item) => item.status === "PREPARING").reduce((sum, item) => sum + (item.qty || 1), 0);
           const doneCount = payload.orderItems.filter((item) => item.status === "DONE").reduce((sum, item) => sum + (item.qty || 1), 0);
           const pendingCount = payload.orderItems.filter((item) => item.status === "PENDING").reduce((sum, item) => sum + (item.qty || 1), 0);
+=======
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
           return {
             ...table,
             session: table.session
               ? {
                   ...table.session,
                   isLocked: payload.isLocked !== undefined ? !!payload.isLocked : table.session.isLocked,
-                  pendingCount: hasCartOnlyItems ? table.session.pendingCount : pendingCount,
-                  preparingCount: hasCartOnlyItems ? table.session.preparingCount : preparingCount,
-                  doneCount: hasCartOnlyItems ? table.session.doneCount : doneCount,
+                  pendingCount: payload.isLocked ? 0 : table.session.pendingCount,
                 }
               : null,
           };
         })
       );
-
-      if (!payload.orderItems.some((item) => item.status === "CART")) {
-        syncSelectedSessionFromRealtimeItems(payload);
+      if (payload.sessionId === selectedSessionId) {
+        fetchSessionItems(payload.sessionId);
       }
     };
 
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
     const handleKitchenItemUpdated = (payload: RealtimeKitchenItemUpdatedPayload) => {
       updateTableCountersFromStatusChange(payload);
 
@@ -1111,19 +1083,20 @@ export default function CashierClient({
       });
     };
 
+=======
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
     socket.on("cashier:new-order", handleNewOrder);
     socket.on("session:all-done", handleAllDone);
     socket.on("menu:soldout-notify", handleSoldOut);
     socket.on("cart:updated", handleCartUpdated);
-    socket.on("kitchen:item-updated", handleKitchenItemUpdated);
 
     return () => {
       socket.off("cashier:new-order", handleNewOrder);
       socket.off("session:all-done", handleAllDone);
       socket.off("menu:soldout-notify", handleSoldOut);
       socket.off("cart:updated", handleCartUpdated);
-      socket.off("kitchen:item-updated", handleKitchenItemUpdated);
     };
+<<<<<<< HEAD:frontend/app/pos/CashierClient.tsx
   }, [
     socket,
     isConnected,
@@ -1134,6 +1107,9 @@ export default function CashierClient({
     updateTableCountersFromStatusChange,
     fetchSessionItems,
   ]);
+=======
+  }, [socket, isConnected, addNotification, selectedSessionId, fetchSessionItems]);
+>>>>>>> 2dd3426d6c9d2b8e84da73dbe07e38eb69c9325e:frontend/app/cashier/CashierClient.tsx
 
   const unreadCount = notifications.filter((item) => !item.isRead).length;
 
@@ -1152,7 +1128,7 @@ export default function CashierClient({
   };
 
   const groupedItems = useMemo(() => {
-    return sessionItems?.groups || createEmptyGroups();
+    return sessionItems?.groups || { PENDING: [], PREPARING: [], DONE: [], VOID: [] };
   }, [sessionItems]);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<OrderItemStatus, boolean>>({
