@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { MenuService, MenuData } from '../services/menu.service';
 
 interface GetMenuQuery {
+  tenantId?: string; // Normally decoded from qrToken
+  branchId?: string;
   categoryId?: string;
   soldOut?: string;
 }
@@ -25,7 +27,15 @@ export class MenuController {
     res: Response<SuccessResponse | ErrorResponse>
   ): Promise<void> {
     try {
-      const { categoryId, soldOut } = req.query;
+      const { tenantId, branchId, categoryId, soldOut } = req.query;
+
+      if (!tenantId) {
+        res.status(400).json({
+          success: false,
+          message: 'Thiếu thông tin tenantId (thường lấy từ mã QR)'
+        });
+        return;
+      }
 
       // Validate soldOut query param if provided
       if (soldOut !== undefined && soldOut !== 'true' && soldOut !== 'false') {
@@ -36,7 +46,7 @@ export class MenuController {
         return;
       }
 
-      const result = await MenuService.getMenu(categoryId, soldOut);
+      const result = await MenuService.getMenu(tenantId as string, branchId as string, categoryId, soldOut);
 
       // result is null only if categoryId was provided but not found in DB
       if (!result) {

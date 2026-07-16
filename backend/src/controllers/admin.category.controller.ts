@@ -20,7 +20,13 @@ const generateSlug = (text: string) => {
 // 1. GET /api/admin/categories - Lấy danh sách danh mục
 export const getCategories = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
     const categories = await prisma.category.findMany({
+      where: { tenantId },
       orderBy: {
         sortOrder: 'asc',
       },
@@ -55,14 +61,20 @@ export const createCategory = async (req: AuthenticatedRequest, res: Response) =
     let slug = baseSlug;
     let counter = 1;
 
-    // Đảm bảo slug là duy nhất
-    while (await prisma.category.findUnique({ where: { slug } })) {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    // Đảm bảo slug là duy nhất trong tenant
+    while (await prisma.category.findUnique({ where: { tenantId_slug: { tenantId, slug } } })) {
       slug = `${baseSlug}-${counter}`;
       counter++;
     }
 
     const newCategory = await prisma.category.create({
       data: {
+        tenantId,
         name,
         slug,
         sortOrder: sortOrder ? Number(sortOrder) : 0,
@@ -85,9 +97,12 @@ export const updateCategory = async (req: AuthenticatedRequest, res: Response) =
   try {
     const id = req.params.id as string;
     const { name, sortOrder } = req.body;
+    
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
 
     const existingCategory = await prisma.category.findUnique({ where: { id } });
-    if (!existingCategory) {
+    if (!existingCategory || existingCategory.tenantId !== tenantId) {
       return res.status(404).json({ success: false, message: 'Danh mục không tồn tại' });
     }
 
@@ -102,8 +117,8 @@ export const updateCategory = async (req: AuthenticatedRequest, res: Response) =
       let slug = baseSlug;
       let counter = 1;
 
-      // Kiểm tra slug mới có bị trùng không (loại trừ chính nó)
-      while (await prisma.category.findFirst({ where: { slug, id: { not: id } } })) {
+      // Kiểm tra slug mới có bị trùng không (loại trừ chính nó) trong phạm vi tenant
+      while (await prisma.category.findFirst({ where: { tenantId, slug, id: { not: id } } })) {
         slug = `${baseSlug}-${counter}`;
         counter++;
       }
@@ -130,9 +145,12 @@ export const updateCategory = async (req: AuthenticatedRequest, res: Response) =
 export const deleteCategory = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const id = req.params.id as string;
+    
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
 
     const existingCategory = await prisma.category.findUnique({ where: { id } });
-    if (!existingCategory) {
+    if (!existingCategory || existingCategory.tenantId !== tenantId) {
       return res.status(404).json({ success: false, message: 'Danh mục không tồn tại' });
     }
 
