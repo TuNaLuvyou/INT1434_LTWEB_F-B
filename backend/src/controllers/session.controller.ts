@@ -14,22 +14,45 @@ import prisma from '../config/prisma';
  */
 export async function joinSession(req: Request, res: Response): Promise<void> {
   try {
-    const { tableId, source } = req.body as { tableId?: string; source?: string };
+    const { tableId: posTableId, source, qrToken } = req.body as { tableId?: string; source?: string; qrToken?: string };
+
+    let tableId = posTableId;
+
+    if (qrToken) {
+      try {
+        const payload = require('../utils/jwt.utils').verifyQrToken(qrToken);
+        tableId = payload.tableId;
+      } catch (err) {
+        return res.status(400).json({ success: false, message: 'Mã QR không hợp lệ hoặc đã hỏng' });
+      }
+    }
 
     if (!tableId || typeof tableId !== 'string' || tableId.trim() === '') {
-      res.status(400).json({ success: false, message: 'tableId là bắt buộc' });
+      res.status(400).json({ success: false, message: 'tableId hoặc qrToken là bắt buộc' });
       return;
     }
 
     const createdViaPos = source === 'POS';
-    const { session, isNew } = await sessionService.joinOrCreateSession(tableId.trim(), createdViaPos);
+    const { session, isNew, table } = await sessionService.joinOrCreateSession(tableId.trim(), createdViaPos);
 
     const config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
     const isGeofenceEnabled = config?.isGeofenceEnabled ?? false;
 
     res.status(isNew ? 201 : 200).json({
       success: true,
-      data: { session, isNew, serverTime: Date.now(), isGeofenceEnabled },
+      data: { 
+        session, 
+        isNew, 
+        serverTime: Date.now(), 
+        isGeofenceEnabled,
+        table: {
+          id: table.id,
+          tableNumber: table.tableNumber,
+          label: table.label,
+        },
+        tenantId: table.tenantId,
+        branchId: table.branchId,
+      },
     });
   } catch (error: any) {
     const status = error.statusCode ?? 500;

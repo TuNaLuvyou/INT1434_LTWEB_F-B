@@ -21,8 +21,13 @@ export class TableService {
    * Lấy danh sách tất cả các bàn, sắp xếp theo số bàn tăng dần.
    * Nếu là Admin/Manager, include thêm session đang OPEN để hiển thị trên sơ đồ bàn.
    */
-  static async getAllTables(isAdmin: boolean): Promise<TableWithSession[]> {
+  static async getAllTables(isAdmin: boolean, tenantId?: string, branchId?: string): Promise<(TableWithSession & { qrToken?: string })[]> {
+    const whereClause: any = {};
+    if (tenantId) whereClause.tenantId = tenantId;
+    if (branchId) whereClause.branchId = branchId;
+
     const tables = await prisma.table.findMany({
+      where: whereClause,
       orderBy: {
         tableNumber: 'asc',
       },
@@ -56,6 +61,7 @@ export class TableService {
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
         sessionId: activeSession ? activeSession.id : null,
+        qrToken: t.tenantId && t.branchId ? require('../utils/jwt.utils').generateQrToken({ tenantId: t.tenantId, branchId: t.branchId, tableId: t.id }) : undefined,
         activeSession: activeSession
           ? {
               openedAt: activeSession.openedAt,
@@ -67,9 +73,9 @@ export class TableService {
   }
 
   /**
-   * Tạo bàn mới. Đảm bảo tableNumber là unique.
+   * Tạo bàn mới. Đảm bảo tableNumber là unique theo branch.
    */
-  static async createTable(tableNumber: number, label: string) {
+  static async createTable(tenantId: string, branchId: string, tableNumber: number, label: string) {
     if (!label || label.trim().length === 0) {
       throw new AppError(400, 'BAD_REQUEST', 'Tên bàn không được để trống.');
     }
@@ -78,9 +84,9 @@ export class TableService {
       throw new AppError(400, 'BAD_REQUEST', 'Số bàn phải từ 1 đến 99.');
     }
 
-    // Kiểm tra trùng số bàn
+    // Kiểm tra trùng số bàn trong branch
     const existingTable = await prisma.table.findUnique({
-      where: { tableNumber },
+      where: { branchId_tableNumber: { branchId, tableNumber } },
     });
 
     if (existingTable) {
@@ -89,6 +95,8 @@ export class TableService {
 
     return prisma.table.create({
       data: {
+        tenantId,
+        branchId,
         tableNumber,
         label: label.trim(),
         status: TableStatus.AVAILABLE,
@@ -100,12 +108,12 @@ export class TableService {
    * Cập nhật thông tin bàn (label, status).
    * Không cho phép sửa đổi tableNumber để tránh hỏng mã QR đã in.
    */
-  static async updateTable(id: string, label?: string, status?: TableStatus) {
+  static async updateTable(id: string, tenantId: string, label?: string, status?: TableStatus) {
     const table = await prisma.table.findUnique({
       where: { id },
     });
 
-    if (!table) {
+    if (!table || table.tenantId !== tenantId) {
       throw new AppError(404, 'NOT_FOUND', 'Bàn không tồn tại.');
     }
 
@@ -148,7 +156,7 @@ export class TableService {
   /**
    * Xóa bàn. Không cho phép xóa nếu bàn đang có session OPEN (đang có khách ăn).
    */
-  static async deleteTable(id: string) {
+  static async deleteTable(id: string, tenantId: string) {
     const table = await prisma.table.findUnique({
       where: { id },
       include: {
@@ -160,7 +168,7 @@ export class TableService {
       },
     });
 
-    if (!table) {
+    if (!table || table.tenantId !== tenantId) {
       throw new AppError(404, 'NOT_FOUND', 'Bàn không tồn tại.');
     }
 
