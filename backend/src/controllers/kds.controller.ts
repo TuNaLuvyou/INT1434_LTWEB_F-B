@@ -84,7 +84,7 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
     const updatedItem = await kdsService.updateOrderItemStatus(orderItemId, status as OrderItemStatus);
 
     // Emit socket to kitchen
-    emitKitchenItemUpdated({
+    emitKitchenItemUpdated(updatedItem.session.table.tenantId, updatedItem.session.table.branchId, {
       orderItemId,
       tableId: updatedItem.session.tableId,
       menuItemName: updatedItem.menuItem.name,
@@ -96,7 +96,7 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
       // Check if all items in session are DONE
       const allDone = await kdsService.checkAllItemsDone(updatedItem.sessionId);
       if (allDone) {
-        emitSessionAllDone({
+        emitSessionAllDone(updatedItem.session.table.tenantId, updatedItem.session.table.branchId, {
           sessionId: updatedItem.sessionId,
           tableId: updatedItem.session.tableId,
           tableNumber: updatedItem.session.table.tableNumber,
@@ -182,7 +182,7 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
     })) as any[];
 
     for (const item of updatedItems) {
-      emitKitchenItemUpdated({
+      emitKitchenItemUpdated(item.session.table.tenantId, item.session.table.branchId, {
         orderItemId: item.id,
         tableId: item.session.tableId,
         menuItemName: item.menuItem.name,
@@ -195,7 +195,7 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
     if (newStatus === 'DONE') {
       const allDone = await kdsService.checkAllItemsDone(sessionId);
       if (allDone && updatedItems.length > 0) {
-        emitSessionAllDone({
+        emitSessionAllDone(updatedItems[0].session.table.tenantId, updatedItems[0].session.table.branchId, {
           sessionId,
           tableId: updatedItems[0].session.tableId,
           tableNumber: updatedItems[0].session.table.tableNumber,
@@ -290,7 +290,7 @@ export async function voidKdsOrderItem(req: Request, res: Response): Promise<voi
       updatedAt: now,
     });
 
-    emitKitchenItemUpdated({
+    emitKitchenItemUpdated(voidedItem.session.table.tenantId, voidedItem.session.table.branchId, {
       orderItemId,
       tableId,
       menuItemName: voidedItem.menuItem.name,
@@ -308,7 +308,7 @@ export async function voidKdsOrderItem(req: Request, res: Response): Promise<voi
       0
     );
 
-    emitCartUpdated(tableId, {
+    emitCartUpdated(voidedItem.session.table.tenantId, voidedItem.session.table.branchId, tableId, {
       sessionId,
       tableId,
       orderItems: remainingItems.map((item) => ({

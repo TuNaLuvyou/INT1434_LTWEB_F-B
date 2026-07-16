@@ -177,7 +177,7 @@ export async function handleAddToCart(req: Request, res: Response): Promise<void
 
     // Emit Socket Update realtime tới tất cả thiết bị cùng bàn
     const total = updatedCart.reduce((sum, item) => sum + item.qty * Number(item.unitPrice), 0);
-    emitCartUpdated(session.tableId, {
+    emitCartUpdated((session as any).table.tenantId, (session as any).table.branchId, session.tableId, {
       sessionId,
       tableId: session.tableId,
       orderItems: updatedCart.map((item) => ({
@@ -239,7 +239,7 @@ export async function handleDeleteCartItem(req: Request, res: Response): Promise
 
     // Emit Socket Update realtime tới tất cả thiết bị cùng bàn
     const total = updatedCart.reduce((sum, item) => sum + item.qty * Number(item.unitPrice), 0);
-    emitCartUpdated(session.tableId, {
+    emitCartUpdated((session as any).table.tenantId, (session as any).table.branchId, session.tableId, {
       sessionId,
       tableId: session.tableId,
       orderItems: updatedCart.map((item) => ({

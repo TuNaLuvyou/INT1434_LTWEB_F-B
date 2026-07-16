@@ -82,7 +82,12 @@ router.post('/emit/cashier-new-order', (req: Request, res: Response) => {
   }
 
   try {
-    emitCashierNewOrder(req.body);
+    const { tenantId, branchId, ...payload } = req.body;
+    if (!tenantId || !branchId) {
+      res.status(400).json({ success: false, message: 'Missing tenantId or branchId in payload' });
+      return;
+    }
+    emitCashierNewOrder(tenantId, branchId, payload as any);
     res.json({ success: true });
   } catch (err) {
     console.error('[internal emit] cashier-new-order error:', err);

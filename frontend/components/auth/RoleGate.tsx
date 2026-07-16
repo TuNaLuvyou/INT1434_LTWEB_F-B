@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRole } from '@/hooks/useRole';
 import type { Role } from '@/hooks/useRole';
+import { useAuthStore } from '@/stores/auth.store';
 
 type RoleGateProps = {
   allowedRoles: Role[];
@@ -23,6 +24,8 @@ export function RoleGate({ allowedRoles, children, fallback = null }: RoleGatePr
   }, []);
 
   if (!mounted) return null; // Prevent hydration mismatch
+
+  console.log('RoleGate evaluate:', { currentRole: role, allowedRoles, user: useAuthStore.getState().user });
 
   if (!role || !allowedRoles.includes(role)) return <>{fallback}</>;
   

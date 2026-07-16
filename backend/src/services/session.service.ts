@@ -135,7 +135,7 @@ export async function joinOrCreateSession(tableId: string, createdViaPos?: boole
   ]);
 
   // 4. Emit socket event tới floor-plan (F4) bằng emit helpers mới
-  emitTableStatusChanged({
+  emitTableStatusChanged(table.tenantId, table.branchId, {
     tableId: actualTableId,
     status: 'OCCUPIED',
   });
@@ -276,29 +276,28 @@ export async function updateSessionStatus(
     });
 
     // Emit socket events cho floor-plan
-    emitTableStatusChanged({
+    emitTableStatusChanged(session.table.tenantId, session.table.branchId, {
       tableId: session.tableId,
-      status: targetTableStatus,
+      status: targetTableStatus as any,
     });
 
     // Emit socket session closed
-    emitSessionClosed(session.tableId, {
+    emitSessionClosed(session.table.tenantId, session.table.branchId, session.tableId, {
       sessionId,
       tableId: session.tableId,
       status: 'PAID',
       closedAt: now.toISOString(),
     });
 
-    // 4. Nếu có món cần gửi bếp, emit thông báo tới bếp
     if (itemsToSendToKitchen.length > 0) {
-      emitKitchenNewTicket({
+      emitKitchenNewTicket(session.table.tenantId, session.table.branchId, {
         sessionId,
         tableId: session.tableId,
         tableNumber: session.table.tableNumber,
         items: itemsToSendToKitchen.map(item => ({
           orderItemId: item.id,
           menuItemId: item.menuItemId,
-          menuItemName: item.menuItem.name,
+          menuItemName: (item as any).menuItem.name,
           qty: item.qty,
           note: item.note || undefined,
           status: 'PENDING',
@@ -325,12 +324,12 @@ export async function updateSessionStatus(
 
     updatedSession = cancelledSession;
 
-    emitTableStatusChanged({
+    emitTableStatusChanged(session.table.tenantId, session.table.branchId, {
       tableId: session.tableId,
       status: 'AVAILABLE',
     });
 
-    emitSessionClosed(session.tableId, {
+    emitSessionClosed(session.table.tenantId, session.table.branchId, session.tableId, {
       sessionId,
       tableId: session.tableId,
       status: 'CANCELLED',
@@ -356,6 +355,7 @@ export async function addToCart(
     // STEP 1: Verify session còn OPEN
     const session = await tx.tableSession.findUnique({
       where: { id: sessionId },
+      include: { table: true }
     });
     if (!session || session.status !== 'OPEN') {
       throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
@@ -469,6 +469,7 @@ export async function deleteCartItem(
     // STEP 1: Verify session còn OPEN
     const session = await tx.tableSession.findUnique({
       where: { id: sessionId },
+      include: { table: true }
     });
     if (!session || session.status !== 'OPEN') {
       throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');

@@ -225,7 +225,17 @@ export default function CashierClient({
   const [showVoucherDropdown, setShowVoucherDropdown] = useState(false);
 
   const token = typeof window !== "undefined" ? getAccessTokenFromCookie() || undefined : undefined;
-  const { socket, isConnected } = useSocket({ room: "cashier", token });
+  let tenantId = 'unknown';
+  let branchId = 'unknown';
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      tenantId = payload.tenantId || 'unknown';
+      branchId = payload.branchId || 'unknown';
+    } catch(e) {}
+  }
+  
+  const { socket, isConnected } = useSocket({ room: `tenant:${tenantId}:branch:${branchId}:cashier`, token });
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);

@@ -206,14 +206,23 @@ export default function POSPage() {
 
   // Real-time synchronization using Socket.io
   const token = typeof window !== 'undefined' ? (getAccessTokenFromCookie() || undefined) : undefined;
+  let tenantId = 'unknown';
+  let branchId = 'unknown';
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      tenantId = payload.tenantId || 'unknown';
+      branchId = payload.branchId || 'unknown';
+    } catch(e) {}
+  }
   
   const { socket: cashierSocket, isConnected: isCashierConnected } = useSocket({
-    room: 'floor-plan',
+    room: `tenant:${tenantId}:branch:${branchId}:floor-plan`,
     token,
   });
 
   const { socket: menuSocket, isConnected: isMenuConnected } = useSocket({
-    room: 'menu-updates',
+    room: `tenant:${tenantId}:menu-updates`,
   });
 
   // Listen to menu sold-out events
