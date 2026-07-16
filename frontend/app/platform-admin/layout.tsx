@@ -1,4 +1,4 @@
-import RoleGate from '../../components/auth/RoleGate';
+import { RoleGate } from '../../components/auth/RoleGate';
 
 export default function PlatformAdminLayout({ children }: { children: React.ReactNode }) {
   // Tạm thời cho ADMIN cũng vào được để tiện test
