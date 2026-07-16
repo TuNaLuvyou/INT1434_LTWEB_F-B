@@ -20,6 +20,11 @@ export const getTenants = async () => {
             }
           }
         }
+      },
+      subscription: {
+        include: {
+          plan: true
+        }
       }
     },
     orderBy: { createdAt: 'desc' }
@@ -35,7 +40,7 @@ export const getTenants = async () => {
     userCount: t._count.tenantUsers,
     tableCount: t._count.tables,
     owner: t.tenantUsers.length > 0 ? t.tenantUsers[0].user : null,
-    subscription: 'Free Trial' // Mặc định cho phase này
+    subscription: t.subscription?.plan?.name || 'Free Trial'
   }));
 };
 
@@ -47,7 +52,7 @@ export const createTenant = async (data: { name: string; domain?: string; ownerE
   if (!user) {
     // Tạm thời tạo password mặc định (hoặc dùng hàm hash)
     // Để an toàn, trong thực tế sẽ gửi email yêu cầu đổi pass, hoặc gen mật khẩu ngẫu nhiên
-    const bcrypt = require('bcryptjs');
+    const bcrypt = require('bcrypt');
     const defaultPassword = await bcrypt.hash('12345678', 10);
     
     user = await prisma.user.create({

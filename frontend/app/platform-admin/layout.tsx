@@ -12,9 +12,8 @@ export default function PlatformAdminLayout({ children }: { children: React.Reac
     </div>
   );
 
-  // Tạm thời cho ADMIN cũng vào được để tiện test
   return (
-    <RoleGate allowedRoles={['PLATFORM_ADMIN', 'ADMIN'] as any} fallback={fallbackUI}>
+    <RoleGate allowedRoles={['PLATFORM_ADMIN']} fallback={fallbackUI}>
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <header className="bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

@@ -2,13 +2,15 @@ import prisma from '../config/prisma';
 import { Voucher, DiscountType } from '@prisma/client';
 import { AppError } from '../utils/app-error';
 
-export async function getAllVouchers(): Promise<Voucher[]> {
+export async function getAllVouchers(tenantId: string): Promise<Voucher[]> {
   return prisma.voucher.findMany({
+    where: { tenantId },
     orderBy: { createdAt: 'desc' },
   });
 }
 
 export async function createVoucher(data: {
+  tenantId: string;
   code: string;
   discountType: DiscountType;
   discountValue: number;
@@ -19,7 +21,7 @@ export async function createVoucher(data: {
 
   // Check if voucher exists
   const existing = await prisma.voucher.findUnique({
-    where: { code: codeFormatted },
+    where: { tenantId_code: { tenantId: data.tenantId, code: codeFormatted } },
   });
 
   if (existing) {
@@ -28,6 +30,7 @@ export async function createVoucher(data: {
 
   return prisma.voucher.create({
     data: {
+      tenantId: data.tenantId,
       code: codeFormatted,
       discountType: data.discountType,
       discountValue: data.discountValue,
@@ -38,7 +41,10 @@ export async function createVoucher(data: {
   });
 }
 
-export async function deleteVoucher(id: string): Promise<Voucher> {
+export async function deleteVoucher(id: string, tenantId: string): Promise<Voucher> {
+  const voucher = await prisma.voucher.findFirst({ where: { id, tenantId } });
+  if (!voucher) throw new AppError(404, 'NOT_FOUND', 'Voucher không tồn tại');
+
   // Check if voucher has payments attached
   const paymentCount = await prisma.payment.count({
     where: { voucherId: id },

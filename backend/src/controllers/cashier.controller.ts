@@ -11,7 +11,14 @@ import {
 
 export async function getCashierOverview(req: Request, res: Response): Promise<void> {
   try {
-    const tables = await cashierService.getCashierOverview();
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const branchId = authReq.user?.branchId;
+
+    const tables = await cashierService.getCashierOverview(tenantId, branchId);
     res.status(200).json({ success: true, data: { tables } });
   } catch (error: any) {
     console.error('getCashierOverview error:', error);

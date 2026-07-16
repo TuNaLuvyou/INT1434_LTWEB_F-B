@@ -7,7 +7,14 @@ import * as ingredientService from '../services/ingredient.service';
 
 export async function getKdsTickets(req: Request, res: Response): Promise<void> {
   try {
-    const sessions = await kdsService.getActiveKdsTickets();
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const branchId = authReq.user?.branchId;
+
+    const sessions = await kdsService.getActiveKdsTickets(tenantId, branchId);
     
     const now = new Date().getTime();
 
@@ -114,8 +121,19 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
 
 export async function getKdsOrders(req: Request, res: Response): Promise<void> {
   try {
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const branchId = authReq.user?.branchId;
+
+    const tableWhere: any = { tenantId };
+    if (branchId) tableWhere.branchId = branchId;
+
     const sessions = await prisma.tableSession.findMany({
       where: {
+        table: tableWhere,
         status: { in: ['OPEN', 'PAID'] },
         lockedAt: { not: null }, // Phải duyệt bên cashier rồi mới hiện
         orderItems: {
