@@ -10,11 +10,21 @@ import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-// GET /api/tables - Public / Hybrid (Không bắt buộc token để phục vụ Next.js SSG build)
-router.get('/', handleGetAllTables as any);
+// GET /api/tables - Admin/Manager
+router.get(
+  '/', 
+  authMiddleware as any, 
+  requireRole(['ADMIN', 'MANAGER']) as any, 
+  handleGetAllTables as any
+);
 
-// PATCH /api/tables/:id/status - Public (Dành cho trang quản lý bàn nội bộ của staff không dùng token)
-router.patch('/:id/status', handleUpdateTableStatus as any);
+// PATCH /api/tables/:id/status - Admin/Manager/Staff
+router.patch(
+  '/:id/status', 
+  authMiddleware as any, 
+  requireRole(['ADMIN', 'MANAGER', 'STAFF', 'KITCHEN']) as any, 
+  handleUpdateTableStatus as any
+);
 
 // Các thao tác thay đổi dữ liệu yêu cầu đăng nhập ADMIN hoặc MANAGER
 router.post(

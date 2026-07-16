@@ -14,25 +14,16 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
  */
 export const handleGetAllTables = async (req: Request, res: Response) => {
   try {
-    let isAdmin = false;
-    let tenantId: string | undefined;
-    let branchId: string | undefined;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      if (token) {
-        try {
-          const payload = verifyAccessToken(token);
-          if (payload && (payload.role === Role.ADMIN || payload.role === Role.MANAGER)) {
-            isAdmin = true;
-            tenantId = payload.tenantId;
-            branchId = payload.branchId;
-          }
-        } catch (err) {
-          // Ignored: token hết hạn hoặc không hợp lệ, coi như người dùng public
-        }
-      }
+    const authReq = req as AuthenticatedRequest;
+    
+    // Nếu token chưa có tenantId (do selectTenant chưa chạy), block luôn để tránh leak data
+    if (!authReq.user?.tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden: Missing tenant context' });
     }
+
+    const isAdmin = authReq.user.role === Role.ADMIN || authReq.user.role === Role.MANAGER;
+    const tenantId = authReq.user.tenantId;
+    const branchId = authReq.user.branchId;
 
     const tables = await TableService.getAllTables(isAdmin, tenantId, branchId);
     res.status(200).json({
@@ -65,6 +56,7 @@ export const handleCreateTable = async (req: Request, res: Response) => {
     }
 
     const authReq = req as AuthenticatedRequest;
+    console.log('[DEBUG] authReq.user:', authReq.user);
     const tenantId = authReq.user?.tenantId;
     // Default to a placeholder branch if not in token, ideally frontend passes it
     const branchId = authReq.user?.branchId || req.body.branchId; 

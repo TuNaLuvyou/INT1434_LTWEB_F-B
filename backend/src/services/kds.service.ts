@@ -1,9 +1,13 @@
 import prisma from '../config/prisma';
 import { OrderItemStatus } from '@prisma/client';
 
-export async function getActiveKdsTickets() {
+export async function getActiveKdsTickets(tenantId: string, branchId?: string) {
+  const tableWhere: any = { tenantId };
+  if (branchId) tableWhere.branchId = branchId;
+
   return await prisma.tableSession.findMany({
     where: {
+      table: tableWhere,
       status: { in: ['OPEN', 'PAID'] },
       lockedAt: { not: null }, // Phải duyệt bên cashier rồi mới hiện
       orderItems: {

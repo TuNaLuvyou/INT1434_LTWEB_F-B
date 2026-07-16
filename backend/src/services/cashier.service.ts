@@ -43,8 +43,12 @@ export interface CashierSessionItemsResponse {
   }>>;
 }
 
-export async function getCashierOverview(): Promise<CashierTableOverview[]> {
+export async function getCashierOverview(tenantId: string, branchId?: string): Promise<CashierTableOverview[]> {
+  const whereClause: any = { tenantId };
+  if (branchId) whereClause.branchId = branchId;
+
   const tables = await prisma.table.findMany({
+    where: whereClause,
     orderBy: { tableNumber: 'asc' },
     include: {
       sessions: {

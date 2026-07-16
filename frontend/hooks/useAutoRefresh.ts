@@ -13,7 +13,8 @@ export function useAutoRefresh() {
   const isProtected = pathname ? (
     pathname.startsWith('/admin') || 
     pathname.startsWith('/cashier') || 
-    pathname.startsWith('/kds')
+    pathname.startsWith('/kds') ||
+    pathname.startsWith('/platform-admin')
   ) : false;
 
   // Xử lý bfcache (Back-Forward Cache):
@@ -54,18 +55,30 @@ export function useAutoRefresh() {
           const { fetchCurrentUser, user } = useAuthStore.getState();
           if (!user) {
             fetchCurrentUser();
+          } else {
+            useAuthStore.setState({ isLoading: false });
           }
         } else {
           console.warn('[Auth] Auto-refresh failed');
-          if (isProtected) {
-            const currentToken = getAccessTokenFromCookie();
-            if (!currentToken) {
+          const currentToken = getAccessTokenFromCookie();
+          if (currentToken && !useAuthStore.getState().user) {
+            // Still have access token, try to fetch user
+            useAuthStore.getState().fetchCurrentUser();
+          } else {
+            useAuthStore.setState({ isLoading: false });
+            if (isProtected && !currentToken) {
               router.replace('/login?reason=expired');
             }
           }
         }
       } catch (error) {
         console.warn('[Auth] Auto-refresh network error');
+        const currentToken = getAccessTokenFromCookie();
+        if (currentToken && !useAuthStore.getState().user) {
+          useAuthStore.getState().fetchCurrentUser();
+        } else {
+          useAuthStore.setState({ isLoading: false });
+        }
       }
     };
 
