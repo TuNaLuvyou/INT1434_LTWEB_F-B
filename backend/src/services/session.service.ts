@@ -63,6 +63,7 @@ const orderItemsInclude = {
 export async function joinOrCreateSession(tableId: string, createdViaPos?: boolean): Promise<{
   session: SessionWithItems;
   isNew: boolean;
+  table: any;
 }> {
   // 1. Validate table tồn tại (hỗ trợ cả khóa UUID và số hiệu bàn tableNumber)
   let table = await prisma.table.findUnique({ where: { id: tableId } });
@@ -103,7 +104,7 @@ export async function joinOrCreateSession(tableId: string, createdViaPos?: boole
         data: { createdViaPos: true },
         include: orderItemsInclude,
       });
-      return { session: updated as unknown as SessionWithItems, isNew: false };
+      return { session: updated as unknown as SessionWithItems, isNew: false, table };
     }
 
     // 3a. Session đã tồn tại — đảm bảo trạng thái bàn là OCCUPIED
@@ -113,7 +114,7 @@ export async function joinOrCreateSession(tableId: string, createdViaPos?: boole
         data: { status: 'OCCUPIED' },
       });
     }
-    return { session: existingSession as unknown as SessionWithItems, isNew: false };
+    return { session: existingSession as unknown as SessionWithItems, isNew: false, table };
   }
 
   // 3b. Chưa có session — tạo mới trong transaction
@@ -139,7 +140,7 @@ export async function joinOrCreateSession(tableId: string, createdViaPos?: boole
     status: 'OCCUPIED',
   });
 
-  return { session: newSession as unknown as SessionWithItems, isNew: true };
+  return { session: newSession as unknown as SessionWithItems, isNew: true, table };
 }
 
 /**

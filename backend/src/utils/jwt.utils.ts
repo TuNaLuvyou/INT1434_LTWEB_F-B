@@ -21,3 +21,20 @@ export const verifyAccessToken = (token: string): AccessTokenPayload => {
 export const verifyRefreshToken = (token: string): RefreshTokenPayload => {
   return jwt.verify(token, REFRESH_SECRET) as RefreshTokenPayload;
 };
+
+const QR_SECRET = process.env.JWT_QR_SECRET || 'qr_fallback_secret_must_change';
+
+export interface QrTokenPayload {
+  tenantId: string;
+  branchId: string;
+  tableId: string;
+}
+
+export const generateQrToken = (payload: QrTokenPayload): string => {
+  // Không có expiresIn để QR không bị hết hạn
+  return jwt.sign(payload, QR_SECRET);
+};
+
+export const verifyQrToken = (token: string): QrTokenPayload => {
+  return jwt.verify(token, QR_SECRET) as QrTokenPayload;
+};

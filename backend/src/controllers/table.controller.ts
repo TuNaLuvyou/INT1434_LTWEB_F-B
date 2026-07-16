@@ -15,6 +15,8 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 export const handleGetAllTables = async (req: Request, res: Response) => {
   try {
     let isAdmin = false;
+    let tenantId: string | undefined;
+    let branchId: string | undefined;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
@@ -23,6 +25,8 @@ export const handleGetAllTables = async (req: Request, res: Response) => {
           const payload = verifyAccessToken(token);
           if (payload && (payload.role === Role.ADMIN || payload.role === Role.MANAGER)) {
             isAdmin = true;
+            tenantId = payload.tenantId;
+            branchId = payload.branchId;
           }
         } catch (err) {
           // Ignored: token hết hạn hoặc không hợp lệ, coi như người dùng public
@@ -30,7 +34,7 @@ export const handleGetAllTables = async (req: Request, res: Response) => {
       }
     }
 
-    const tables = await TableService.getAllTables(isAdmin);
+    const tables = await TableService.getAllTables(isAdmin, tenantId, branchId);
     res.status(200).json({
       success: true,
       data: tables,
@@ -61,11 +65,17 @@ export const handleCreateTable = async (req: Request, res: Response) => {
     }
 
     const authReq = req as AuthenticatedRequest;
-    if (authReq.user?.tenantId) {
-      await checkUsageLimit(authReq.user.tenantId, 'TABLE');
+    const tenantId = authReq.user?.tenantId;
+    // Default to a placeholder branch if not in token, ideally frontend passes it
+    const branchId = authReq.user?.branchId || req.body.branchId; 
+
+    if (!tenantId || !branchId) {
+      return res.status(403).json({ success: false, message: 'Forbidden: Missing tenant/branch context' });
     }
 
-    const newTable = await TableService.createTable(Number(tableNumber), label);
+    await checkUsageLimit(tenantId, 'TABLE');
+
+    const newTable = await TableService.createTable(tenantId, branchId, Number(tableNumber), label);
 
     res.status(201).json({
       success: true,
@@ -98,7 +108,13 @@ export const handleUpdateTable = async (req: Request, res: Response) => {
       return;
     }
 
-    const updatedTable = await TableService.updateTable(id, label, status);
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const updatedTable = await TableService.updateTable(id, tenantId, label, status);
 
     // Nếu thay đổi trạng thái, phát tín hiệu Socket.io tới room "floor-plan"
     if (status) {
@@ -131,8 +147,13 @@ export const handleUpdateTable = async (req: Request, res: Response) => {
 export const handleDeleteTable = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
 
-    const result = await TableService.deleteTable(id);
+    const result = await TableService.deleteTable(id, tenantId);
 
     res.status(200).json({
       success: true,
@@ -164,7 +185,13 @@ export const handleUpdateTableStatus = async (req: Request, res: Response) => {
       return;
     }
 
-    const updatedTable = await TableService.updateTable(id, undefined, status);
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const updatedTable = await TableService.updateTable(id, tenantId, undefined, status);
 
     // Phát tín hiệu Socket.io tới room "floor-plan"
     emitTableStatusChanged({

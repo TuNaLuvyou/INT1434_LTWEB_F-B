@@ -206,7 +206,11 @@ model MenuItem {
 enum TableStatus {
   AVAILABLE
   OCCUPIED
-  RESERVED
+  ORDERING
+  FOOD_READY
+  WAITING_PAYMENT
+  COMPLETED
+  DISABLED
 }
 
 model Table {
