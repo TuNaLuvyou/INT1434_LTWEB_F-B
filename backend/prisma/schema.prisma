@@ -36,6 +36,7 @@ model Tenant {
   auditLogs     AuditLog[]
   branding      TenantBranding?
   bankAccounts  TenantBankAccount[]
+  subscription  TenantSubscription?
 }
 
 model Branch {
@@ -438,4 +439,107 @@ model Voucher {
   payments      Payment[]
 
   @@unique([tenantId, code])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SAAS BILLING MODELS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+model SubscriptionPlan {
+  id            String   @id @default(uuid())
+  name          String   @unique // 'Starter', 'Professional', 'Enterprise'
+  description   String?
+  price         Decimal  @db.Decimal(10, 2)
+  currency      String   @default("VND")
+  billingCycle  BillingCycle @default(MONTHLY)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  features      PlanFeature[]
+  limits        UsageLimit[]
+  subscriptions TenantSubscription[]
+}
+
+model PlanFeature {
+  id       String @id @default(uuid())
+  planId   String
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  code     String // e.g., 'KDS_ACCESS', 'PROMOTION_ENGINE', 'WHITE_LABEL', 'API_ACCESS'
+  isActive Boolean @default(true)
+
+  @@unique([planId, code])
+}
+
+model UsageLimit {
+  id           String @id @default(uuid())
+  planId       String
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  resourceCode String // e.g., 'BRANCH', 'TABLE', 'USER', 'MENU_ITEM'
+  maxLimit     Int    // e.g. 1 for Starter, 5 for Professional, 9999 for Enterprise
+
+  @@unique([planId, resourceCode])
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+model TenantSubscription {
+  id              String   @id @default(uuid())
+  tenantId        String   @unique
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId          String
+  plan            SubscriptionPlan @relation(fields: [planId], references: [id])
+  status          SubscriptionStatus @default(ACTIVE)
+  startDate       DateTime
+  endDate         DateTime
+  trialEndsAt     DateTime?
+  cancelAtPeriodEnd Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  invoices        SubscriptionInvoice[]
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+model SubscriptionInvoice {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  subscription   TenantSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount         Decimal  @db.Decimal(10, 2)
+  status         InvoiceStatus @default(DRAFT)
+  dueDate        DateTime
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  payments       SubscriptionPayment[]
+}
+
+model SubscriptionPayment {
+  id            String   @id @default(uuid())
+  invoiceId     String
+  invoice       SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount        Decimal  @db.Decimal(10, 2)
+  provider      String   // e.g., 'STRIPE', 'VN_PAY', 'BANK_TRANSFER'
+  transactionId String?
+  status        String   // e.g., 'SUCCESS', 'FAILED'
+  createdAt     DateTime @default(now())
 }

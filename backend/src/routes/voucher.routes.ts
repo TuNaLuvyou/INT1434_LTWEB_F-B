@@ -7,8 +7,11 @@ import {
   deleteVoucherHandler,
   validateVoucherHandler
 } from '../controllers/voucher.controller';
+import { requireFeature } from '../middlewares/feature.guard';
 
 const router = Router();
+
+router.use(requireFeature('PROMOTION_ENGINE'));
 
 // Lấy danh sách voucher (ADMIN, MANAGER, CASHIER)
 router.get('/', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'CASHIER']), getAllVouchersHandler);
