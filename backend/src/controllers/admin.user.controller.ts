@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import bcrypt from 'bcrypt';
+import { checkUsageLimit } from '../services/usage-limit.service';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -32,6 +34,11 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     if (existing) {
       res.status(400).json({ success: false, message: 'Email đã tồn tại' });
       return;
+    }
+
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.tenantId) {
+      await checkUsageLimit(authReq.user.tenantId, 'USER');
     }
 
     const passwordHash = await bcrypt.hash(password, 10);

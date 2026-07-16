@@ -3,6 +3,8 @@ import { TableService } from '../services/table.service';
 import { verifyAccessToken } from '../utils/jwt.utils';
 import { emitTableStatusChanged } from '../socket/emit.helpers';
 import { Role, TableStatus } from '@prisma/client';
+import { checkUsageLimit } from '../services/usage-limit.service';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 /**
  * GET /api/tables
@@ -56,6 +58,11 @@ export const handleCreateTable = async (req: Request, res: Response) => {
         message: 'Vui lòng cung cấp đầy đủ số bàn (tableNumber) và tên bàn (label).',
       });
       return;
+    }
+
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.tenantId) {
+      await checkUsageLimit(authReq.user.tenantId, 'TABLE');
     }
 
     const newTable = await TableService.createTable(Number(tableNumber), label);

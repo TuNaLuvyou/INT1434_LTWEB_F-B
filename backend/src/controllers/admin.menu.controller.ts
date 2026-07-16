@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import prisma from '../config/prisma';
 import { Prisma } from '@prisma/client';
 import cloudinary from '../config/cloudinary';
+import { checkUsageLimit } from '../services/usage-limit.service';
 
 /**
  * Trích xuất public_id từ URL Cloudinary để xóa ảnh
@@ -91,6 +92,11 @@ export const createMenuItem = async (req: AuthenticatedRequest, res: Response) =
       return res.status(400).json({ success: false, message: 'Danh mục món ăn không tồn tại' });
     }
 
+    const tenantId = req.user?.tenantId;
+    if (tenantId) {
+      await checkUsageLimit(tenantId, 'MENU_ITEM');
+    }
+
     uploadedImageUrl = req.file ? req.file.path : null;
 
     const newItem = await prisma.menuItem.create({
@@ -129,7 +135,7 @@ export const createMenuItem = async (req: AuthenticatedRequest, res: Response) =
         }
       }
     }
-    return res.status(500).json({ success: false, message: 'Lỗi server khi lưu thông tin món ăn' });
+    return res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Lỗi server khi lưu thông tin món ăn' });
   }
 };
 
