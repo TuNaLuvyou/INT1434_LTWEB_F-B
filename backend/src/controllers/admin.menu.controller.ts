@@ -39,7 +39,11 @@ export const getPublicIdFromUrl = (url: string): string | null => {
 // 1. GET /api/admin/menu-items - Lấy danh sách món ăn cho quản lý (bao gồm các món ẩn isActive=false)
 export const getAdminMenuItems = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
     const items = await prisma.menuItem.findMany({
+      where: { tenantId },
       include: {
         category: {
           select: {
@@ -78,21 +82,23 @@ export const createMenuItem = async (req: AuthenticatedRequest, res: Response) =
       return res.status(400).json({ success: false, message: 'Vui lòng cung cấp đầy đủ thông tin: Tên, Giá và Danh mục' });
     }
 
-    // Kiểm tra category tồn tại
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    // Kiểm tra category tồn tại và thuộc về tenant này
     const categoryExists = await prisma.category.findUnique({
       where: { id: categoryId },
     });
 
-    if (!categoryExists) {
+    if (!categoryExists || categoryExists.tenantId !== tenantId) {
       if (req.file) {
         uploadedImageUrl = req.file.path;
         const publicId = getPublicIdFromUrl(uploadedImageUrl!);
         if (publicId) await cloudinary.uploader.destroy(publicId);
       }
-      return res.status(400).json({ success: false, message: 'Danh mục món ăn không tồn tại' });
+      return res.status(400).json({ success: false, message: 'Danh mục món ăn không hợp lệ hoặc không thuộc cửa hàng' });
     }
 
-    const tenantId = req.user?.tenantId;
     if (tenantId) {
       await checkUsageLimit(tenantId, 'MENU_ITEM');
     }
@@ -101,6 +107,7 @@ export const createMenuItem = async (req: AuthenticatedRequest, res: Response) =
 
     const newItem = await prisma.menuItem.create({
       data: {
+        tenantId,
         name,
         description: description || null,
         price: Number(price),
@@ -145,6 +152,9 @@ export const updateMenuItem = async (req: AuthenticatedRequest, res: Response) =
   const id = req.params.id as string;
 
   try {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
     const { name, description, price, categoryId, isActive, isSoldOut } = req.body;
 
     // Tìm món ăn cũ trong DB
@@ -152,7 +162,7 @@ export const updateMenuItem = async (req: AuthenticatedRequest, res: Response) =
       where: { id },
     });
 
-    if (!existingItem) {
+    if (!existingItem || existingItem.tenantId !== tenantId) {
       if (req.file) {
         const publicId = getPublicIdFromUrl(req.file.path);
         if (publicId) await cloudinary.uploader.destroy(publicId);
@@ -160,17 +170,17 @@ export const updateMenuItem = async (req: AuthenticatedRequest, res: Response) =
       return res.status(404).json({ success: false, message: 'Món ăn không tồn tại' });
     }
 
-    // Nếu thay đổi categoryId, kiểm tra category mới có tồn tại không
+    // Nếu thay đổi categoryId, kiểm tra category mới có tồn tại không và thuộc tenant
     if (categoryId && categoryId !== existingItem.categoryId) {
       const categoryExists = await prisma.category.findUnique({
         where: { id: categoryId },
       });
-      if (!categoryExists) {
+      if (!categoryExists || categoryExists.tenantId !== tenantId) {
         if (req.file) {
           const publicId = getPublicIdFromUrl(req.file.path);
           if (publicId) await cloudinary.uploader.destroy(publicId);
         }
-        return res.status(400).json({ success: false, message: 'Danh mục món ăn mới không tồn tại' });
+        return res.status(400).json({ success: false, message: 'Danh mục món ăn mới không tồn tại hoặc không hợp lệ' });
       }
     }
 
@@ -240,11 +250,14 @@ export const deleteMenuItem = async (req: AuthenticatedRequest, res: Response) =
   const id = req.params.id as string;
 
   try {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
     const existingItem = await prisma.menuItem.findUnique({
       where: { id },
     });
 
-    if (!existingItem) {
+    if (!existingItem || existingItem.tenantId !== tenantId) {
       return res.status(404).json({ success: false, message: 'Món ăn không tồn tại' });
     }
 
