@@ -153,7 +153,7 @@ export async function voidOrderItem(req: Request, res: Response): Promise<void> 
     });
 
     // 5. Emit: cập nhật màn hình bếp (KDS)
-    emitKitchenItemUpdated({
+    emitKitchenItemUpdated(voidedItem.session.table.tenantId, voidedItem.session.table.branchId, {
       orderItemId,
       tableId,
       menuItemName: voidedItem.menuItem.name,
@@ -172,7 +172,7 @@ export async function voidOrderItem(req: Request, res: Response): Promise<void> 
       0
     );
 
-    emitCartUpdated(tableId, {
+    emitCartUpdated(voidedItem.session.table.tenantId, voidedItem.session.table.branchId, tableId, {
       sessionId,
       tableId,
       orderItems: remainingItems.map((item) => ({

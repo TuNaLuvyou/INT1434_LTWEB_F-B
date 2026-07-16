@@ -34,8 +34,18 @@ export default function KdsClient({ initialTickets }: KdsClientProps) {
 
   // Socket
   const token = typeof window !== 'undefined' ? (getAccessTokenFromCookie() || undefined) : undefined;
+  let tenantId = 'unknown';
+  let branchId = 'unknown';
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      tenantId = payload.tenantId || 'unknown';
+      branchId = payload.branchId || 'unknown';
+    } catch(e) {}
+  }
+  
   const { socket, isConnected } = useSocket({
-    room: 'kitchen',
+    room: `tenant:${tenantId}:branch:${branchId}:kitchen`,
     token,
   });
 

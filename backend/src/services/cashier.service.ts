@@ -254,7 +254,7 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
   console.log(`[AuditLog TODO] Cashier ${approverId || 'system'} approved session ${sessionId} at ${now.toISOString()}`);
 
   // Emit table status changed
-  emitTableStatusChanged({
+  emitTableStatusChanged(session.table.tenantId, session.table.branchId, {
     tableId: session.tableId,
     status: 'OCCUPIED',
     tableNumber: session.table.tableNumber,
@@ -262,7 +262,7 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
   });
 
   // Emit Kitchen New Ticket
-  emitKitchenNewTicket({
+  emitKitchenNewTicket(session.table.tenantId, session.table.branchId, {
     sessionId,
     tableId: session.tableId,
     tableNumber: session.table.tableNumber,
@@ -278,7 +278,7 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
 
   // Emit Cart Updated (gửi lock notification cho khách)
   const total = session.orderItems.reduce((sum, item) => sum + Number(item.unitPrice) * item.qty, 0);
-  emitCartUpdated(session.tableId, {
+  emitCartUpdated(session.table.tenantId, session.table.branchId, session.tableId, {
     sessionId,
     tableId: session.tableId,
     orderItems: session.orderItems.map(item => ({

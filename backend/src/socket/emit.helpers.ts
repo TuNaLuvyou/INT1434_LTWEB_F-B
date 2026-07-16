@@ -109,10 +109,10 @@ export interface MenuSoldOutPayload {
  * Emit khi giỏ hàng của bàn thay đổi.
  * Target: room table:[tableId]
  */
-export function emitCartUpdated(tableId: string, payload: CartUpdatedPayload): void {
+export function emitCartUpdated(tenantId: string, branchId: string, tableId: string, payload: CartUpdatedPayload): void {
   try {
     getIO().to(SOCKET_ROOMS.table(tableId)).emit(SOCKET_EVENTS.CART_UPDATED, payload);
-    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.CART_UPDATED, payload);
+    getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.CART_UPDATED, payload);
     console.log(`[emit] cart:updated → room table:${tableId} & cashier`);
   } catch (err) {
     console.warn('[emit] emitCartUpdated failed (socket chưa init?):', err);
@@ -136,9 +136,9 @@ export function emitSessionClosed(tableId: string, payload: SessionClosedPayload
  * Emit khi tất cả order items trong session đã hoàn thành (DONE).
  * Target: room cashier → thông báo thu ngân có thể tính tiền
  */
-export function emitSessionAllDone(payload: SessionAllDonePayload): void {
+export function emitSessionAllDone(tenantId: string, branchId: string, payload: SessionAllDonePayload): void {
   try {
-    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.SESSION_ALL_DONE, payload);
+    getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.SESSION_ALL_DONE, payload);
     console.log(`[emit] session:all-done → cashier | session: ${payload.sessionId}`);
   } catch (err) {
     console.warn('[emit] emitSessionAllDone failed:', err);
@@ -164,10 +164,10 @@ export function emitCartItemSoldOut(tableId: string, payload: { menuItemId: stri
  * Emit khi trạng thái bàn thay đổi.
  * Target: room floor-plan → staff/admin cập nhật sơ đồ bàn realtime
  */
-export function emitTableStatusChanged(payload: TableStatusChangedPayload): void {
+export function emitTableStatusChanged(tenantId: string, branchId: string, payload: TableStatusChangedPayload): void {
   try {
-    getIO().to(SOCKET_ROOMS.FLOOR_PLAN).emit(SOCKET_EVENTS.TABLE_STATUS_CHANGED, payload);
-    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.TABLE_STATUS_CHANGED, payload);
+    getIO().to(SOCKET_ROOMS.FLOOR_PLAN(tenantId, branchId)).emit(SOCKET_EVENTS.TABLE_STATUS_CHANGED, payload);
+    getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.TABLE_STATUS_CHANGED, payload);
     console.log(`[emit] table:status-changed → floor-plan & cashier | bàn ${payload.tableId}: ${payload.status}`);
   } catch (err) {
     console.warn('[emit] emitTableStatusChanged failed:', err);
@@ -178,9 +178,9 @@ export function emitTableStatusChanged(payload: TableStatusChangedPayload): void
  * Emit khi session của bàn được cập nhật (thêm order, thay đổi tổng).
  * Target: room floor-plan
  */
-export function emitTableSessionUpdated(payload: { tableId: string; sessionId: string; total?: number }): void {
+export function emitTableSessionUpdated(tenantId: string, branchId: string, payload: { tableId: string; sessionId: string; total?: number }): void {
   try {
-    getIO().to(SOCKET_ROOMS.FLOOR_PLAN).emit(SOCKET_EVENTS.TABLE_SESSION_UPDATED, payload);
+    getIO().to(SOCKET_ROOMS.FLOOR_PLAN(tenantId, branchId)).emit(SOCKET_EVENTS.TABLE_SESSION_UPDATED, payload);
     console.log(`[emit] table:session-updated → floor-plan | bàn ${payload.tableId}`);
   } catch (err) {
     console.warn('[emit] emitTableSessionUpdated failed:', err);
@@ -193,9 +193,9 @@ export function emitTableSessionUpdated(payload: { tableId: string; sessionId: s
  * Emit khi có order mới cần bếp xử lý.
  * Target: room kitchen → KDS bếp hiển thị ticket mới
  */
-export function emitKitchenNewTicket(payload: KitchenTicketPayload): void {
+export function emitKitchenNewTicket(tenantId: string, branchId: string, payload: KitchenTicketPayload): void {
   try {
-    getIO().to(SOCKET_ROOMS.KITCHEN).emit(SOCKET_EVENTS.KITCHEN_NEW_TICKET, payload);
+    getIO().to(SOCKET_ROOMS.KITCHEN(tenantId, branchId)).emit(SOCKET_EVENTS.KITCHEN_NEW_TICKET, payload);
     console.log(`[emit] kitchen:new-ticket → kitchen | session: ${payload.sessionId}`);
   } catch (err) {
     console.warn('[emit] emitKitchenNewTicket failed:', err);
@@ -206,9 +206,9 @@ export function emitKitchenNewTicket(payload: KitchenTicketPayload): void {
  * Emit khi KDS cập nhật trạng thái item.
  * Target: room kitchen (broadcast cho các KDS khác nếu nhiều màn hình)
  */
-export function emitKitchenItemUpdated(payload: KitchenItemUpdatedPayload): void {
+export function emitKitchenItemUpdated(tenantId: string, branchId: string, payload: KitchenItemUpdatedPayload): void {
   try {
-    getIO().to(SOCKET_ROOMS.KITCHEN).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
+    getIO().to(SOCKET_ROOMS.KITCHEN(tenantId, branchId)).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
     console.log(`[emit] kitchen:item-updated → kitchen | item: ${payload.orderItemId} → ${payload.status}`);
   } catch (err) {
     console.warn('[emit] emitKitchenItemUpdated failed:', err);
@@ -234,9 +234,9 @@ export function emitOrderStatusChanged(tableId: string, payload: OrderStatusChan
  * Emit khi khách submit order mới từ QR.
  * Target: room cashier → thu ngân nhận notification order mới
  */
-export function emitCashierNewOrder(payload: CashierNewOrderPayload): void {
+export function emitCashierNewOrder(tenantId: string, branchId: string, payload: CashierNewOrderPayload): void {
   try {
-    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.CASHIER_NEW_ORDER, payload);
+    getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.CASHIER_NEW_ORDER, payload);
     console.log(`[emit] cashier:new-order → cashier | session: ${payload.sessionId}`);
   } catch (err) {
     console.warn('[emit] emitCashierNewOrder failed:', err);
@@ -247,9 +247,9 @@ export function emitCashierNewOrder(payload: CashierNewOrderPayload): void {
  * Emit khi cashier cần confirm void một item.
  * Target: room cashier
  */
-export function emitCashierVoidConfirm(payload: { orderItemId: string; tableId: string; menuItemName: string }): void {
+export function emitCashierVoidConfirm(tenantId: string, branchId: string, payload: { orderItemId: string; tableId: string; menuItemName: string }): void {
   try {
-    getIO().to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.CASHIER_VOID_CONFIRM, payload);
+    getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.CASHIER_VOID_CONFIRM, payload);
     console.log(`[emit] cashier:void-confirm → cashier | item: ${payload.orderItemId}`);
   } catch (err) {
     console.warn('[emit] emitCashierVoidConfirm failed:', err);
@@ -262,9 +262,9 @@ export function emitCashierVoidConfirm(payload: { orderItemId: string; tableId: 
  * Emit khi admin/bếp toggle sold-out một menu item.
  * Target: room menu-updates → tất cả trang /menu cập nhật realtime
  */
-export function emitMenuSoldOut(payload: MenuSoldOutPayload): void {
+export function emitMenuSoldOut(tenantId: string, payload: MenuSoldOutPayload): void {
   try {
-    getIO().to(SOCKET_ROOMS.MENU_UPDATES).emit(SOCKET_EVENTS.MENU_SOLD_OUT, payload);
+    getIO().to(SOCKET_ROOMS.MENU_UPDATES(tenantId)).emit(SOCKET_EVENTS.MENU_SOLD_OUT, payload);
     console.log(`[emit] menu:soldout → menu-updates | item: ${payload.menuItemId} → isSoldOut: ${payload.isSoldOut}`);
   } catch (err) {
     console.warn('[emit] emitMenuSoldOut failed:', err);
