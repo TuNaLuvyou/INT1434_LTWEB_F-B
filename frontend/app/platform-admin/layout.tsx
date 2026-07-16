@@ -3,11 +3,38 @@
 import { RoleGate } from '../../components/auth/RoleGate';
 import Link from 'next/link';
 
+import { useState } from 'react';
+import { setAccessToken } from '@/lib/auth/client';
 import { useAuthStore } from '@/stores/auth.store';
 
 export default function PlatformAdminLayout({ children }: { children: React.ReactNode }) {
   const user = useAuthStore(state => state.user);
-  
+  const fetchCurrentUser = useAuthStore(state => state.fetchCurrentUser);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const forceLogin = async () => {
+    try {
+      setIsLoggingIn(true);
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'platform@hiaimenugo.demo', password: 'Demo@1234' }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setAccessToken(result.data.accessToken);
+        await fetchCurrentUser();
+      } else {
+        alert('Force login failed: ' + result.message);
+      }
+    } catch (e: any) {
+      alert('Error: ' + e.message);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
   const fallbackUI = (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col p-4 text-center">
       <h1 className="text-2xl font-bold text-red-600 mb-4">403 - Truy cập bị từ chối</h1>
@@ -21,9 +48,18 @@ export default function PlatformAdminLayout({ children }: { children: React.Reac
         </pre>
       </div>
 
-      <Link href="/login" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
-        Về trang Đăng nhập
-      </Link>
+      <div className="flex gap-4">
+        <button 
+          onClick={forceLogin}
+          disabled={isLoggingIn}
+          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition disabled:opacity-50"
+        >
+          {isLoggingIn ? 'Đang Auto-Login...' : 'Auto-Login (Platform Admin)'}
+        </button>
+        <Link href="/login" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+          Về trang Đăng nhập
+        </Link>
+      </div>
     </div>
   );
 
