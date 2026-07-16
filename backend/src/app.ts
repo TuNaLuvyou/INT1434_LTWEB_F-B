@@ -20,6 +20,7 @@ import analyticsRoutes from './routes/analytics.routes';
 import paymentRoutes from './routes/payment.routes';
 import voucherRoutes from './routes/voucher.routes';
 import zReportRoutes from './routes/z-report.routes';
+import platformAdminRoutes from './routes/platform-admin.routes';
 import { initSocket } from './socket';
 import { globalErrorHandler } from './middlewares/error.middleware';
 import { startAutomaticCleanupJob } from './services/cleanup.service';
@@ -81,6 +82,7 @@ app.use('/api/admin/users', adminUserRoutes);
 
 // System routes
 app.use('/api/system', systemRoutes);
+app.use('/api/platform-admin', platformAdminRoutes);
 
 // Admin sync menu
 import { syncMenu } from './controllers/system.controller';
