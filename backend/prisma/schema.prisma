@@ -35,6 +35,7 @@ model Tenant {
   systemConfig  SystemConfig?
   auditLogs     AuditLog[]
   branding      TenantBranding?
+  bankAccounts  TenantBankAccount[]
 }
 
 model Branch {
@@ -52,6 +53,7 @@ model Branch {
   payments      Payment[]
   shifts        Shift[]
   inventoryLogs InventoryLog[]
+  bankAccounts  TenantBankAccount[]
 
   @@index([tenantId])
 }
@@ -363,6 +365,12 @@ enum PaymentMethod {
   TRANSFER
 }
 
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 model Payment {
   id             String        @id @default(cuid())
   tenantId       String
@@ -377,6 +385,10 @@ model Payment {
   discountAmount Decimal       @default(0)
   total          Decimal
   method         PaymentMethod
+  status         PaymentStatus @default(SUCCESS)
+  paymentCode    String?       @unique
+  provider       String?       // "CASH", "VIETQR", "MOMO"
+  transactionId  String?
   voucherId      String?
   voucher        Voucher?      @relation(fields: [voucherId], references: [id])
   paidAt         DateTime      @default(now())
@@ -385,6 +397,24 @@ model Payment {
   @@index([paidAt])
   @@index([tenantId])
   @@index([branchId])
+}
+
+model TenantBankAccount {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId      String?
+  branch        Branch?  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  bankId        String
+  bankName      String
+  accountNumber String
+  accountName   String
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 enum DiscountType {

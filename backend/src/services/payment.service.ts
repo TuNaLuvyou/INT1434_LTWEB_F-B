@@ -19,12 +19,16 @@ export interface ProcessPaymentInput {
   sessionId: string;
   cashierId: string;
   method: PaymentMethod;
+  provider?: string;
   voucherId?: string;
   subtotal: number;
   discountAmount: number;
   total: number;
   keepOccupied?: boolean;
 }
+
+import { PaymentFactory } from './payment/payment.factory';
+import { PaymentStatus } from '@prisma/client';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -146,8 +150,8 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
     throw new AppError(400, 'SESSION_CLOSED', `Phien lam viec da o trang thai ${session.status}, khong the thanh toan.`);
   }
 
-  // 2. Lay/tao Shift
-  const shiftId = await getOrCreateShift(cashierId);
+  const providerName = input.provider || (method === 'TRANSFER' ? 'VIETQR' : 'CASH');
+  const provider = PaymentFactory.getProvider(providerName);
 
   // 3. Transaction
   const paidAt = new Date();
@@ -161,21 +165,27 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
     ...(!session.lockedAt ? pendingItems : [])
   ];
 
-  const payment = await prisma.$transaction(async (tx) => {
-    // Tao ban ghi thanh toan
-    const newPayment = await tx.payment.create({
-      data: {
-        sessionId,
-        shiftId,
-        subtotal,
-        discountAmount,
-        total,
-        method,
-        ...(voucherId ? { voucherId } : {}),
-        paidAt,
-      },
-    });
+  const result = await prisma.$transaction(async (tx) => {
+    // Tao ban ghi thanh toan via Provider
+    const { payment, providerData } = await provider.createPayment({
+      sessionId,
+      cashierId,
+      tenantId: session.tenantId,
+      branchId: session.branchId,
+      method,
+      provider: providerName,
+      voucherId,
+      subtotal,
+      discountAmount,
+      total,
+    }, tx);
 
+    // Neu payment PENDING (nhu VietQR), ta chua cap nhat kho/ban/session
+    if (payment.status === PaymentStatus.PENDING) {
+      return { payment, providerData, isPending: true };
+    }
+
+    // Neu SUCCESS (nhu CASH), ta tiep tuc xu ly
     // Tang usedCount cua voucher (neu co)
     if (voucherId) {
       await tx.voucher.update({
@@ -222,13 +232,26 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
       data: { status: keepOccupied ? 'OCCUPIED' : 'AVAILABLE' },
     });
 
-    return newPayment;
+    return { payment, providerData: null, isPending: false };
   }, {
     timeout: 15_000,
     maxWait: 5_000,
   });
 
-  // 4. Emit socket events
+  if (result.isPending) {
+    return {
+      paymentId: result.payment.id,
+      sessionId,
+      tableId: session.tableId,
+      total: Number(result.payment.total),
+      method,
+      status: result.payment.status,
+      providerData: result.providerData,
+      paidAt: null as any, // Not paid yet
+    };
+  }
+
+  // 4. Emit socket events (chi khi SUCCESS)
   emitSessionClosed(session.tableId, {
     sessionId,
     tableId: session.tableId,
@@ -262,11 +285,110 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
   }
 
   return {
-    paymentId: payment.id,
+    paymentId: result.payment.id,
     sessionId,
     tableId: session.tableId,
-    total: Number(payment.total),
+    total: Number(result.payment.total),
     method,
+    status: result.payment.status,
     paidAt,
   };
+}
+
+/**
+ * Xac nhan thanh toan (vi du Cashier xac nhan da nhan duoc tien chuyen khoan).
+ */
+export async function confirmManualPayment(paymentId: string, cashierId: string, keepOccupied: boolean = false): Promise<any> {
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: {
+      session: {
+        include: {
+          table: true,
+          orderItems: { include: { menuItem: true } }
+        }
+      }
+    }
+  });
+
+  if (!payment) throw new AppError(404, 'PAYMENT_NOT_FOUND', 'Khong tim thay giao dich.');
+  if (payment.status === PaymentStatus.SUCCESS) {
+    throw new AppError(400, 'PAYMENT_ALREADY_CONFIRMED', 'Thanh toan nay da duoc xac nhan roi.');
+  }
+
+  const provider = PaymentFactory.getProvider(payment.provider || 'VIETQR');
+  const session = payment.session;
+
+  const cartItems = session.orderItems.filter(item => item.status === 'CART');
+  const pendingItems = session.orderItems.filter(item => item.status === 'PENDING');
+  const itemsToSendToKitchen = [...cartItems, ...(!session.lockedAt ? pendingItems : [])];
+  const paidAt = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    await provider.confirmPayment(payment.id, tx);
+
+    if (payment.voucherId) {
+      await tx.voucher.update({ where: { id: payment.voucherId }, data: { usedCount: { increment: 1 } } });
+    }
+
+    if (cartItems.length > 0) {
+      await tx.orderItem.updateMany({ where: { sessionId: session.id, status: 'CART' }, data: { status: 'PENDING' } });
+    }
+
+    const itemsToDeduct = session.orderItems
+      .filter(i => i.status === 'CART' || i.status === 'PENDING')
+      .map(i => ({ menuItemId: i.menuItemId, qty: i.qty }));
+
+    if (itemsToDeduct.length > 0) {
+      try {
+        await deductInventory(itemsToDeduct, session.id, 'SYSTEM_CASHIER', tx as any);
+      } catch (e) {
+        console.warn('[confirmManualPayment] deduct skip', e);
+      }
+    }
+
+    await tx.tableSession.update({
+      where: { id: session.id },
+      data: { status: 'PAID', closedAt: paidAt, lockedAt: session.lockedAt || paidAt }
+    });
+
+    await tx.table.update({
+      where: { id: session.tableId },
+      data: { status: keepOccupied ? 'OCCUPIED' : 'AVAILABLE' }
+    });
+  });
+
+  // Emit events
+  emitSessionClosed(session.tableId, {
+    sessionId: session.id,
+    tableId: session.tableId,
+    status: 'PAID',
+    closedAt: paidAt.toISOString(),
+  });
+
+  emitTableStatusChanged({
+    tableId: session.tableId,
+    status: keepOccupied ? 'OCCUPIED' : 'AVAILABLE',
+    tableNumber: session.table.tableNumber,
+    label: session.table.label,
+  });
+
+  if (itemsToSendToKitchen.length > 0) {
+    emitKitchenNewTicket({
+      sessionId: session.id,
+      tableId: session.tableId,
+      tableNumber: session.table.tableNumber,
+      items: itemsToSendToKitchen.map(item => ({
+        orderItemId: item.id,
+        menuItemId: item.menuItemId,
+        menuItemName: item.menuItem.name,
+        qty: item.qty,
+        note: item.note || undefined,
+        status: 'PENDING',
+      })),
+      createdAt: paidAt.toISOString(),
+    });
+  }
+
+  return { success: true, paymentId };
 }

@@ -116,7 +116,49 @@ export async function processPaymentHandler(req: Request, res: Response): Promis
       });
       return;
     }
-    console.error('[processPayment] error:', error);
+    res.status(500).json({ success: false, message: 'Loi server noi bo.' });
+  }
+}
+
+/**
+ * POST /api/payment/:paymentId/confirm
+ * Cashier xac nhan thanh toan (chu yeu cho VietQR/Chuyen khoan thu cong)
+ */
+export async function confirmManualPaymentHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const cashierId = authReq.user?.userId;
+
+    if (!cashierId) {
+      res.status(401).json({ success: false, message: 'Unauthorized.' });
+      return;
+    }
+
+    const paymentId = req.params.paymentId as string;
+    if (!paymentId) {
+      res.status(400).json({ success: false, message: 'Thieu paymentId.' });
+      return;
+    }
+
+    const { keepOccupied } = req.body;
+
+    const result = await paymentService.confirmManualPayment(paymentId, cashierId, !!keepOccupied);
+
+    res.status(200).json({
+      success: true,
+      message: 'Xac nhan thanh toan thanh cong!',
+      data: result,
+    });
+  } catch (error: any) {
+    if (error instanceof AppError) {
+      res.status(error.statusCode).json({
+        success: false,
+        code: error.code,
+        message: error.message,
+      });
+      return;
+    }
+    console.error('[confirmManualPayment] error:', error);
     res.status(500).json({ success: false, message: 'Loi server noi bo.' });
   }
 }
