@@ -158,8 +158,18 @@ export default function POSPage() {
     try {
       const accessToken = getAccessTokenFromCookie();
       
+      let tId = '';
+      let bId = '';
+      if (accessToken) {
+        try {
+          const payload = JSON.parse(atob(accessToken.split('.')[1]));
+          tId = payload.tenantId || '';
+          bId = payload.branchId || '';
+        } catch(e) {}
+      }
+
       // Fetch Menu & Categories
-      const menuRes = await fetch(`${API_URL}/api/menu`);
+      const menuRes = await fetch(`${API_URL}/api/menu?tenantId=${tId}&branchId=${bId}`);
       const menuData = await menuRes.json();
       if (menuRes.ok && menuData.success) {
         setMenuItems(menuData.data.items || []);
@@ -358,18 +368,27 @@ export default function POSPage() {
 
   // Real-time synchronization using Socket.io
   const token = typeof window !== 'undefined' ? (getAccessTokenFromCookie() || undefined) : undefined;
+  let tenantId = 'unknown';
+  let branchId = 'unknown';
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      tenantId = payload.tenantId || 'unknown';
+      branchId = payload.branchId || 'unknown';
+    } catch(e) {}
+  }
   
   const { socket: cashierSocket, isConnected: isCashierConnected } = useSocket({
-    room: 'floor-plan',
+    room: `tenant:${tenantId}:branch:${branchId}:floor-plan`,
     token,
   });
 
   const { socket: menuSocket, isConnected: isMenuConnected } = useSocket({
-    room: 'menu-updates',
+    room: `tenant:${tenantId}:menu-updates`,
   });
 
   const { socket: orderSocket, isConnected: isOrderConnected } = useSocket({
-    room: 'cashier',
+    room: `tenant:${tenantId}:branch:${branchId}:cashier`,
     token,
   });
 

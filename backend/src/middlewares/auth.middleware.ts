@@ -49,6 +49,10 @@ export const requireRole = (roles: Role[]) => {
       return;
     }
 
+    if (req.user.role === 'PLATFORM_ADMIN') {
+      return next();
+    }
+
     if (!roles.includes(req.user.role)) {
       console.warn(`[RBAC] Forbidden: ${req.user.role} trying to access ${req.method} ${req.originalUrl}`);
       ApiResponse.error(res, 'FORBIDDEN', 'Bạn không có quyền thực hiện thao tác này', 403);

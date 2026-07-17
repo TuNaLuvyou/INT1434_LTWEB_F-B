@@ -41,17 +41,20 @@ export function kitchenHandler(socket: Socket, io: Server): void {
     });
 
     // 2. Notify cashier (để thu ngân theo dõi tiến độ)
-    io.to(SOCKET_ROOMS.CASHIER).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, {
-      orderItemId:  data.orderItemId,
-      tableId:      data.tableId,
-      menuItemId:   data.menuItemId,
-      qty:          data.qty,
-      deltaQty:     data.deltaQty,
-      note:         data.note,
-      removedOrderItemId: data.removedOrderItemId,
-      status:       data.status,
-      menuItemName: data.menuItemName,
-      updatedAt:    new Date().toISOString(),
-    });
+    const user = (socket.data as any).user;
+    if (user && user.tenantId && user.branchId) {
+      io.to(SOCKET_ROOMS.CASHIER(user.tenantId, user.branchId)).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, {
+        orderItemId:  data.orderItemId,
+        tableId:      data.tableId,
+        menuItemId:   data.menuItemId,
+        qty:          data.qty,
+        deltaQty:     data.deltaQty,
+        note:         data.note,
+        removedOrderItemId: data.removedOrderItemId,
+        status:       data.status,
+        menuItemName: data.menuItemName,
+        updatedAt:    new Date().toISOString(),
+      });
+    }
   });
 }

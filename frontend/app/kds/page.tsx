@@ -146,7 +146,18 @@ export default function KDSPage() {
     setMenuLoading(true);
     setFetchError(null);
     try {
-      const response = await fetch(`${API_URL}/api/menu`);
+      const token = getAccessTokenFromCookie();
+      let tId = '';
+      let bId = '';
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          tId = payload.tenantId || '';
+          bId = payload.branchId || '';
+        } catch(e) {}
+      }
+      
+      const response = await fetch(`${API_URL}/api/menu?tenantId=${tId}&branchId=${bId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -214,16 +225,24 @@ export default function KDSPage() {
     }
   };
 
-  // Socket setup for Kitchen and Menu updates
   const token = typeof window !== 'undefined' ? (getAccessTokenFromCookie() || undefined) : undefined;
+  let tenantId = 'unknown';
+  let branchId = 'unknown';
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      tenantId = payload.tenantId || 'unknown';
+      branchId = payload.branchId || 'unknown';
+    } catch(e) {}
+  }
   
   const { socket: kitchenSocket, isConnected: isKitchenConnected } = useSocket({
-    room: 'kitchen',
+    room: `tenant:${tenantId}:branch:${branchId}:kitchen`,
     token,
   });
 
   const { socket: menuSocket, isConnected: isMenuConnected } = useSocket({
-    room: 'menu-updates',
+    room: `tenant:${tenantId}:menu-updates`,
   });
 
   const playBeep = () => {

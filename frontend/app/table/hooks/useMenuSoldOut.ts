@@ -57,7 +57,14 @@ export function useMenuSoldOut<T extends MenuItemSoldOutState>(
     socket.on('connect', () => {
       setIsConnected(true);
       console.log('[useMenuSoldOut] Đã kết nối Socket.io:', socket.id);
-      socket.emit('join:menu-updates');
+      
+      // Determine tenantId from first item
+      const tenantId = initialItems.length > 0 ? (initialItems[0] as any).tenantId : null;
+      if (tenantId) {
+        socket.emit('join-room', { room: `tenant:${tenantId}:menu-updates` });
+      } else {
+        console.warn('[useMenuSoldOut] Không tìm thấy tenantId, không thể join room');
+      }
     });
 
     socket.on('disconnect', (reason) => {
@@ -90,7 +97,10 @@ export function useMenuSoldOut<T extends MenuItemSoldOutState>(
 
     return () => {
       if (socket.connected) {
-        socket.emit('leave:menu-updates');
+        const tenantId = initialItems.length > 0 ? (initialItems[0] as any).tenantId : null;
+        if (tenantId) {
+          socket.emit('leave-room', { room: `tenant:${tenantId}:menu-updates` });
+        }
       }
       socket.disconnect();
       socketRef.current = null;

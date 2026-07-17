@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, MapPin, Compass, Loader2, Save } from 'lucide-react';
+import { RefreshCw, MapPin, Compass, Loader2, Save, Info, Shield, CheckCircle2, CreditCard } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getAccessTokenFromCookie } from '@/lib/auth/client';
+import BankAccountTab from './BankAccountTab';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export default function SettingsClient() {
   const [restaurantName, setRestaurantName] = useState('');
-  const [activeTab, setActiveTab] = useState<'geofence' | 'sync'>('geofence');
+  const [activeTab, setActiveTab] = useState<'geofence' | 'sync' | 'info' | 'bank'>('geofence');
   
   // Geofencing states
   const [isGeofenceEnabled, setIsGeofenceEnabled] = useState(false);
@@ -20,6 +21,7 @@ export default function SettingsClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [systemInfo, setSystemInfo] = useState<any>(null);
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -36,6 +38,29 @@ export default function SettingsClient() {
             setRestaurantLng(result.data.restaurantLng !== null ? String(result.data.restaurantLng) : '');
             setMaxOrderDistance(result.data.maxOrderDistance ?? 100);
           }
+        }
+        
+        // Fetch system info
+        const infoRes = await fetch(`${API}/api/system/info`, {
+          headers: { 'Authorization': `Bearer ${getAccessTokenFromCookie()}` }
+        });
+        if (infoRes.ok) {
+          const infoResult = await infoRes.json();
+          if (infoResult.success && infoResult.data) {
+            setSystemInfo(infoResult.data);
+          } else {
+            setSystemInfo({ error: 'Không thể lấy thông tin bản quyền' });
+          }
+        } else {
+          setSystemInfo({ 
+            error: true, 
+            tenantName: 'Hệ thống Trung tâm', 
+            domain: 'platform.local', 
+            planName: 'Bản quyền Nền tảng (Platform)', 
+            planDescription: 'Không có giới hạn tính năng',
+            features: ['ALL_FEATURES', 'CORE_POS', 'PROMOTION_ENGINE'],
+            createdAt: new Date().toISOString()
+          });
         }
       } catch (err) {
         console.error('Lỗi khi fetch config', err);
@@ -202,6 +227,31 @@ export default function SettingsClient() {
           <RefreshCw className="h-4.5 w-4.5 shrink-0" />
           <span>Đồng bộ thực đơn</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('info')}
+          className={`flex items-center gap-2 px-4 sm:px-6 py-3.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'info'
+              ? 'border-violet-500 text-violet-400 font-black bg-violet-500/5'
+              : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30'
+          } rounded-t-xl`}
+        >
+          <Info className="h-4.5 w-4.5 shrink-0" />
+          <span>Thông tin phần mềm</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('bank')}
+          className={`flex items-center gap-2 px-4 sm:px-6 py-3.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'bank'
+              ? 'border-violet-500 text-violet-400 font-black bg-violet-500/5'
+              : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30'
+          } rounded-t-xl`}
+        >
+          <CreditCard className={`w-4 h-4 ${activeTab === 'bank' ? 'text-violet-400' : 'text-zinc-500'}`} />
+          Tài khoản NH
+        </button>
       </div>
 
       {/* Tab content area */}
@@ -353,6 +403,71 @@ export default function SettingsClient() {
               </button>
             </div>
           </div>
+        )}
+
+        {activeTab === 'info' && (
+          <div className="max-w-2xl">
+            <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-xl backdrop-blur-sm space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-zinc-800/60">
+                <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400">
+                  <Shield className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">Gói cước & Phần mềm</h3>
+                  <p className="text-xs text-zinc-400 mt-1">Thông tin bản quyền và giới hạn tính năng của cửa hàng</p>
+                </div>
+              </div>
+
+              {systemInfo ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-zinc-950/50 rounded-2xl border border-zinc-800/80">
+                      <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-1">Cửa hàng</div>
+                      <div className="text-sm font-bold text-white">{systemInfo.tenantName}</div>
+                      <div className="text-xs text-zinc-400 mt-0.5">{systemInfo.domain}</div>
+                    </div>
+                    <div className="p-4 bg-zinc-950/50 rounded-2xl border border-zinc-800/80 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-3 opacity-20"><Shield className="h-10 w-10 text-violet-500" /></div>
+                      <div className="text-[10px] text-violet-400 font-bold uppercase tracking-wider mb-1">Gói cước hiện tại</div>
+                      <div className="text-lg font-black text-white">{systemInfo.planName}</div>
+                      <div className="text-xs text-zinc-400 mt-0.5">{systemInfo.planDescription}</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-bold text-zinc-300 mb-3 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      Tính năng khả dụng
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {systemInfo.features?.map((f: string) => (
+                        <span key={f} className="px-3 py-1.5 text-xs font-bold text-zinc-300 bg-zinc-800/50 border border-zinc-700/50 rounded-lg">
+                          {f}
+                        </span>
+                      ))}
+                      {(!systemInfo.features || systemInfo.features.length === 0) && (
+                        <span className="text-xs text-zinc-500 italic">Không có tính năng đặc quyền nào</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4 border-t border-zinc-800/60 flex justify-between items-center text-[10px] font-mono text-zinc-500">
+                    <span>Phiên bản: HiAI-MenuGo v1.0.0 (SaaS Edition)</span>
+                    <span>Đăng ký: {new Date(systemInfo.createdAt).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12 flex flex-col items-center text-zinc-500">
+                  <Loader2 className="animate-spin h-8 w-8 mb-4 text-violet-500/50" />
+                  <span className="text-sm font-medium">Đang tải thông tin bản quyền...</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'bank' && (
+          <BankAccountTab />
         )}
       </div>
     </div>

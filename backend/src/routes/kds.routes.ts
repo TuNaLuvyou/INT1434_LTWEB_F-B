@@ -1,17 +1,24 @@
 import { Router } from 'express';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
-import { getKdsTickets, updateKdsItemStatus, getKdsOrders, updateKdsOrderStatus, voidKdsOrderItem } from '../controllers/kds.controller';
+import { requireFeature } from '../middlewares/feature.guard';
+import { getKdsTickets, updateKdsItemStatus, getKdsOrders, updateKdsOrderStatus, voidKdsOrderItem, deliverKdsOrder } from '../controllers/kds.controller';
 
 const router = Router();
 
-// Protected: Only Admin, Manager, or Kitchen staff can view/update KDS
-router.get('/tickets', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'KITCHEN']), getKdsTickets);
-router.patch('/items/:orderItemId/status', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'KITCHEN']), updateKdsItemStatus);
+// Apply auth, role and feature guard to all KDS routes
+router.use(authMiddleware, requireRole(['ADMIN', 'MANAGER', 'KITCHEN']), requireFeature('KDS_ACCESS'));
 
-router.get('/orders', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'KITCHEN']), getKdsOrders);
-router.patch('/orders/:sessionId/status', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'KITCHEN']), updateKdsOrderStatus);
+// Protected: Only Admin, Manager, or Kitchen staff can view/update KDS
+router.get('/tickets', getKdsTickets);
+router.patch('/items/:orderItemId/status', updateKdsItemStatus);
+
+router.get('/orders', getKdsOrders);
+router.patch('/orders/:sessionId/status', updateKdsOrderStatus);
 
 // KDS Void Item: Cho phép bếp huỷ món khi hết hàng trực tiếp từ màn hình bếp
-router.patch('/sessions/:sessionId/items/:orderItemId/void', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'KITCHEN']), voidKdsOrderItem);
+router.patch('/sessions/:sessionId/items/:orderItemId/void', voidKdsOrderItem);
+
+// KDS Deliver Order: Lưu trữ (giao xong toàn bộ các món trong session)
+router.patch('/orders/:sessionId/deliver', deliverKdsOrder);
 
 export default router;

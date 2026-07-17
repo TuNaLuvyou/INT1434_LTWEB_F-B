@@ -2,10 +2,24 @@ import { Response } from 'express';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import prisma from '../config/prisma';
 import bcrypt from 'bcrypt';
+import { checkUsageLimit } from '../services/usage-limit.service';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 export const getUsers = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user?.tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    
     const users = await prisma.user.findMany({
+      where: {
+        tenantUsers: {
+          some: {
+            tenantId: authReq.user.tenantId
+          }
+        }
+      },
       select: {
         id: true,
         email: true,
@@ -14,7 +28,6 @@ export const getUsers = async (req: AuthenticatedRequest, res: Response): Promis
         isActive: true,
         createdAt: true,
         updatedAt: true,
-
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -35,6 +48,11 @@ export const createUser = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
+    const authReq = req as AuthenticatedRequest;
+    if (authReq.user?.tenantId) {
+      await checkUsageLimit(authReq.user.tenantId, 'USER');
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: { email, passwordHash, name, role },
@@ -53,15 +71,24 @@ export const updateUser = async (req: AuthenticatedRequest, res: Response): Prom
     const id = req.params.id as string;
     const { name, role, isActive } = req.body;
     
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user?.tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
     if (req.user?.userId === id) {
       res.status(403).json({ success: false, message: 'Không thể tự sửa quyền của chính mình' });
       return;
     }
 
+    const targetUser = await prisma.user.findFirst({
+      where: { id, tenantUsers: { some: { tenantId: authReq.user.tenantId } } }
+    });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy user' });
+    }
+
     // Check if disabling the last active admin
     if (isActive === false) {
-      const targetUser = await prisma.user.findUnique({ where: { id } });
-      if (targetUser?.role === 'ADMIN') {
+      if (targetUser.role === 'ADMIN') {
         const activeAdmins = await prisma.user.count({
           where: { role: 'ADMIN', isActive: true, id: { not: id } }
         });
@@ -90,9 +117,19 @@ export const resetPassword = async (req: AuthenticatedRequest, res: Response): P
     const id = req.params.id as string;
     const { newPassword } = req.body;
     
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user?.tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
     if (!newPassword || newPassword.trim().length < 8) {
       res.status(400).json({ success: false, message: 'Mật khẩu phải từ 8 ký tự' });
       return;
+    }
+
+    const targetUser = await prisma.user.findFirst({
+      where: { id, tenantUsers: { some: { tenantId: authReq.user.tenantId } } }
+    });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy user' });
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -117,8 +154,17 @@ export const deleteUser = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
-    const targetUser = await prisma.user.findUnique({ where: { id } });
-    if (targetUser?.role === 'ADMIN') {
+    const authReq = req as AuthenticatedRequest;
+    if (!authReq.user?.tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const targetUser = await prisma.user.findFirst({
+      where: { id, tenantUsers: { some: { tenantId: authReq.user.tenantId } } }
+    });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy user' });
+    }
+
+    if (targetUser.role === 'ADMIN') {
       const activeAdmins = await prisma.user.count({
         where: { role: 'ADMIN', isActive: true, id: { not: id } }
       });

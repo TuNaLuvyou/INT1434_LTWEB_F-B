@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getAccessTokenFromCookie } from '../lib/auth/client';
+import { getAccessTokenFromCookie, setAccessToken } from '../lib/auth/client';
 
 type Role = 'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER' | 'PLATFORM_ADMIN';
 
@@ -27,9 +27,9 @@ type AuthStore = {
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
-  isLoading: false,
-  setUser: (user) => set({ user }),
-  clearUser: () => set({ user: null }),
+  isLoading: true,
+  setUser: (user) => set({ user, isLoading: false }),
+  clearUser: () => set({ user: null, isLoading: false }),
   fetchCurrentUser: async () => {
     set({ isLoading: true });
     try {
@@ -48,7 +48,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
       if (res.ok) {
         const data = await res.json();
-        set({ user: data.data.user });
+        const userData = data.data.user;
+        
+        // Tự động select tenant đầu tiên nếu chưa có (để có context tenantId trong token)
+        if (!userData.currentTenantId && userData.tenants?.length > 0 && userData.role !== 'PLATFORM_ADMIN') {
+          // selectTenant tự động gọi lại fetchCurrentUser sau khi lấy token mới
+          await get().selectTenant(userData.tenants[0].id);
+          return; // Dừng luồng hiện tại để luồng đệ quy fetchCurrentUser xử lý
+        }
+        
+        set({ user: userData });
       } else {
         set({ user: null });
       }
@@ -66,6 +75,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
       const res = await fetch(`${API_URL}/api/auth/tenant`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -74,6 +84,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       });
 
       if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data.accessToken) {
+          setAccessToken(data.data.accessToken);
+        }
         // Sau khi select tenant, server trả JWT mới vào refresh token cookie + trả access token mới trong response
         // Client cần refresh lại getMe
         await get().fetchCurrentUser();

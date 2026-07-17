@@ -18,7 +18,14 @@ type KdsStatusChangeEvent = {
 
 export async function getKdsTickets(_req: Request, res: Response): Promise<void> {
   try {
-    const sessions = await kdsService.getActiveKdsTickets();
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const branchId = authReq.user?.branchId;
+
+    const sessions = await kdsService.getActiveKdsTickets(tenantId, branchId);
     
     const now = new Date().getTime();
 
@@ -96,10 +103,9 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
     const updatedItem = statusUpdate.item;
 
     // Emit socket to kitchen
-    emitKitchenItemUpdated({
+    emitKitchenItemUpdated(updatedItem.session.table.tenantId, updatedItem.session.table.branchId, {
       orderItemId: updatedItem.id,
       removedOrderItemId: statusUpdate.removedOrderItemId,
-      sessionId: updatedItem.sessionId,
       tableId: updatedItem.session.tableId,
       menuItemName: updatedItem.menuItem.name,
       qty: updatedItem.qty,
@@ -122,7 +128,7 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
       // Check if all items in session are DONE
       const allDone = await kdsService.checkAllItemsDone(updatedItem.sessionId);
       if (allDone) {
-        emitSessionAllDone({
+        emitSessionAllDone(updatedItem.session.table.tenantId, updatedItem.session.table.branchId, {
           sessionId: updatedItem.sessionId,
           tableId: updatedItem.session.tableId,
           tableNumber: updatedItem.session.table.tableNumber,
@@ -140,8 +146,19 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
 
 export async function getKdsOrders(req: Request, res: Response): Promise<void> {
   try {
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const branchId = authReq.user?.branchId;
+
+    const tableWhere: any = { tenantId };
+    if (branchId) tableWhere.branchId = branchId;
+
     const sessions = await prisma.tableSession.findMany({
       where: {
+        table: tableWhere,
         status: { in: ['OPEN', 'PAID'] },
         lockedAt: { not: null }, // Phải duyệt bên cashier rồi mới hiện
         orderItems: {
@@ -214,6 +231,8 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
     const session = await prisma.tableSession.findUnique({
       where: { id: sessionId },
       select: {
+        tenantId: true,
+        branchId: true,
         tableId: true,
         table: {
           select: {
@@ -302,12 +321,10 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
     });
 
     for (const item of changedItems) {
-      emitKitchenItemUpdated({
+      emitKitchenItemUpdated(session.tenantId, session.branchId, {
         orderItemId: item.orderItemId,
         removedOrderItemId: item.removedOrderItemId,
-        sessionId,
         tableId: session.tableId,
-        menuItemId: item.menuItemId,
         menuItemName: item.menuItemName,
         qty: item.qty,
         deltaQty: item.deltaQty,
@@ -330,7 +347,7 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
     if (newStatus === 'DONE') {
       const allDone = await kdsService.checkAllItemsDone(sessionId);
       if (allDone && changedItems.length > 0) {
-        emitSessionAllDone({
+        emitSessionAllDone(session.tenantId, session.branchId, {
           sessionId,
           tableId: session.tableId,
           tableNumber: session.table.tableNumber,
@@ -425,7 +442,7 @@ export async function voidKdsOrderItem(req: Request, res: Response): Promise<voi
       updatedAt: now,
     });
 
-    emitKitchenItemUpdated({
+    emitKitchenItemUpdated(voidedItem.session.table.tenantId, voidedItem.session.table.branchId, {
       orderItemId,
       tableId,
       menuItemName: voidedItem.menuItem.name,
@@ -446,7 +463,7 @@ export async function voidKdsOrderItem(req: Request, res: Response): Promise<voi
       0
     );
 
-    emitCartUpdated(tableId, {
+    emitCartUpdated(voidedItem.session.table.tenantId, voidedItem.session.table.branchId, tableId, {
       sessionId,
       tableId,
       orderItems: remainingItems.map((item) => ({

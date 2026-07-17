@@ -20,9 +20,15 @@ import analyticsRoutes from './routes/analytics.routes';
 import paymentRoutes from './routes/payment.routes';
 import voucherRoutes from './routes/voucher.routes';
 import zReportRoutes from './routes/z-report.routes';
+import platformAdminRoutes from './routes/platform-admin.routes';
+import integrationRoutes from './routes/integration.routes';
+import membershipRoutes from './routes/membership.routes';
+import brandingRoutes from './routes/branding.routes';
 import { initSocket } from './socket';
 import { globalErrorHandler } from './middlewares/error.middleware';
 import { startAutomaticCleanupJob } from './services/cleanup.service';
+
+import bankRoutes from './routes/bank.routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -81,6 +87,13 @@ app.use('/api/admin/users', adminUserRoutes);
 
 // System routes
 app.use('/api/system', systemRoutes);
+app.use('/api/platform-admin', platformAdminRoutes);
+app.use('/api/banks', bankRoutes);
+
+// SaaS Feature protected stubs
+app.use('/api/integration', integrationRoutes);
+app.use('/api/membership', membershipRoutes);
+app.use('/api/system', brandingRoutes); // Hoac '/api/branding'
 
 // Admin sync menu
 import { syncMenu } from './controllers/system.controller';

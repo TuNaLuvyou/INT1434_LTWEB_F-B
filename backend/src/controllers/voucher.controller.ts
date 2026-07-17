@@ -5,7 +5,11 @@ import { AppError } from '../utils/app-error';
 
 export async function getAllVouchersHandler(req: Request, res: Response): Promise<void> {
   try {
-    const vouchers = await voucherService.getAllVouchers();
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const vouchers = await voucherService.getAllVouchers(tenantId);
     res.status(200).json({ success: true, data: vouchers });
   } catch (error: any) {
     console.error('[getAllVouchersHandler] error:', error);
@@ -38,7 +42,12 @@ export async function createVoucherHandler(req: Request, res: Response): Promise
       return;
     }
 
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
     const voucher = await voucherService.createVoucher({
+      tenantId,
       code,
       discountType,
       discountValue: valueNum,
@@ -65,7 +74,11 @@ export async function deleteVoucherHandler(req: Request, res: Response): Promise
       return;
     }
 
-    await voucherService.deleteVoucher(id);
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    await voucherService.deleteVoucher(id, tenantId);
     res.status(200).json({ success: true, message: 'Xóa/Vô hiệu hóa voucher thành công!' });
   } catch (error: any) {
     if (error instanceof AppError) {
@@ -81,6 +94,10 @@ export async function updateVoucherHandler(req: Request, res: Response): Promise
   try {
     const id = req.params.id as string;
     const { code, discountType, discountValue, maxUsage, expiredAt } = req.body;
+    
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
 
     const valueNum = parseFloat(discountValue);
     if (isNaN(valueNum) || valueNum <= 0) {
@@ -93,6 +110,8 @@ export async function updateVoucherHandler(req: Request, res: Response): Promise
       return;
     }
 
+    const existing = await prisma.voucher.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Voucher không tồn tại');
     const updated = await prisma.voucher.update({
       where: { id },
       data: {
@@ -118,8 +137,17 @@ export async function validateVoucherHandler(req: Request, res: Response): Promi
       return;
     }
 
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    // validation can be called by public users if they have a session, but usually tenantId is needed
+    // Assuming checkout provides tenantId in the body or token
+    const tId = req.body.tenantId || tenantId;
+    if (!tId) {
+      res.status(400).json({ valid: false, reason: 'Thiếu tenantId' });
+      return;
+    }
     const voucher = await prisma.voucher.findUnique({
-      where: { code: code.toUpperCase() }
+      where: { tenantId_code: { tenantId: tId, code: code.toUpperCase() } }
     });
 
     if (!voucher) {

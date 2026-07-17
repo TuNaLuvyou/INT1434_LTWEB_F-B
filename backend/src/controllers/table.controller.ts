@@ -3,6 +3,8 @@ import { TableService } from '../services/table.service';
 import { verifyAccessToken } from '../utils/jwt.utils';
 import { emitTableStatusChanged } from '../socket/emit.helpers';
 import { Role, TableStatus } from '@prisma/client';
+import { checkUsageLimit } from '../services/usage-limit.service';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 /**
  * GET /api/tables
@@ -12,23 +14,18 @@ import { Role, TableStatus } from '@prisma/client';
  */
 export const handleGetAllTables = async (req: Request, res: Response) => {
   try {
-    let isAdmin = false;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      if (token) {
-        try {
-          const payload = verifyAccessToken(token);
-          if (payload && (payload.role === Role.ADMIN || payload.role === Role.MANAGER)) {
-            isAdmin = true;
-          }
-        } catch (err) {
-          // Ignored: token hết hạn hoặc không hợp lệ, coi như người dùng public
-        }
-      }
+    const authReq = req as AuthenticatedRequest;
+    
+    // Nếu token chưa có tenantId (do selectTenant chưa chạy), block luôn để tránh leak data
+    if (!authReq.user?.tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden: Missing tenant context' });
     }
 
-    const tables = await TableService.getAllTables(isAdmin);
+    const isAdmin = authReq.user.role === Role.ADMIN || authReq.user.role === Role.MANAGER;
+    const tenantId = authReq.user.tenantId;
+    const branchId = authReq.user.branchId;
+
+    const tables = await TableService.getAllTables(isAdmin, tenantId, branchId);
     res.status(200).json({
       success: true,
       data: tables,
@@ -58,7 +55,19 @@ export const handleCreateTable = async (req: Request, res: Response) => {
       return;
     }
 
-    const newTable = await TableService.createTable(Number(tableNumber), label);
+    const authReq = req as AuthenticatedRequest;
+    console.log('[DEBUG] authReq.user:', authReq.user);
+    const tenantId = authReq.user?.tenantId;
+    // Default to a placeholder branch if not in token, ideally frontend passes it
+    const branchId = authReq.user?.branchId || req.body.branchId; 
+
+    if (!tenantId || !branchId) {
+      return res.status(403).json({ success: false, message: 'Forbidden: Missing tenant/branch context' });
+    }
+
+    await checkUsageLimit(tenantId, 'TABLE');
+
+    const newTable = await TableService.createTable(tenantId, branchId, Number(tableNumber), label);
 
     res.status(201).json({
       success: true,
@@ -91,11 +100,17 @@ export const handleUpdateTable = async (req: Request, res: Response) => {
       return;
     }
 
-    const updatedTable = await TableService.updateTable(id, label, status);
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const updatedTable = await TableService.updateTable(id, tenantId, label, status);
 
     // Nếu thay đổi trạng thái, phát tín hiệu Socket.io tới room "floor-plan"
     if (status) {
-      emitTableStatusChanged({
+      emitTableStatusChanged(updatedTable.tenantId, updatedTable.branchId, {
         tableId: updatedTable.id,
         status: updatedTable.status as any,
         tableNumber: updatedTable.tableNumber,
@@ -124,8 +139,13 @@ export const handleUpdateTable = async (req: Request, res: Response) => {
 export const handleDeleteTable = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
 
-    const result = await TableService.deleteTable(id);
+    const result = await TableService.deleteTable(id, tenantId);
 
     res.status(200).json({
       success: true,
@@ -157,10 +177,16 @@ export const handleUpdateTableStatus = async (req: Request, res: Response) => {
       return;
     }
 
-    const updatedTable = await TableService.updateTable(id, undefined, status);
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const updatedTable = await TableService.updateTable(id, tenantId, undefined, status);
 
     // Phát tín hiệu Socket.io tới room "floor-plan"
-    emitTableStatusChanged({
+    emitTableStatusChanged(updatedTable.tenantId, updatedTable.branchId, {
       tableId: updatedTable.id,
       status: updatedTable.status as any,
       tableNumber: updatedTable.tableNumber,

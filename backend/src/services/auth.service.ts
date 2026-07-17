@@ -98,10 +98,20 @@ export const selectTenant = async (userId: string, tenantId: string, branchId?: 
   }
 
   // Check branch if provided
-  if (branchId) {
-    const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+  let activeBranchId = branchId;
+  if (activeBranchId) {
+    const branch = await prisma.branch.findUnique({ where: { id: activeBranchId } });
     if (!branch || branch.tenantId !== tenantId || !branch.isActive) {
       throw new Error('BRANCH_NOT_FOUND');
+    }
+  } else {
+    // Tự động lấy branch đầu tiên của tenant nếu không truyền
+    const firstBranch = await prisma.branch.findFirst({
+      where: { tenantId, isActive: true },
+      orderBy: { createdAt: 'asc' }
+    });
+    if (firstBranch) {
+      activeBranchId = firstBranch.id;
     }
   }
 
@@ -119,12 +129,12 @@ export const selectTenant = async (userId: string, tenantId: string, branchId?: 
     email: user.email, 
     role: user.role, // Legacy role
     tenantId: tenantId,
-    branchId: branchId,
+    branchId: activeBranchId,
     customRole: tu.customRole?.name || (tu.isOwner ? 'OWNER' : 'GUEST'),
     permissions: permissions
   });
 
-  const refreshToken = generateRefreshToken({ userId: user.id, tenantId, branchId });
+  const refreshToken = generateRefreshToken({ userId: user.id, tenantId, branchId: activeBranchId });
 
   return { accessToken, refreshToken, tenant: tu.tenant, permissions };
 };
