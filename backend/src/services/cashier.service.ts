@@ -59,14 +59,69 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
           id: true,
           openedAt: true,
           lockedAt: true,
-          orderItems: {
-            where: { status: { not: 'CART' } },
-            select: { status: true, createdAt: true, qty: true },
-          },
         },
+        take: 1,
       },
     },
   });
+
+  const openSessionIds = tables
+    .map((t) => t.sessions[0])
+    .filter(Boolean)
+    .map((s) => s!.id);
+
+  const lockedSessionIds = new Set(
+    tables
+      .map((t) => t.sessions[0])
+      .filter((s) => s?.lockedAt)
+      .map((s) => s!.id)
+  );
+
+  const pendingSessions = new Map<string, number>();
+  const preparingSessions = new Map<string, number>();
+  const doneSessions = new Map<string, number>();
+
+  if (openSessionIds.length > 0) {
+    const rows = await prisma.$queryRaw<
+      Array<{
+        sessionId: string;
+        status: string;
+        qty: bigint;
+        createdAt: Date;
+        lockedAt: Date | null;
+      }>
+    >`
+      SELECT
+        oi."sessionId",
+        oi.status,
+        oi.qty,
+        oi."createdAt",
+        s."lockedAt"
+      FROM "OrderItem" oi
+      JOIN "TableSession" s ON s.id = oi."sessionId"
+      WHERE oi."sessionId" IN (${openSessionIds})
+        AND oi.status != 'CART'
+    `;
+
+    for (const row of rows) {
+      const sid = row.sessionId;
+      const qty = Number(row.qty);
+
+      if (row.status === 'PREPARING') {
+        preparingSessions.set(sid, (preparingSessions.get(sid) || 0) + qty);
+      } else if (row.status === 'DONE') {
+        doneSessions.set(sid, (doneSessions.get(sid) || 0) + qty);
+      } else if (row.status === 'PENDING') {
+        const lockedAtTime = row.lockedAt ? new Date(row.lockedAt).getTime() : null;
+        const itemTime = new Date(row.createdAt).getTime();
+        if (lockedAtTime !== null && itemTime <= lockedAtTime) {
+          preparingSessions.set(sid, (preparingSessions.get(sid) || 0) + qty);
+        } else {
+          pendingSessions.set(sid, (pendingSessions.get(sid) || 0) + qty);
+        }
+      }
+    }
+  }
 
   return tables.map((table) => {
     const activeSession = table.sessions[0] || null;
@@ -81,26 +136,7 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
       };
     }
 
-    let pendingCount = 0;
-    let preparingCount = 0;
-    let doneCount = 0;
-
-    const lockedAtTime = activeSession.lockedAt ? new Date(activeSession.lockedAt).getTime() : null;
-
-    for (const item of activeSession.orderItems) {
-      if (item.status === 'PENDING') {
-        const itemTime = new Date(item.createdAt).getTime();
-        if (lockedAtTime !== null && itemTime <= lockedAtTime) {
-          preparingCount += item.qty;
-        } else {
-          pendingCount += item.qty;
-        }
-      }
-      if (item.status === 'PREPARING') preparingCount += item.qty;
-      if (item.status === 'DONE') doneCount += item.qty;
-    }
-
-    const isLockedSession = Boolean(activeSession.lockedAt);
+    const sid = activeSession.id;
 
     return {
       tableId: table.id,
@@ -108,12 +144,12 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
       tableLabel: table.label,
       tableStatus: table.status,
       session: {
-        sessionId: activeSession.id,
+        sessionId: sid,
         openedAt: activeSession.openedAt,
-        pendingCount,
-        preparingCount,
-        doneCount,
-        isLocked: isLockedSession,
+        pendingCount: pendingSessions.get(sid) || 0,
+        preparingCount: preparingSessions.get(sid) || 0,
+        doneCount: doneSessions.get(sid) || 0,
+        isLocked: lockedSessionIds.has(sid),
       },
     };
   });

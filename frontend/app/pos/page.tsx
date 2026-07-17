@@ -150,6 +150,7 @@ export default function POSPage() {
   const [sessionId, setSessionId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Fetch Menu, Categories and Tables on mount
   const fetchData = async () => {
@@ -203,14 +204,20 @@ export default function POSPage() {
 
   // Select table from grid — auto navigate to menu tab
   const handleSelectTable = async (tableId: string) => {
+    if (isCancelling) return;
     const table = tables.find((t) => t.id === tableId);
     if (!table) return;
     if (table.status === 'OCCUPIED') {
       alert('Bàn đang có khách, không thể chọn để gọi món mới.');
       return;
     }
+    if (tableId === selectedTableId) {
+      setActiveTab('menu');
+      return;
+    }
     if (tableId !== selectedTableId) {
       setSelectingTableId(tableId);
+      setSelectedTableId(tableId);
       try {
         const response = await fetch(`${API_URL}/api/sessions/join`, {
           method: "POST",
@@ -221,16 +228,17 @@ export default function POSPage() {
         });
         const result = await response.json();
         if (response.ok && result.success) {
-          setSelectedTableId(tableId);
           setSessionId(result.data.session.id);
           syncCartWithSession(result.data.session);
         } else {
           alert(result.message || "Không thể khởi tạo phiên cho bàn");
+          setSelectedTableId("");
           setSelectingTableId(null);
           return;
         }
       } catch (err) {
         console.error("[POS] Lỗi tham gia phiên bàn:", err);
+        setSelectedTableId("");
         setSelectingTableId(null);
         return;
       }
@@ -276,6 +284,41 @@ export default function POSPage() {
       setActionLoading(false);
     }
     setActiveTab('menu');
+  };
+
+  const handleDeselectTable = async () => {
+    if (!sessionId) {
+      setSelectedTableId("");
+      setActiveTab('tables');
+      return;
+    }
+    setIsCancelling(true);
+    const cancelledTableId = selectedTableId;
+    const oldSessionId = sessionId;
+    setSelectedTableId("");
+    setSessionId("");
+    setCart([]);
+    setActiveTab('tables');
+    setTables(prev =>
+      prev.map(t =>
+        t.id === cancelledTableId ? { ...t, status: 'AVAILABLE' } : t
+      )
+    );
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      await fetch(`${API_URL}/api/sessions/${oldSessionId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken || ""}`,
+        },
+        body: JSON.stringify({ status: "CANCELLED" }),
+      });
+    } catch (err) {
+      console.error("[POS] Lỗi huỷ bàn:", err);
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   // Map session items to the client cart state
@@ -722,7 +765,7 @@ export default function POSPage() {
           <div className="border-t border-zinc-900/60 bg-zinc-950/40 px-3 sm:px-6 py-1.5">
             <div className="max-w-7xl mx-auto flex items-center gap-2 text-[10px] sm:text-xs text-zinc-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Đang phục vụ bàn: <span className="font-bold text-zinc-200">{tables.find(t => t.id === selectedTableId)?.label || selectedTableId}</span>
+              <span>Đang phục vụ bàn: <span className="font-bold text-zinc-200">{tables.find(t => t.id === selectedTableId)?.label || selectedTableId}</span></span>
             </div>
           </div>
         )}
@@ -730,8 +773,18 @@ export default function POSPage() {
 
       {/* ========== TAB: BÀN (Table Grid) ========== */}
       <div className={`flex-1 min-h-0 max-w-7xl w-full mx-auto p-3 sm:p-6 overflow-y-auto ${activeTab === 'tables' ? 'block' : 'hidden'}`}>
-          <div className="mb-6">
+          <div className="mb-6 flex items-center justify-between">
             <h2 className="text-lg font-bold text-white tracking-tight">Chọn bàn phục vụ</h2>
+            {selectedTableId && (
+              <button
+                type="button"
+                onClick={handleDeselectTable}
+                disabled={isCancelling}
+                className="text-[11px] font-bold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 px-3 py-1.5 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isCancelling ? "Đang huỷ..." : "Huỷ Bàn"}
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
@@ -739,12 +792,14 @@ export default function POSPage() {
               const isOccupied = table.status === 'OCCUPIED';
               const isReserved = table.status === 'RESERVED';
               const isAvailable = table.status === 'AVAILABLE' || table.status === 'EMPTY' || !isOccupied && !isReserved;
+              const isCurrentTable = table.id === selectedTableId;
+              const isBlocked = selectedTableId && !isCurrentTable && isAvailable;
 
               return (
                 <button
                   key={table.id}
                   onClick={() => handleSelectTable(table.id)}
-                  disabled={isOccupied || selectingTableId === table.id}
+                  disabled={isOccupied || selectingTableId === table.id || !!isBlocked || isCancelling}
                   className={`relative group flex flex-col items-center justify-center p-4 sm:p-6 rounded-2xl border transition-all duration-300 cursor-pointer ${
                     isOccupied
                       ? 'bg-rose-500/5 border-rose-500/20 text-rose-400 cursor-not-allowed opacity-70'
@@ -752,7 +807,11 @@ export default function POSPage() {
                         ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
                         : isReserved
                           ? 'bg-amber-500/5 border-amber-500/20 text-amber-400'
-                          : 'bg-zinc-900/30 border-zinc-800 text-zinc-300 hover:border-emerald-500/40 hover:bg-emerald-500/5 hover:text-emerald-300 hover:shadow-lg hover:shadow-emerald-500/5 active:scale-[0.97]'
+                          : isCurrentTable
+                            ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-lg shadow-emerald-500/10'
+                            : isBlocked
+                              ? 'bg-zinc-900/30 border-zinc-800 text-zinc-500 cursor-not-allowed opacity-50'
+                              : 'bg-zinc-900/30 border-zinc-800 text-zinc-300 hover:border-emerald-500/40 hover:bg-emerald-500/5 hover:text-emerald-300 hover:shadow-lg hover:shadow-emerald-500/5 active:scale-[0.97]'
                   }`}
                 >
                   {/* Table number */}
@@ -769,16 +828,20 @@ export default function POSPage() {
                       ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                       : selectingTableId === table.id
                         ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                        : isReserved
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : isCurrentTable
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/40'
+                          : isBlocked
+                            ? 'bg-zinc-500/10 text-zinc-500 border-zinc-700'
+                            : isReserved
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                   }`}>
                     {selectingTableId === table.id ? (
                       <span className="flex items-center gap-1">
                         <Loader2 className="h-2.5 w-2.5 animate-spin" />
                         Đang chọn...
                       </span>
-                    ) : isOccupied ? 'Có khách' : isReserved ? 'Đã đặt' : 'Trống'}
+                    ) : isCurrentTable ? 'Đang PV' : isOccupied ? 'Có khách' : isBlocked ? 'Đã chọn bàn khác' : isReserved ? 'Đã đặt' : 'Trống'}
                   </span>
                 </button>
               );
