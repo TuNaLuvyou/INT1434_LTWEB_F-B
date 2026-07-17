@@ -1,7 +1,7 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { SOCKET_EVENTS, SOCKET_ROOMS, AUTH_REQUIRED_ROOMS, ROOM_ALLOWED_ROLES } from './events';
+import { SOCKET_EVENTS, SOCKET_ROOMS, AUTH_REQUIRED_ROOM_PATTERNS, ROOM_ALLOWED_ROLES } from './events';
 import { cartHandler } from './handlers/cart.handler';
 import { kitchenHandler } from './handlers/kitchen.handler';
 import { floorHandler } from './handlers/floor.handler';
@@ -13,12 +13,18 @@ let io: SocketIOServer;
 interface JwtPayload {
   id: string;
   email: string;
-  role: 'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER';
+  role: 'PLATFORM_ADMIN' | 'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER';
+  tenantId?: string;
+  branchId?: string;
 }
 
 function verifyToken(token: string): JwtPayload | null {
   try {
-    const secret = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET || 'restoflow_jwt_secret_key';
+    const secret = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET;
+    if (!secret) {
+      console.error('[Socket.io] JWT_SECRET chưa được cấu hình!');
+      return null;
+    }
     return jwt.verify(token, secret) as JwtPayload;
   } catch {
     return null;
@@ -30,18 +36,19 @@ function verifyToken(token: string): JwtPayload | null {
  * Public rooms: "menu-updates" và "table:[id]" — khách không cần login.
  */
 function isAuthRequired(room: string): boolean {
-  // Nếu room là "table:[bất kỳ]" → public
   if (room.startsWith('table:')) return false;
-  if (room === SOCKET_ROOMS.MENU_UPDATES) return false;
-  // Còn lại: kitchen, cashier, floor-plan đều cần auth
-  return (AUTH_REQUIRED_ROOMS as readonly string[]).includes(room);
+  if (/^tenant:[a-zA-Z0-9_-]+:menu-updates$/.test(room)) return false;
+  return AUTH_REQUIRED_ROOM_PATTERNS.some(p => p.test(room));
 }
 
 /**
  * Kiểm tra role có được phép vào room hay không.
  */
 function canJoinRoom(room: string, role: string): boolean {
-  const allowed = ROOM_ALLOWED_ROLES[room];
+  // Trích xuất loại room (vd: kitchen, cashier)
+  const parts = room.split(':');
+  const roomType = parts[parts.length - 1];
+  const allowed = ROOM_ALLOWED_ROLES[roomType];
   if (!allowed) return false;
   return allowed.includes(role);
 }
@@ -114,14 +121,9 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       const room = data.room.trim();
 
       // Validate room format: chỉ cho phép các room đã định nghĩa
-      const validRoomPatterns = [
-        /^table:[a-zA-Z0-9_-]+$/,   // table:[uuid/cuid]
-        /^kitchen$/,
-        /^cashier$/,
-        /^floor-plan$/,
-        /^menu-updates$/,
-      ];
-      const isValidRoom = validRoomPatterns.some((pattern) => pattern.test(room));
+      const isValidRoom = room.startsWith('table:') || 
+                          /^tenant:[a-zA-Z0-9_-]+:menu-updates$/.test(room) ||
+                          AUTH_REQUIRED_ROOM_PATTERNS.some(p => p.test(room));
       if (!isValidRoom) {
         console.warn(`[Socket.io] ⛔ Socket ${socket.id} cố join room không hợp lệ: "${room}"`);
         socket.emit(SOCKET_EVENTS.ROOM_ERROR, {
@@ -161,6 +163,30 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
           return;
         }
 
+        // Xác thực tenantId và branchId nếu user thuộc tenant cụ thể (SaaS)
+        const parts = room.split(':');
+        const roomTenantId = parts[1];
+        const roomBranchId = parts[3];
+
+        if (payload.role !== 'PLATFORM_ADMIN') {
+          if (payload.tenantId && payload.tenantId !== roomTenantId) {
+            console.warn(`[Socket.io] ⛔ Socket ${socket.id} tenant mismatch`);
+            socket.emit(SOCKET_EVENTS.ROOM_ERROR, {
+              room,
+              message: `Token thuộc về tenant khác`,
+            });
+            return;
+          }
+          if (roomBranchId && payload.branchId && payload.branchId !== roomBranchId) {
+            console.warn(`[Socket.io] ⛔ Socket ${socket.id} branch mismatch`);
+            socket.emit(SOCKET_EVENTS.ROOM_ERROR, {
+              room,
+              message: `Token thuộc về branch khác`,
+            });
+            return;
+          }
+        }
+
         // Lưu user info vào socket data để dùng sau
         (socket.data as any).user = payload;
         console.log(`[Socket.io] 🔐 Socket ${socket.id} (${payload.role}: ${payload.email}) → join "${room}"`);
@@ -182,40 +208,7 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       console.log(`[Socket.io] 👋 Socket ${socket.id} đã rời room "${data.room}"`);
     });
 
-    // ── Legacy handlers — giữ backward compat với code cũ ─────────────────────
-    // Các event này đã tồn tại từ trước, giữ lại để không break code đang chạy
-
-    socket.on('join:menu-updates', () => {
-      socket.join(SOCKET_ROOMS.MENU_UPDATES);
-      console.log(`[Socket.io] (legacy) Socket ${socket.id} join "menu-updates"`);
-    });
-
-    socket.on('leave:menu-updates', () => {
-      socket.leave(SOCKET_ROOMS.MENU_UPDATES);
-      console.log(`[Socket.io] (legacy) Socket ${socket.id} leave "menu-updates"`);
-    });
-
-    socket.on('join:floor-plan', () => {
-      socket.join(SOCKET_ROOMS.FLOOR_PLAN);
-      console.log(`[Socket.io] (legacy) Socket ${socket.id} join "floor-plan"`);
-    });
-
-    socket.on('leave:floor-plan', () => {
-      socket.leave(SOCKET_ROOMS.FLOOR_PLAN);
-      console.log(`[Socket.io] (legacy) Socket ${socket.id} leave "floor-plan"`);
-    });
-
-    socket.on('join:table', (tableId: string) => {
-      const room = SOCKET_ROOMS.table(tableId);
-      socket.join(room);
-      console.log(`[Socket.io] (legacy) Socket ${socket.id} join "${room}"`);
-    });
-
-    socket.on('leave:table', (tableId: string) => {
-      const room = SOCKET_ROOMS.table(tableId);
-      socket.leave(room);
-      console.log(`[Socket.io] (legacy) Socket ${socket.id} leave "${room}"`);
-    });
+    // ── Legacy handlers đã bị xoá ─────────────────────
 
     // ─────────────────────────────────────────────────────────────────────────
     // EVENT: disconnect

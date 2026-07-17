@@ -150,10 +150,12 @@ export default function TableSelectionInternalPage() {
   const updateTableStatus = async (tableId: string, newStatus: "AVAILABLE" | "OCCUPIED" | "RESERVED") => {
     setUpdatingId(tableId);
     try {
+      const token = getAccessTokenFromCookie();
       const res = await fetch(`${API_URL}/api/tables/${tableId}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`,
         },
         body: JSON.stringify({ status: newStatus }),
       });
@@ -176,7 +178,12 @@ export default function TableSelectionInternalPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/tables`);
+      const token = getAccessTokenFromCookie();
+      const res = await fetch(`${API_URL}/api/tables`, {
+        headers: {
+          "Authorization": `Bearer ${token || ""}`,
+        },
+      });
       if (!res.ok) throw new Error("Không thể kết nối tới server.");
       const result = await res.json();
       if (result.success && Array.isArray(result.data)) {

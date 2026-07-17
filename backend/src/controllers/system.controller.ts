@@ -3,12 +3,16 @@ import prisma from '../config/prisma';
 
 export const getConfig = async (req: Request, res: Response): Promise<void> => {
   try {
-    let config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) { res.status(403).json({ success: false, message: 'Yêu cầu có tenantId' }); return; }
+    
+    let config = await prisma.systemConfig.findUnique({ where: { tenantId } });
     if (!config) {
       config = await prisma.systemConfig.create({
         data: {
-          id: 'singleton',
-          restaurantName: 'RestoFlow POS',
+          tenantId,
+          restaurantName: 'HiAI-MenuGo POS',
           isGeofenceEnabled: false,
           restaurantLat: null,
           restaurantLng: null,
@@ -29,6 +33,10 @@ export const getConfig = async (req: Request, res: Response): Promise<void> => {
 
 export const updateConfig = async (req: Request, res: Response): Promise<void> => {
   try {
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) { res.status(403).json({ success: false, message: 'Yêu cầu có tenantId' }); return; }
+
     const {
       restaurantName,
       isGeofenceEnabled,
@@ -54,11 +62,11 @@ export const updateConfig = async (req: Request, res: Response): Promise<void> =
       }
     }
     
-    const currentConfig = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
-    const finalRestaurantName = restaurantName || currentConfig?.restaurantName || 'RestoFlow POS';
+    const currentConfig = await prisma.systemConfig.findUnique({ where: { tenantId } });
+    const finalRestaurantName = restaurantName || currentConfig?.restaurantName || 'HiAI-MenuGo POS';
 
     const config = await prisma.systemConfig.upsert({
-      where: { id: 'singleton' },
+      where: { tenantId },
       update: { 
         restaurantName: finalRestaurantName, 
         isGeofenceEnabled: isGeofenceEnabled !== undefined ? Boolean(isGeofenceEnabled) : undefined,
@@ -67,7 +75,7 @@ export const updateConfig = async (req: Request, res: Response): Promise<void> =
         maxOrderDistance: maxOrderDistance !== undefined ? Number(maxOrderDistance) : undefined,
       },
       create: {
-        id: 'singleton',
+        tenantId,
         restaurantName: finalRestaurantName,
         isGeofenceEnabled: isGeofenceEnabled !== undefined ? Boolean(isGeofenceEnabled) : false,
         restaurantLat: restaurantLat !== undefined && restaurantLat !== null && restaurantLat !== '' ? Number(restaurantLat) : null,
@@ -90,10 +98,6 @@ export const syncMenu = async (req: Request, res: Response): Promise<void> => {
   try {
     const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
     // Send a revalidate request to Next.js server
-    // For local dev without real webhook, we just mock the success response.
-    // In production, we'd hit /api/revalidate?secret=xyz&tag=menu
-    
-    // Attempt to hit Next.js revalidate endpoint if exists, but for now just mock success
     res.json({ success: true, message: 'Đã đồng bộ menu cho tất cả bàn' });
   } catch (error) {
     console.error('syncMenu error:', error);
@@ -157,6 +161,64 @@ export const getOverviewStats = async (req: Request, res: Response): Promise<voi
     });
   } catch (error) {
     console.error('getOverviewStats error:', error);
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+export const getSystemInfo = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      if (authReq.user?.role === 'PLATFORM_ADMIN') {
+        res.json({
+          success: true,
+          data: {
+            tenantName: 'Hệ thống Trung tâm (Platform)',
+            domain: 'Admin',
+            planName: 'Bản quyền Nền tảng (Platform)',
+            planDescription: 'Không có giới hạn tính năng',
+            features: ['ALL_FEATURES', 'CORE_POS', 'PROMOTION_ENGINE'],
+            createdAt: new Date().toISOString()
+          }
+        });
+        return;
+      }
+      res.status(403).json({ success: false, message: 'Yêu cầu có tenantId' });
+      return;
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        subscription: {
+          include: {
+            plan: {
+              include: { features: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!tenant) {
+      res.status(404).json({ success: false, message: 'Không tìm thấy tenant' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        tenantName: tenant.name,
+        domain: tenant.domain,
+        planName: tenant.subscription?.plan?.name || 'Miễn phí',
+        planDescription: tenant.subscription?.plan?.description || '',
+        features: tenant.subscription?.plan?.features?.map((f: any) => f.code) || [],
+        createdAt: tenant.createdAt,
+      }
+    });
+  } catch (error) {
+    console.error('getSystemInfo error:', error);
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };

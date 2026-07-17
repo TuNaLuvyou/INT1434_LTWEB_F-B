@@ -69,7 +69,7 @@ export async function sendZReportEmail(params: ZReportEmailParams): Promise<stri
     pdfBuffer,
   } = params;
 
-  const subject = `[RestoFlow] Z-Report – ${restaurantName} – ${fmtDate(from)} đến ${fmtDate(to_date)}`;
+  const subject = `[HiAI-MenuGo] Z-Report – ${restaurantName} – ${fmtDate(from)} đến ${fmtDate(to_date)}`;
 
   const html = `
 <!DOCTYPE html>
@@ -107,13 +107,13 @@ export async function sendZReportEmail(params: ZReportEmailParams): Promise<stri
   <div class="wrapper">
     <div class="header">
       <h1>${restaurantName}</h1>
-      <p>Báo cáo tổng kết ca được gửi tự động bởi hệ thống RestoFlow POS</p>
+      <p>Báo cáo tổng kết ca được gửi tự động bởi hệ thống HiAI-MenuGo POS</p>
       <div class="badge">Z-REPORT</div>
     </div>
     <div class="body">
       <p class="greeting">
         Kính gửi Quản lý,<br /><br />
-        Hệ thống RestoFlow POS đã tổng hợp xong báo cáo Z-Report cho kỳ hoạt động.
+        Hệ thống HiAI-MenuGo POS đã tổng hợp xong báo cáo Z-Report cho kỳ hoạt động.
         Vui lòng xem file đính kèm để biết chi tiết đầy đủ.
       </p>
 
@@ -144,7 +144,7 @@ export async function sendZReportEmail(params: ZReportEmailParams): Promise<stri
       </div>
     </div>
     <div class="footer">
-      <p>Email này được gửi tự động bởi hệ thống <strong>RestoFlow POS</strong>.<br />Vui lòng không trả lời email này.</p>
+      <p>Email này được gửi tự động bởi hệ thống <strong>HiAI-MenuGo POS</strong>.<br />Vui lòng không trả lời email này.</p>
     </div>
   </div>
 </body>
@@ -154,7 +154,7 @@ export async function sendZReportEmail(params: ZReportEmailParams): Promise<stri
   const transporter = getTransporter();
 
   const info = await transporter.sendMail({
-    from: process.env.SMTP_FROM ?? `"RestoFlow POS" <${process.env.SMTP_USER}>`,
+    from: process.env.SMTP_FROM ?? `"HiAI-MenuGo POS" <${process.env.SMTP_USER}>`,
     to,
     subject,
     html,

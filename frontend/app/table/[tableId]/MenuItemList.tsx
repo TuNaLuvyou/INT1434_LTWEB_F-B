@@ -1011,7 +1011,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             <>
               <h2 className="text-xl font-black text-gray-900 mb-2">Thanh toán thành công!</h2>
               <p className="text-sm text-gray-500 max-w-sm mb-8 leading-relaxed">
-                Hóa đơn cho bàn của bạn đã được thanh toán hoàn tất. Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ của RestoFlow!
+                Hóa đơn cho bàn của bạn đã được thanh toán hoàn tất. Cảm ơn quý khách đã tin tưởng và sử dụng dịch vụ của HiAI-MenuGo!
               </p>
               <div className="text-xs text-gray-400 font-medium">
                 Chúc quý khách một ngày tốt lành và hẹn gặp lại!
@@ -1024,7 +1024,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                 Đơn của bàn bạn đã bị huỷ do hết món. Vui lòng liên hệ nhân viên để được hỗ trợ thêm.
               </p>
               <div className="text-xs text-gray-400 font-medium">
-                RestoFlow luôn sẵn sàng phục vụ quý khách.
+                HiAI-MenuGo luôn sẵn sàng phục vụ quý khách.
               </div>
             </>
           ) : (

@@ -19,11 +19,13 @@ export interface MenuData {
 export class MenuService {
   /**
    * Fetches the menu items based on active status, category, and soldOut status.
+   * @param tenantId Tenant ID to filter by
+   * @param branchId Optional branch ID to filter by
    * @param categoryId Optional category ID to filter by
    * @param soldOut Optional sold out status to filter by ('true' | 'false')
    * @returns MenuData containing filtered categories and items, or null if category is not found
    */
-  static async getMenu(categoryId?: string, soldOut?: string): Promise<MenuData | null> {
+  static async getMenu(tenantId: string, branchId?: string, categoryId?: string, soldOut?: string): Promise<MenuData | null> {
     // 1. Validate categoryId if provided
     if (categoryId) {
       const categoryExists = await prisma.category.findUnique({
@@ -36,7 +38,7 @@ export class MenuService {
     }
 
     // 2. Build where clause
-    const where: any = { isActive: true };
+    const where: any = { isActive: true, tenantId };
     
     if (categoryId) {
       where.categoryId = categoryId;

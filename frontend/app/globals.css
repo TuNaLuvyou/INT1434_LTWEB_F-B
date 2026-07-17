@@ -25,6 +25,23 @@ body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
 
+/* Dark scrollbar cho toàn bộ trang */
+html {
+  scrollbar-color: #27272a transparent;
+  scroll-behavior: smooth;
+}
+html::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html::-webkit-scrollbar-thumb {
+  background-color: #27272a;
+  border-radius: 6px;
+}
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 /* Ẩn scrollbar nhưng vẫn scroll được — dùng cho CategoryFilter */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* IE/Edge */
@@ -37,14 +54,14 @@ body {
 /* Thin scrollbar — dùng cho bảng dữ liệu */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: #3f3f46 transparent;
+  scrollbar-color: #27272a transparent;
 }
 .scrollbar-thin::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: #3f3f46;
+  background-color: #27272a;
   border-radius: 4px;
 }
 .scrollbar-thin::-webkit-scrollbar-track {
@@ -58,9 +75,5 @@ body {
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
-}
-
-html {
-  scroll-behavior: smooth;
 }
 

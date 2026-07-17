@@ -1,5 +1,5 @@
 /**
- * SOCKET_EVENTS — Tất cả event names dùng trong RestoFlow POS
+ * SOCKET_EVENTS — Tất cả event names dùng trong HiAI-MenuGo POS
  *
  * ─── Quy tắc đặt tên ────────────────────────────────────────────────────────
  * - Format:  "<domain>:<action>"
@@ -66,27 +66,32 @@ export const SOCKET_EVENTS = {
  * ────────────────────────────────────────────────────────────────────────────
  */
 export const SOCKET_ROOMS = {
-  KITCHEN:        'kitchen',
-  CASHIER:        'cashier',
-  FLOOR_PLAN:     'floor-plan',
-  MENU_UPDATES:   'menu-updates',
+  KITCHEN:      (tenantId: string, branchId: string) => `tenant:${tenantId}:branch:${branchId}:kitchen`,
+  BAR:          (tenantId: string, branchId: string) => `tenant:${tenantId}:branch:${branchId}:bar`,
+  STAFF:        (tenantId: string, branchId: string) => `tenant:${tenantId}:branch:${branchId}:staff`,
+  CASHIER:      (tenantId: string, branchId: string) => `tenant:${tenantId}:branch:${branchId}:cashier`,
+  FLOOR_PLAN:   (tenantId: string, branchId: string) => `tenant:${tenantId}:branch:${branchId}:floor-plan`,
+  MENU_UPDATES: (tenantId: string) => `tenant:${tenantId}:menu-updates`,
   /** Tạo room name cho bàn cụ thể */
-  table:          (tableId: string) => `table:${tableId}`,
+  table:        (tableId: string) => `table:${tableId}`,
 } as const;
 
 /**
- * Các rooms yêu cầu authentication để join.
- * Public rooms (menu-updates, table:[id]) không cần auth.
+ * Regex patterns for auth rooms to validate on join.
  */
-export const AUTH_REQUIRED_ROOMS = [
-  SOCKET_ROOMS.KITCHEN,
-  SOCKET_ROOMS.CASHIER,
-  SOCKET_ROOMS.FLOOR_PLAN,
-] as const;
+export const AUTH_REQUIRED_ROOM_PATTERNS = [
+  /^tenant:[a-zA-Z0-9_-]+:branch:[a-zA-Z0-9_-]+:kitchen$/,
+  /^tenant:[a-zA-Z0-9_-]+:branch:[a-zA-Z0-9_-]+:bar$/,
+  /^tenant:[a-zA-Z0-9_-]+:branch:[a-zA-Z0-9_-]+:staff$/,
+  /^tenant:[a-zA-Z0-9_-]+:branch:[a-zA-Z0-9_-]+:cashier$/,
+  /^tenant:[a-zA-Z0-9_-]+:branch:[a-zA-Z0-9_-]+:floor-plan$/,
+];
 
-/** Roles được phép join từng room */
+/** Roles được phép join từng room type (phần cuối của room name) */
 export const ROOM_ALLOWED_ROLES: Record<string, string[]> = {
-  [SOCKET_ROOMS.KITCHEN]:    ['ADMIN', 'MANAGER', 'KITCHEN'],
-  [SOCKET_ROOMS.CASHIER]:    ['ADMIN', 'MANAGER', 'CASHIER'],
-  [SOCKET_ROOMS.FLOOR_PLAN]: ['ADMIN', 'MANAGER', 'CASHIER'],
+  'kitchen':    ['ADMIN', 'MANAGER', 'KITCHEN'],
+  'bar':        ['ADMIN', 'MANAGER', 'KITCHEN'], // Giả sử KITCHEN hoặc BAR role
+  'staff':      ['ADMIN', 'MANAGER', 'CASHIER'], // Staff role
+  'cashier':    ['ADMIN', 'MANAGER', 'CASHIER'],
+  'floor-plan': ['ADMIN', 'MANAGER', 'CASHIER'],
 };

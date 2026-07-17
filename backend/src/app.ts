@@ -20,9 +20,15 @@ import analyticsRoutes from './routes/analytics.routes';
 import paymentRoutes from './routes/payment.routes';
 import voucherRoutes from './routes/voucher.routes';
 import zReportRoutes from './routes/z-report.routes';
+import platformAdminRoutes from './routes/platform-admin.routes';
+import integrationRoutes from './routes/integration.routes';
+import membershipRoutes from './routes/membership.routes';
+import brandingRoutes from './routes/branding.routes';
 import { initSocket } from './socket';
 import { globalErrorHandler } from './middlewares/error.middleware';
 import { startAutomaticCleanupJob } from './services/cleanup.service';
+
+import bankRoutes from './routes/bank.routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -81,15 +87,24 @@ app.use('/api/admin/users', adminUserRoutes);
 
 // System routes
 app.use('/api/system', systemRoutes);
+app.use('/api/platform-admin', platformAdminRoutes);
+app.use('/api/banks', bankRoutes);
+
+// SaaS Feature protected stubs
+app.use('/api/integration', integrationRoutes);
+app.use('/api/membership', membershipRoutes);
+app.use('/api/system', brandingRoutes); // Hoac '/api/branding'
 
 // Admin sync menu
 import { syncMenu } from './controllers/system.controller';
 import { authMiddleware, requireRole } from './middlewares/auth.middleware';
 app.post('/api/admin/menu/sync', authMiddleware, requireRole(['ADMIN', 'MANAGER']), syncMenu as any);
 
-// Route kiểm tra server
-app.get('/', (req, res) => {
-  res.json({ success: true, message: 'RestoFlow POS Backend API is running!' });
+import { ApiResponse } from './utils/response';
+
+// Route kiểm tra server (Health Check)
+app.get('/api/health', (req, res) => {
+  return ApiResponse.success(res, { timestamp: new Date().toISOString() }, 'HiAI-MenuGo POS Backend API is running!');
 });
 
 // Error handling middleware
@@ -106,7 +121,7 @@ initSocket(httpServer);
 
 // Khởi chạy server qua httpServer thay vì app.listen
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Server RestoFlow đang chạy tại: http://localhost:${PORT}`);
+  console.log(`🚀 Server HiAI-MenuGo đang chạy tại: http://localhost:${PORT}`);
   console.log(`🔌 Socket.io sẵn sàng trên cùng port ${PORT}`);
 
   // Khởi động tác vụ tự động dọn dẹp lịch sử bán hàng (> 90 ngày)

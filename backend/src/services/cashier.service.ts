@@ -20,19 +20,21 @@ export interface CashierTableOverview {
   session: CashierSessionOverview | null;
 }
 
+type CashierDisplayStatus = 'CART' | 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
+
 export interface CashierSessionItemsResponse {
   sessionId: string;
   openedAt: Date;
   tableId: string;
   tableNumber: number;
   tableLabel: string;
-  groups: Record<OrderItemStatus, Array<{
+  groups: Record<CashierDisplayStatus, Array<{
     id: string;
     sessionId: string;
     menuItemId: string;
     qty: number;
     note: string | null;
-    status: OrderItemStatus;
+    status: CashierDisplayStatus;
     unitPrice: any;
     menuItem: {
       name: string;
@@ -43,21 +45,87 @@ export interface CashierSessionItemsResponse {
   }>>;
 }
 
-export async function getCashierOverview(): Promise<CashierTableOverview[]> {
+export async function getCashierOverview(tenantId: string, branchId?: string): Promise<CashierTableOverview[]> {
+  const whereClause: any = { tenantId };
+  if (branchId) whereClause.branchId = branchId;
+
   const tables = await prisma.table.findMany({
+    where: whereClause,
     orderBy: { tableNumber: 'asc' },
-    include: {
+    select: {
+      id: true,
+      tableNumber: true,
+      label: true,
+      status: true,
       sessions: {
         where: { status: 'OPEN' },
-        include: {
-          orderItems: {
-            where: { status: { not: 'CART' } },
-            select: { status: true, createdAt: true },
-          },
+        select: {
+          id: true,
+          openedAt: true,
+          lockedAt: true,
         },
+        take: 1,
       },
     },
   });
+
+  const openSessionIds = tables
+    .map((t) => t.sessions[0])
+    .filter(Boolean)
+    .map((s) => s!.id);
+
+  const lockedSessionIds = new Set(
+    tables
+      .map((t) => t.sessions[0])
+      .filter((s) => s?.lockedAt)
+      .map((s) => s!.id)
+  );
+
+  const pendingSessions = new Map<string, number>();
+  const preparingSessions = new Map<string, number>();
+  const doneSessions = new Map<string, number>();
+
+  if (openSessionIds.length > 0) {
+    const rows = await prisma.$queryRaw<
+      Array<{
+        sessionId: string;
+        status: string;
+        qty: bigint;
+        createdAt: Date;
+        lockedAt: Date | null;
+      }>
+    >`
+      SELECT
+        oi."sessionId",
+        oi.status,
+        oi.qty,
+        oi."createdAt",
+        s."lockedAt"
+      FROM "OrderItem" oi
+      JOIN "TableSession" s ON s.id = oi."sessionId"
+      WHERE oi."sessionId" IN (${openSessionIds})
+        AND oi.status != 'CART'
+    `;
+
+    for (const row of rows) {
+      const sid = row.sessionId;
+      const qty = Number(row.qty);
+
+      if (row.status === 'PREPARING') {
+        preparingSessions.set(sid, (preparingSessions.get(sid) || 0) + qty);
+      } else if (row.status === 'DONE') {
+        doneSessions.set(sid, (doneSessions.get(sid) || 0) + qty);
+      } else if (row.status === 'PENDING') {
+        const lockedAtTime = row.lockedAt ? new Date(row.lockedAt).getTime() : null;
+        const itemTime = new Date(row.createdAt).getTime();
+        if (lockedAtTime !== null && itemTime <= lockedAtTime) {
+          preparingSessions.set(sid, (preparingSessions.get(sid) || 0) + qty);
+        } else {
+          pendingSessions.set(sid, (pendingSessions.get(sid) || 0) + qty);
+        }
+      }
+    }
+  }
 
   return tables.map((table) => {
     const activeSession = table.sessions[0] || null;
@@ -72,28 +140,7 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
       };
     }
 
-    let pendingCount = 0;
-    let preparingCount = 0;
-    let doneCount = 0;
-
-    const lockedAtTime = activeSession.lockedAt ? new Date(activeSession.lockedAt).getTime() : null;
-
-    for (const item of activeSession.orderItems) {
-      if (item.status === 'PENDING') {
-        const itemTime = new Date(item.createdAt).getTime();
-        // Nếu món PENDING được tạo trước/bằng lúc khóa bàn -> Bếp đang làm (PREPARING)
-        // Nếu món PENDING được tạo sau lúc khóa bàn -> Đây là đợt đặt thêm mới, chờ duyệt (PENDING)
-        if (lockedAtTime !== null && itemTime <= lockedAtTime) {
-          preparingCount += 1;
-        } else {
-          pendingCount += 1;
-        }
-      }
-      if (item.status === 'PREPARING') preparingCount += 1;
-      if (item.status === 'DONE') doneCount += 1;
-    }
-
-    const isLockedSession = Boolean((activeSession as { lockedAt?: Date | null }).lockedAt);
+    const sid = activeSession.id;
 
     return {
       tableId: table.id,
@@ -101,12 +148,12 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
       tableLabel: table.label,
       tableStatus: table.status,
       session: {
-        sessionId: activeSession.id,
+        sessionId: sid,
         openedAt: activeSession.openedAt,
-        pendingCount,
-        preparingCount,
-        doneCount,
-        isLocked: isLockedSession,
+        pendingCount: pendingSessions.get(sid) || 0,
+        preparingCount: preparingSessions.get(sid) || 0,
+        doneCount: doneSessions.get(sid) || 0,
+        isLocked: lockedSessionIds.has(sid),
       },
     };
   });
@@ -115,12 +162,29 @@ export async function getCashierOverview(): Promise<CashierTableOverview[]> {
 export async function getCashierSessionItems(sessionId: string): Promise<CashierSessionItemsResponse> {
   const session = await prisma.tableSession.findUnique({
     where: { id: sessionId },
-    include: {
-      table: true,
+    select: {
+      id: true,
+      openedAt: true,
+      tableId: true,
+      lockedAt: true,
+      table: {
+        select: {
+          tableNumber: true,
+          label: true,
+        },
+      },
       orderItems: {
         where: { status: { not: 'CART' } },
         orderBy: { createdAt: 'asc' },
-        include: {
+        select: {
+          id: true,
+          sessionId: true,
+          menuItemId: true,
+          qty: true,
+          note: true,
+          status: true,
+          unitPrice: true,
+          createdAt: true,
           menuItem: {
             select: {
               name: true,
@@ -150,7 +214,7 @@ export async function getCashierSessionItems(sessionId: string): Promise<Cashier
   const lockedAtTime = session.lockedAt ? new Date(session.lockedAt).getTime() : null;
 
   for (const item of session.orderItems) {
-    let displayStatus = item.status;
+    let displayStatus = item.status as CashierDisplayStatus;
     if (item.status === 'PENDING') {
       const itemTime = new Date(item.createdAt).getTime();
       // Nếu món PENDING được tạo trước/bằng lúc khóa bàn -> Bếp đang làm (PREPARING)
@@ -254,7 +318,7 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
   console.log(`[AuditLog TODO] Cashier ${approverId || 'system'} approved session ${sessionId} at ${now.toISOString()}`);
 
   // Emit table status changed
-  emitTableStatusChanged({
+  emitTableStatusChanged(session.table.tenantId, session.table.branchId, {
     tableId: session.tableId,
     status: 'OCCUPIED',
     tableNumber: session.table.tableNumber,
@@ -262,7 +326,7 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
   });
 
   // Emit Kitchen New Ticket
-  emitKitchenNewTicket({
+  emitKitchenNewTicket(session.table.tenantId, session.table.branchId, {
     sessionId,
     tableId: session.tableId,
     tableNumber: session.table.tableNumber,
@@ -278,7 +342,7 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
 
   // Emit Cart Updated (gửi lock notification cho khách)
   const total = session.orderItems.reduce((sum, item) => sum + Number(item.unitPrice) * item.qty, 0);
-  emitCartUpdated(session.tableId, {
+  emitCartUpdated(session.table.tenantId, session.table.branchId, session.tableId, {
     sessionId,
     tableId: session.tableId,
     orderItems: session.orderItems.map(item => ({
@@ -298,6 +362,6 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
     sessionId,
     lockedAt: now,
     tableStatus: 'OCCUPIED',
-    approvedItemsCount: pendingItems.length,
+    approvedItemsCount: pendingItems.reduce((sum, item) => sum + item.qty, 0),
   };
 }

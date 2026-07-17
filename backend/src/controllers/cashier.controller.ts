@@ -11,7 +11,14 @@ import {
 
 export async function getCashierOverview(req: Request, res: Response): Promise<void> {
   try {
-    const tables = await cashierService.getCashierOverview();
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const branchId = authReq.user?.branchId;
+
+    const tables = await cashierService.getCashierOverview(tenantId, branchId);
     res.status(200).json({ success: true, data: { tables } });
   } catch (error: any) {
     console.error('getCashierOverview error:', error);
@@ -153,10 +160,13 @@ export async function voidOrderItem(req: Request, res: Response): Promise<void> 
     });
 
     // 5. Emit: cập nhật màn hình bếp (KDS)
-    emitKitchenItemUpdated({
+    emitKitchenItemUpdated(voidedItem.session.table.tenantId, voidedItem.session.table.branchId, {
       orderItemId,
       tableId,
       menuItemName: voidedItem.menuItem.name,
+      qty: voidedItem.qty,
+      deltaQty: voidedItem.qty,
+      note: voidedItem.note,
       status: 'VOID',
       updatedAt: now,
     });
@@ -172,7 +182,7 @@ export async function voidOrderItem(req: Request, res: Response): Promise<void> 
       0
     );
 
-    emitCartUpdated(tableId, {
+    emitCartUpdated(voidedItem.session.table.tenantId, voidedItem.session.table.branchId, tableId, {
       sessionId,
       tableId,
       orderItems: remainingItems.map((item) => ({

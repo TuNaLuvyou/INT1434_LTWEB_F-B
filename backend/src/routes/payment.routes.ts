@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
-import { validateVoucherHandler, processPaymentHandler } from '../controllers/payment.controller';
+import { validateVoucherHandler, processPaymentHandler, confirmManualPaymentHandler } from '../controllers/payment.controller';
 
 const router = Router();
 
@@ -18,5 +18,11 @@ router.get('/validate-voucher', validateVoucherHandler);
  * Xu ly thanh toan: tao Payment record, dong session, reset ban.
  */
 router.post('/sessions/:sessionId/pay', processPaymentHandler);
+
+/**
+ * POST /api/payment/:paymentId/confirm
+ * Cashier xac nhan thanh toan (chu yeu cho VietQR/Chuyen khoan thu cong)
+ */
+router.post('/:paymentId/confirm', confirmManualPaymentHandler);
 
 export default router;

@@ -29,7 +29,7 @@ let socket: Socket | null = null;
  */
 export function getSocket(): Socket {
   if (!socket) {
-    const url = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5001';
+    const url = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
 
     socket = io(url, {
       // Ép dùng WebSocket → bypass HTTP polling, tránh lỗi CORS với proxy

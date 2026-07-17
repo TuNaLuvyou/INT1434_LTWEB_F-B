@@ -8,7 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 // ─── GIẢ LẬP SystemConfig CHO TRANG CLIENT ────────────────────────────
 // Định nghĩa cấu hình hệ thống bao gồm tên nhà hàng theo yêu cầu.
 const SystemConfig = {
-  restaurantName: 'RestoFlow Demo',
+  restaurantName: 'HiAI-MenuGo Demo',
 };
 
 // ─── TẠI SAO DÙNG SSG + ISR (revalidate = 300) THAY VÌ SSR? ─────────────────

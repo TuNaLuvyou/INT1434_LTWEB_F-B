@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { getCurrentUser } from '@/lib/auth/getCurrentUser';
-import CashierClient from '@/app/cashier/CashierClient';
+import CashierClient from '@/app/pos/CashierClient';
 
 export const revalidate = 0;
 
 export async function generateMetadata() {
-  return { title: 'Thu ngân | RestoFlow (POS)' };
+  return { title: 'Thu ngân | HiAI-MenuGo (POS)' };
 }
 
 type Role = 'ADMIN' | 'MANAGER' | 'CASHIER';
@@ -56,7 +56,7 @@ export default async function PosCashierPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
+    <div className="min-h-screen lg:h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative lg:overflow-hidden">
       {/* Glow Effects (same as POS) */}
       <div className="absolute top-[20%] left-[-5%] w-[40%] h-[40%] rounded-full bg-blue-900/10 blur-[100px] pointer-events-none" />
       <div className="absolute bottom-[20%] right-[-5%] w-[40%] h-[40%] rounded-full bg-indigo-900/10 blur-[100px] pointer-events-none" />
@@ -81,7 +81,7 @@ export default async function PosCashierPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="flex-1 min-h-0 max-w-7xl w-full mx-auto px-6 py-6">
         <CashierClient
           user={typedUser}
           initialTables={initialTables}

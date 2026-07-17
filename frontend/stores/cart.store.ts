@@ -178,59 +178,67 @@ export const useCartStore = create<CartStore>()(
 
         const existing = state.items.find((i) => i.menuItemId === item.menuItemId);
         const newQty = existing ? existing.qty + 1 : 1;
+        const previousItems = state.items;
 
-        try {
-          const clientTimestamp = Date.now() + state.clockOffset;
-          const res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              menuItemId: item.menuItemId,
-              qty: newQty,
-              note: existing?.note || '',
-              clientTimestamp,
-            }),
-          });
+        // OPTIMISTIC UPDATE: Cập nhật UI ngay lập tức
+        set({
+          items: existing
+            ? state.items.map((i) => (i.menuItemId === item.menuItemId ? { ...i, qty: newQty } : i))
+            : [...state.items, { ...item, qty: 1, note: '' }],
+        });
 
-          if (res.status === 409) {
-            const data = await res.json().catch(() => ({}));
-            if (data.code === 'CONFLICT' && data.currentCart) {
-              state.syncCartFromServer(data.currentCart);
-            }
-            return;
-          }
+        // Fire and forget (chạy ngầm)
+        (async () => {
+          try {
+            const clientTimestamp = Date.now() + state.clockOffset;
+            const res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                menuItemId: item.menuItemId,
+                qty: newQty,
+                note: existing?.note || '',
+                clientTimestamp,
+              }),
+            });
 
-          if (res.status === 423) {
-            const data = await res.json().catch(() => ({}));
-            set({ isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
-            window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
-            return;
-          }
-
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            
-            // Khi phiên đặt món của bàn đã bị đóng (sau thanh toán)
-            if (res.status === 400 && data.message === 'Phiên đặt món đã kết thúc') {
-              console.log('[cartStore] Phát hiện phiên đã kết thúc trên server.');
-              
-              // Reset session ID cục bộ để dọn dẹp
-              set({ sessionId: null, items: [] });
-              
-              // Phát sự kiện thông báo phiên đã đóng để hiển thị màn hình phù hợp
-              window.dispatchEvent(new CustomEvent('session-closed', { detail: { status: 'UNKNOWN' } }));
+            if (res.status === 409) {
+              const data = await res.json().catch(() => ({}));
+              if (data.code === 'CONFLICT' && data.currentCart) {
+                get().syncCartFromServer(data.currentCart);
+              }
               return;
             }
-            
-            throw new Error(data.message || `HTTP ${res.status}`);
-          }
 
-          const { data: updatedCart } = await res.json() as { data: any[] };
-          state.syncCartFromServer(updatedCart);
-        } catch (err: any) {
-          console.error('[cartStore] addItem failed:', err);
-          set({ submitError: err.message || 'Lỗi thêm món' });
-        }
+            if (res.status === 423) {
+              const data = await res.json().catch(() => ({}));
+              set({ items: previousItems, isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
+              window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
+              return;
+            }
+
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              
+              if (res.status === 400 && data.message === 'Phiên đặt món đã kết thúc') {
+                console.log('[cartStore] Phát hiện phiên đã kết thúc trên server.');
+                set({ sessionId: null, items: [] });
+                window.dispatchEvent(new CustomEvent('session-closed', { detail: { status: 'UNKNOWN' } }));
+                return;
+              }
+              
+              throw new Error(data.message || `HTTP ${res.status}`);
+            }
+
+            const { data: updatedCart } = await res.json() as { data: any[] };
+            get().syncCartFromServer(updatedCart);
+          } catch (err: any) {
+            console.error('[cartStore] addItem failed:', err);
+            set({ items: previousItems, submitError: err.message || 'Lỗi thêm món' });
+          }
+        })();
+        
+        return Promise.resolve(); // Trả về ngay lập tức để UI không bị block
       },
 
       // ── removeItem ────────────────────────────────────────────────────────
@@ -242,52 +250,66 @@ export const useCartStore = create<CartStore>()(
         if (!item) return;
 
         const newQty = item.qty - 1;
-        try {
-          const clientTimestamp = Date.now() + state.clockOffset;
-          let res;
-          if (newQty <= 0) {
-            res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart/${menuItemId}?clientTimestamp=${clientTimestamp}`, {
-              method: 'DELETE',
-            });
-          } else {
-            res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                menuItemId,
-                qty: newQty,
-                note: item.note,
-                clientTimestamp,
-              }),
-            });
-          }
+        const previousItems = state.items;
 
-          if (res.status === 409) {
-            const data = await res.json().catch(() => ({}));
-            if (data.code === 'CONFLICT' && data.currentCart) {
-              state.syncCartFromServer(data.currentCart);
+        // OPTIMISTIC UPDATE
+        set({
+          items: newQty <= 0
+            ? state.items.filter((i) => i.menuItemId !== menuItemId)
+            : state.items.map((i) => (i.menuItemId === menuItemId ? { ...i, qty: newQty } : i)),
+        });
+
+        // Chạy ngầm
+        (async () => {
+          try {
+            const clientTimestamp = Date.now() + state.clockOffset;
+            let res;
+            if (newQty <= 0) {
+              res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart/${menuItemId}?clientTimestamp=${clientTimestamp}`, {
+                method: 'DELETE',
+              });
+            } else {
+              res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  menuItemId,
+                  qty: newQty,
+                  note: item.note,
+                  clientTimestamp,
+                }),
+              });
             }
-            return;
-          }
 
-          if (res.status === 423) {
-            const data = await res.json().catch(() => ({}));
-            set({ isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
-            window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
-            return;
-          }
+            if (res.status === 409) {
+              const data = await res.json().catch(() => ({}));
+              if (data.code === 'CONFLICT' && data.currentCart) {
+                get().syncCartFromServer(data.currentCart);
+              }
+              return;
+            }
 
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data.message || `HTTP ${res.status}`);
-          }
+            if (res.status === 423) {
+              const data = await res.json().catch(() => ({}));
+              set({ items: previousItems, isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
+              window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
+              return;
+            }
 
-          const { data: updatedCart } = await res.json() as { data: any[] };
-          state.syncCartFromServer(updatedCart);
-        } catch (err: any) {
-          console.error('[cartStore] removeItem failed:', err);
-          set({ submitError: err.message || 'Lỗi bớt món' });
-        }
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.message || `HTTP ${res.status}`);
+            }
+
+            const { data: updatedCart } = await res.json() as { data: any[] };
+            get().syncCartFromServer(updatedCart);
+          } catch (err: any) {
+            console.error('[cartStore] removeItem failed:', err);
+            set({ items: previousItems, submitError: err.message || 'Lỗi bớt món' });
+          }
+        })();
+        
+        return Promise.resolve();
       },
 
       // ── updateQty ─────────────────────────────────────────────────────────
@@ -297,53 +319,66 @@ export const useCartStore = create<CartStore>()(
 
         const item = state.items.find((i) => i.menuItemId === menuItemId);
         const note = item?.note || '';
+        const previousItems = state.items;
 
-        try {
-          const clientTimestamp = Date.now() + state.clockOffset;
-          let res;
-          if (qty <= 0) {
-            res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart/${menuItemId}?clientTimestamp=${clientTimestamp}`, {
-              method: 'DELETE',
-            });
-          } else {
-            res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                menuItemId,
-                qty,
-                note,
-                clientTimestamp,
-              }),
-            });
-          }
+        // OPTIMISTIC UPDATE
+        set({
+          items: qty <= 0
+            ? state.items.filter((i) => i.menuItemId !== menuItemId)
+            : state.items.map((i) => (i.menuItemId === menuItemId ? { ...i, qty } : i)),
+        });
 
-          if (res.status === 409) {
-            const data = await res.json().catch(() => ({}));
-            if (data.code === 'CONFLICT' && data.currentCart) {
-              state.syncCartFromServer(data.currentCart);
+        // Chạy ngầm
+        (async () => {
+          try {
+            const clientTimestamp = Date.now() + state.clockOffset;
+            let res;
+            if (qty <= 0) {
+              res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart/${menuItemId}?clientTimestamp=${clientTimestamp}`, {
+                method: 'DELETE',
+              });
+            } else {
+              res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  menuItemId,
+                  qty,
+                  note,
+                  clientTimestamp,
+                }),
+              });
             }
-            return;
-          }
 
-          if (res.status === 423) {
-            const data = await res.json().catch(() => ({}));
-            set({ isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
-            window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
-            return;
-          }
+            if (res.status === 409) {
+              const data = await res.json().catch(() => ({}));
+              if (data.code === 'CONFLICT' && data.currentCart) {
+                get().syncCartFromServer(data.currentCart);
+              }
+              return;
+            }
 
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data.message || `HTTP ${res.status}`);
-          }
+            if (res.status === 423) {
+              const data = await res.json().catch(() => ({}));
+              set({ items: previousItems, isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
+              window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
+              return;
+            }
 
-          const { data: updatedCart } = await res.json() as { data: any[] };
-          state.syncCartFromServer(updatedCart);
-        } catch (err: any) {
-          console.error('[cartStore] updateQty failed:', err);
-          set({ submitError: err.message || 'Lỗi cập nhật số lượng' });
-        }
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.message || `HTTP ${res.status}`);
+            }
+
+            const { data: updatedCart } = await res.json() as { data: any[] };
+            get().syncCartFromServer(updatedCart);
+          } catch (err: any) {
+            console.error('[cartStore] updateQty failed:', err);
+            set({ items: previousItems, submitError: err.message || 'Lỗi cập nhật số lượng' });
+          }
+        })();
+        
+        return Promise.resolve();
       },
 
       // ── updateNote ────────────────────────────────────────────────────────
@@ -354,45 +389,57 @@ export const useCartStore = create<CartStore>()(
         const item = state.items.find((i) => i.menuItemId === menuItemId);
         if (!item) return;
 
-        try {
-          const clientTimestamp = Date.now() + state.clockOffset;
-          const res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              menuItemId,
-              qty: item.qty,
-              note,
-              clientTimestamp,
-            }),
-          });
+        const previousItems = state.items;
 
-          if (res.status === 409) {
-            const data = await res.json().catch(() => ({}));
-            if (data.code === 'CONFLICT' && data.currentCart) {
-              state.syncCartFromServer(data.currentCart);
+        // OPTIMISTIC UPDATE
+        set({
+          items: state.items.map((i) => (i.menuItemId === menuItemId ? { ...i, note } : i)),
+        });
+
+        // Chạy ngầm
+        (async () => {
+          try {
+            const clientTimestamp = Date.now() + state.clockOffset;
+            const res = await fetch(`${API_URL}/api/sessions/${state.sessionId}/cart`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                menuItemId,
+                qty: item.qty,
+                note,
+                clientTimestamp,
+              }),
+            });
+
+            if (res.status === 409) {
+              const data = await res.json().catch(() => ({}));
+              if (data.code === 'CONFLICT' && data.currentCart) {
+                get().syncCartFromServer(data.currentCart);
+              }
+              return;
             }
-            return;
-          }
 
-          if (res.status === 423) {
-            const data = await res.json().catch(() => ({}));
-            set({ isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
-            window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
-            return;
-          }
+            if (res.status === 423) {
+              const data = await res.json().catch(() => ({}));
+              set({ items: previousItems, isLocked: true, submitError: data.message || 'Order đang được chuẩn bị bởi nhà hàng' });
+              window.dispatchEvent(new CustomEvent('cart-locked', { detail: { message: data.message } }));
+              return;
+            }
 
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data.message || `HTTP ${res.status}`);
-          }
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.message || `HTTP ${res.status}`);
+            }
 
-          const { data: updatedCart } = await res.json() as { data: any[] };
-          state.syncCartFromServer(updatedCart);
-        } catch (err: any) {
-          console.error('[cartStore] updateNote failed:', err);
-          set({ submitError: err.message || 'Lỗi cập nhật ghi chú' });
-        }
+            const { data: updatedCart } = await res.json() as { data: any[] };
+            get().syncCartFromServer(updatedCart);
+          } catch (err: any) {
+            console.error('[cartStore] updateNote failed:', err);
+            set({ items: previousItems, submitError: err.message || 'Lỗi cập nhật ghi chú' });
+          }
+        })();
+        
+        return Promise.resolve();
       },
 
       // ── clearCart ─────────────────────────────────────────────────────────
@@ -417,7 +464,7 @@ export const useCartStore = create<CartStore>()(
     }),
 
     {
-      name: 'restoflow-cart',
+      name: 'hiaimenugo-cart',
 
       // Dùng sessionStorage: tồn tại trong tab, mất khi đóng tab
       storage: createJSONStorage(() => {

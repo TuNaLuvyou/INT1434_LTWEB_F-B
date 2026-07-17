@@ -109,7 +109,7 @@ export async function submitOrder(
       where: { id: sessionId },
       include: {
         table: {
-          select: { id: true, tableNumber: true, label: true },
+          select: { id: true, tableNumber: true, label: true, tenantId: true, branchId: true },
         },
       },
     });
@@ -257,6 +257,7 @@ export async function submitOrder(
             // Fallback: Tạo mới với status PENDING
             const created = await tx.orderItem.create({
               data: {
+                tenantId: session.table.tenantId,
                 sessionId,
                 menuItemId: item.menuItemId,
                 qty: qtyToSubmit,
@@ -283,9 +284,10 @@ export async function submitOrder(
         '@/lib/socket/socket-emit'
       );
 
-      const newItemsPayload = items.map((item) => {
+      const newItemsPayload = items.map((item, index) => {
         const menuItem = menuItemMap.get(item.menuItemId)!;
         return {
+          id: createdIds[index],
           menuItemId: item.menuItemId,
           menuItemName: menuItem.name,
           qty: item.qty,
@@ -300,13 +302,15 @@ export async function submitOrder(
       );
 
       await emitCashierNewOrder({
+        tenantId: session.table.tenantId,
+        branchId: session.table.branchId,
         sessionId,
         tableId,
         tableNumber: session.table.tableNumber,
         newItems: newItemsPayload,
         total,
         createdAt: new Date().toISOString(),
-      });
+      } as any);
     } catch (socketErr) {
       // Socket emit thất bại KHÔNG rollback order đã tạo thành công.
       // Thu ngân sẽ thấy order khi refresh hoặc polling — degraded gracefully.
