@@ -110,13 +110,14 @@ export async function updateVoucherHandler(req: Request, res: Response): Promise
       return prisma.voucher.update({
         where: { id },
         data: {
-        code: code?.toUpperCase(),
-        discountType,
-        discountValue: valueNum,
-        maxUsage: maxUsage !== undefined ? maxUsage : undefined,
-        expiredAt: expiredAt !== undefined ? (expiredAt ? new Date(expiredAt) : null) : undefined,
-      }
-    }));
+          code: code?.toUpperCase(),
+          discountType,
+          discountValue: valueNum,
+          maxUsage: maxUsage !== undefined ? maxUsage : undefined,
+          expiredAt: expiredAt !== undefined ? (expiredAt ? new Date(expiredAt) : null) : undefined,
+        }
+      });
+    });
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
     console.error('updateVoucherHandler error:', error);
