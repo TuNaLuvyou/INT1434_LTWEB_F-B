@@ -18,7 +18,8 @@ import {
   Table as TableIcon,
   Plus,
   X,
-  Trash2
+  Trash2,
+  UtensilsCrossed
 } from "lucide-react";
 import { useAuthStore } from "../../stores/auth.store";
 import { getAccessTokenFromCookie } from "../../lib/auth/client";
@@ -29,6 +30,7 @@ interface Table {
   tableNumber: number;
   label: string;
   status: "AVAILABLE" | "OCCUPIED" | "RESERVED";
+  isExcess?: boolean;
 }
 
 export default function TableSelectionInternalPage() {
@@ -179,7 +181,7 @@ export default function TableSelectionInternalPage() {
     setError(null);
     try {
       const token = getAccessTokenFromCookie();
-      const res = await fetch(`${API_URL}/api/tables`, {
+      const res = await fetch(`${API_URL}/api/tables?t=${Date.now()}`, {
         headers: {
           "Authorization": `Bearer ${token || ""}`,
         },
@@ -421,14 +423,19 @@ export default function TableSelectionInternalPage() {
                 RESERVED: { label: "Đặt trước", class: "bg-amber-900 text-amber-300 border-amber-800" }
               };
               const badge = statusBadges[table.status];
+              const isLocked = table.isExcess;
 
               return (
                 <div
                   key={table.id}
-                  className="group relative block overflow-hidden rounded-2xl sm:rounded-3xl border border-zinc-900 bg-zinc-900/40 p-4 sm:p-6 transition-all duration-300 hover:scale-[1.01] hover:border-zinc-800 hover:bg-zinc-900/60 shadow-xl"
+                  className={`group relative block overflow-hidden rounded-2xl sm:rounded-3xl border border-zinc-900 bg-zinc-900/40 p-4 sm:p-6 transition-all duration-300 shadow-xl ${
+                    isLocked ? 'opacity-50 grayscale hover:scale-100 pointer-events-none' : 'hover:scale-[1.01] hover:border-zinc-800 hover:bg-zinc-900/60'
+                  }`}
                 >
                   {/* Glow effect */}
-                  <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-gradient-to-tr from-emerald-700 to-emerald-500 opacity-0 blur-[50px] transition-all duration-500 group-hover:opacity-20 group-hover:-translate-x-6 group-hover:translate-y-6" />
+                  {!isLocked && (
+                    <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-gradient-to-tr from-emerald-700 to-emerald-500 opacity-0 blur-[50px] transition-all duration-500 group-hover:opacity-20 group-hover:-translate-x-6 group-hover:translate-y-6" />
+                  )}
 
                   <div className="space-y-2 sm:space-y-3 relative z-10">
                     <div className="flex items-center justify-between gap-1">
@@ -436,10 +443,15 @@ export default function TableSelectionInternalPage() {
                         #{table.tableNumber}
                       </span>
                       
-                      <div className="flex items-center gap-1 sm:gap-2">
-                        <span className={`px-1.5 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold border ${badge.class}`}>
-                          {badge.label}
-                        </span>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        {isLocked && (
+                          <span className="px-2 py-0.5 rounded-md bg-red-950/40 text-red-400 border border-red-900/50 text-[9px] font-bold">Quá giới hạn</span>
+                        )}
+                        {!isLocked && (
+                          <span className={`px-1.5 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold border ${badge.class}`}>
+                            {badge.label}
+                          </span>
+                        )}
 
                         {isMounted && canManage && (
                           <button
@@ -449,7 +461,7 @@ export default function TableSelectionInternalPage() {
                               handleDeleteTable(table.id, table.tableNumber);
                             }}
                             disabled={deletingId === table.id}
-                            className="h-5 w-5 sm:h-6 sm:w-6 rounded-md sm:rounded-lg bg-red-950/20 border border-red-900/30 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
+                            className="pointer-events-auto h-5 w-5 sm:h-6 sm:w-6 rounded-md sm:rounded-lg bg-red-950/20 border border-red-900/30 text-red-400 hover:bg-red-600 hover:text-white hover:border-red-600 flex items-center justify-center transition-all cursor-pointer disabled:opacity-50"
                             title="Xóa bàn"
                           >
                             {deletingId === table.id ? (
@@ -468,7 +480,7 @@ export default function TableSelectionInternalPage() {
                   </div>
 
                   {/* Status Toggle Buttons */}
-                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-zinc-900/50 flex gap-1.5 sm:gap-2 relative z-10">
+                  <div className={`mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-zinc-900/50 flex gap-1.5 sm:gap-2 relative z-10 ${isLocked ? 'invisible' : 'pointer-events-auto'}`}>
                     <button
                       onClick={() => updateTableStatus(table.id, "OCCUPIED")}
                       disabled={updatingId === table.id || table.status === "OCCUPIED"}
@@ -504,12 +516,13 @@ export default function TableSelectionInternalPage() {
                     </button>
                   </div>
 
-                  <div className="mt-2.5 sm:mt-4 relative z-10 flex gap-2">
+                  <div className={`mt-2.5 sm:mt-4 relative z-10 flex gap-2 ${isLocked ? 'invisible' : 'pointer-events-auto'}`}>
                     <Link
-                      href={`/table/${table.id}`}
+                      href={`/table/${table.id}?tenantId=${user?.tenantId}&branchId=${user?.branchId}`}
                       className="flex-1 h-8 sm:h-10 rounded-lg sm:rounded-xl bg-zinc-950/30 border border-zinc-800 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white hover:shadow-md flex items-center justify-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-gray-200 transition-all cursor-pointer"
                     >
-                      Vào thực đơn
+                      <UtensilsCrossed className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      Thực đơn
                       <ChevronRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </Link>
                     <button

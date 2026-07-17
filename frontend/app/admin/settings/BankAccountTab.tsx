@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { getAccessTokenFromCookie } from '../../../lib/auth/client';
 import { CreditCard, Save, Plus, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -12,6 +12,7 @@ interface BankAccount {
   accountName: string;
   isDefault: boolean;
 }
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export default function BankAccountTab() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
@@ -29,9 +30,15 @@ export default function BankAccountTab() {
   const fetchAccounts = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/api/banks', { withCredentials: true });
-      if (res.data.success) {
-        setAccounts(res.data.data);
+      const token = getAccessTokenFromCookie();
+      const res = await fetch(`${API_URL}/api/banks`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAccounts(data.data);
       }
     } catch (err) {
       toast.error('Lỗi khi tải danh sách tài khoản');
@@ -53,14 +60,25 @@ export default function BankAccountTab() {
 
     try {
       setSaving(true);
-      const res = await axios.post('/api/banks', formData, { withCredentials: true });
-      if (res.data.success) {
+      const token = getAccessTokenFromCookie();
+      const res = await fetch(`${API_URL}/api/banks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+      if (data.success) {
         toast.success('Đã thêm tài khoản ngân hàng');
         setFormData({ ...formData, accountNumber: '', accountName: '' });
         fetchAccounts();
+      } else {
+        toast.error(data.message || 'Lỗi thêm tài khoản');
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Lỗi thêm tài khoản');
+      toast.error('Lỗi thêm tài khoản');
     } finally {
       setSaving(false);
     }
@@ -69,8 +87,15 @@ export default function BankAccountTab() {
   const handleDelete = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa tài khoản này?')) return;
     try {
-      const res = await axios.delete(`/api/banks/${id}`, { withCredentials: true });
-      if (res.data.success) {
+      const token = getAccessTokenFromCookie();
+      const res = await fetch(`${API_URL}/api/banks/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
         toast.success('Đã xóa tài khoản');
         fetchAccounts();
       }
@@ -81,8 +106,17 @@ export default function BankAccountTab() {
 
   const handleSetDefault = async (id: string) => {
     try {
-      const res = await axios.put(`/api/banks/${id}`, { isDefault: true }, { withCredentials: true });
-      if (res.data.success) {
+      const token = getAccessTokenFromCookie();
+      const res = await fetch(`${API_URL}/api/banks/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ isDefault: true })
+      });
+      const data = await res.json();
+      if (data.success) {
         toast.success('Đã thiết lập tài khoản mặc định');
         fetchAccounts();
       }

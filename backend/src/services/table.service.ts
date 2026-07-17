@@ -1,6 +1,7 @@
 import prisma from '../config/prisma';
 import { TableStatus } from '@prisma/client';
 import { AppError } from '../utils/app-error';
+import { getTenantMaxLimit } from './usage-limit.service';
 
 export interface TableWithSession {
   id: string;
@@ -14,6 +15,7 @@ export interface TableWithSession {
     openedAt: Date;
     orderItemsCount: number;
   } | null;
+  isExcess?: boolean;
 }
 
 export class TableService {
@@ -25,6 +27,18 @@ export class TableService {
     const whereClause: any = {};
     if (tenantId) whereClause.tenantId = tenantId;
     if (branchId) whereClause.branchId = branchId;
+
+    let validTableIds = new Set<string>();
+    if (tenantId) {
+      let maxTables = await getTenantMaxLimit(tenantId, 'TABLE');
+      if (maxTables <= 0) maxTables = 9999; // Không giới hạn nếu chưa cấu hình
+      const allTenantTables = await prisma.table.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+      allTenantTables.slice(0, maxTables).forEach(t => validTableIds.add(t.id));
+    }
 
     const tables = await prisma.table.findMany({
       where: whereClause,
@@ -51,6 +65,29 @@ export class TableService {
       },
     });
 
+    const excessTableIdsToCancel = tables
+      .filter((t: any) => tenantId && !validTableIds.has(t.id) && t.status !== 'AVAILABLE')
+      .map((t: any) => t.id);
+
+    if (excessTableIdsToCancel.length > 0) {
+      await prisma.$transaction([
+        prisma.tableSession.updateMany({
+          where: { tableId: { in: excessTableIdsToCancel }, status: 'OPEN' },
+          data: { status: 'CANCELLED', closedAt: new Date() }
+        }),
+        prisma.table.updateMany({
+          where: { id: { in: excessTableIdsToCancel } },
+          data: { status: 'AVAILABLE' }
+        })
+      ]);
+      tables.forEach((t: any) => { 
+        if (excessTableIdsToCancel.includes(t.id)) { 
+          t.status = 'AVAILABLE'; 
+          if (t.sessions) t.sessions = []; 
+        } 
+      });
+    }
+
     return tables.map((t) => {
       const activeSession = isAdmin && t.sessions && t.sessions.length > 0 ? (t.sessions[0] as any) : null;
       return {
@@ -68,6 +105,7 @@ export class TableService {
               orderItemsCount: activeSession.orderItems.reduce((acc: number, item: any) => acc + item.qty, 0),
             }
           : null,
+        isExcess: tenantId ? !validTableIds.has(t.id) : false,
       };
     });
   }

@@ -28,7 +28,7 @@ export default async function PosCashierPage() {
   let initialSelectedSessionId: string | null = null;
 
   try {
-    const res = await fetch(`${API_URL}/api/cashier/overview`, {
+    const res = await fetch(`${API_URL}/api/cashier/overview?t=${Date.now()}`, {
       cache: 'no-store',
       headers: { Authorization: `Bearer ${token || ''}` },
     });

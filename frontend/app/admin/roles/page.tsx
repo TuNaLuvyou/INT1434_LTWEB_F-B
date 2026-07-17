@@ -199,7 +199,7 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
+    <div className="h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
       {/* Background Glow */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-900/10 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[130px] pointer-events-none" />
@@ -236,8 +236,8 @@ export default function RolesPage() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 flex flex-col p-3 sm:p-6 space-y-4 max-w-7xl w-full mx-auto">
-        <div className="flex-1 min-h-0 bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 flex flex-col space-y-4">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col p-3 sm:p-6 max-w-7xl w-full mx-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-zinc-900/40 border border-zinc-900 rounded-3xl p-5 flex flex-col space-y-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
           <div className="shrink-0 flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-white">Quản Lý Quyền Tài Khoản</h2>
@@ -280,7 +280,7 @@ export default function RolesPage() {
               Đang tải danh sách tài khoản...
             </div>
           ) : (
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+            <div className="flex-1 min-h-0 overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20">
               <table className="w-full text-left border-collapse whitespace-nowrap">
                 <thead>
                   <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">

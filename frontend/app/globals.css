@@ -26,19 +26,22 @@ body {
 }
 
 /* Dark scrollbar cho toàn bộ trang */
-html {
+html, body {
   scrollbar-color: #27272a transparent;
   scroll-behavior: smooth;
 }
-html::-webkit-scrollbar {
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-html::-webkit-scrollbar-thumb {
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
   background-color: #27272a;
   border-radius: 6px;
 }
-html::-webkit-scrollbar-track {
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
   background: transparent;
 }
 

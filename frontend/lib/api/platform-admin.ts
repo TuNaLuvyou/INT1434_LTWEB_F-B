@@ -40,5 +40,6 @@ export const platformAdminApi = {
   getAuditLogs: (tenantId?: string) => {
     const query = tenantId ? `?tenantId=${tenantId}` : '';
     return fetchWithAuth(`/api/platform-admin/audit-logs${query}`);
-  }
+  },
+  changeSubscription: (id: string, planName: string) => fetchWithAuth(`/api/platform-admin/tenants/${id}/subscription`, { method: 'PUT', body: JSON.stringify({ planName }) })
 };

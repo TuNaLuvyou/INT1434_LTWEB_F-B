@@ -23,25 +23,42 @@ export const getTenants = async () => {
       },
       subscription: {
         include: {
-          plan: true
+          plan: {
+            include: {
+              limits: true
+            }
+          }
         }
       }
     },
     orderBy: { createdAt: 'desc' }
   });
 
-  return tenants.map(t => ({
-    id: t.id,
-    name: t.name,
-    domain: t.domain,
-    isActive: t.isActive,
-    createdAt: t.createdAt,
-    branchCount: t._count.branches,
-    userCount: t._count.tenantUsers,
-    tableCount: t._count.tables,
-    owner: t.tenantUsers.length > 0 ? t.tenantUsers[0].user : null,
-    subscription: t.subscription?.plan?.name || 'Free Trial'
-  }));
+  return tenants.map(t => {
+    const plan = t.subscription?.plan;
+    const limits: Record<string, number> = {};
+    if (plan) {
+      plan.limits.forEach(l => { limits[l.resourceCode] = l.maxLimit; });
+    } else {
+      limits['BRANCH'] = 1;
+      limits['TABLE'] = 10;
+      limits['USER'] = 3;
+      limits['MENU_ITEM'] = 50;
+    }
+    return {
+      id: t.id,
+      name: t.name,
+      domain: t.domain,
+      isActive: t.isActive,
+      createdAt: t.createdAt,
+      branchCount: t._count.branches,
+      userCount: t._count.tenantUsers,
+      tableCount: t._count.tables,
+      owner: t.tenantUsers.length > 0 ? t.tenantUsers[0].user : null,
+      subscription: t.subscription?.plan?.name || 'Starter',
+      limits,
+    };
+  });
 };
 
 export const createTenant = async (data: { name: string; domain?: string; ownerEmail: string; ownerName: string }) => {
@@ -101,7 +118,21 @@ export const createTenant = async (data: { name: string; domain?: string; ownerE
     }
   });
 
-  // 5. Tạo Branch mặc định
+  // 5. Gán gói Starter mặc định
+  const starterPlan = await prisma.subscriptionPlan.findUnique({ where: { name: 'Starter' } });
+  if (starterPlan) {
+    await prisma.tenantSubscription.create({
+      data: {
+        tenantId: tenant.id,
+        planId: starterPlan.id,
+        status: 'ACTIVE',
+        startDate: new Date(),
+        endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+      }
+    });
+  }
+
+  // 6. Tạo Branch mặc định
   await prisma.branch.create({
     data: {
       tenantId: tenant.id,
@@ -131,4 +162,30 @@ export const getAuditLogs = async (tenantId?: string) => {
     }
   });
   return logs;
+};
+export const updateTenantSubscriptionPlan = async (tenantId: string, planName: string) => {
+  const plan = await prisma.subscriptionPlan.findUnique({
+    where: { name: planName }
+  });
+  if (!plan) throw new Error('Subscription plan not found');
+  
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { subscription: true } });
+  if (!tenant) throw new Error('Tenant not found');
+  
+  if (tenant.subscription) {
+    return prisma.tenantSubscription.update({
+      where: { tenantId },
+      data: { planId: plan.id }
+    });
+  } else {
+    return prisma.tenantSubscription.create({
+      data: {
+        tenantId,
+        planId: plan.id,
+        status: 'ACTIVE',
+        startDate: new Date(),
+        endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+      }
+    });
+  }
 };

@@ -95,11 +95,10 @@ const METHOD_COLORS: Record<string, string> = {
 interface ToastProps { type: "success" | "error"; message: string; }
 function Toast({ type, message }: ToastProps) {
   return (
-    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-medium animate-in slide-in-from-bottom-4 duration-300 ${
-      type === "success"
+    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-medium animate-in slide-in-from-bottom-4 duration-300 ${type === "success"
         ? "bg-emerald-950 border-emerald-700 text-emerald-200"
         : "bg-rose-950 border-rose-700 text-rose-200"
-    }`}>
+      }`}>
       {type === "success" ? <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" /> : <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />}
       <span>{message}</span>
     </div>
@@ -422,12 +421,11 @@ export default function ZReportPage() {
                   <div className="space-y-2">
                     {reportData.topItems.map((item) => (
                       <div key={item.rank} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-zinc-900/60 transition-all">
-                        <span className={`h-7 w-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
-                          item.rank === 1 ? "bg-amber-500/20 text-amber-400" :
-                          item.rank === 2 ? "bg-zinc-500/20 text-zinc-300" :
-                          item.rank === 3 ? "bg-orange-700/20 text-orange-400" :
-                          "bg-zinc-800 text-zinc-500"
-                        }`}>
+                        <span className={`h-7 w-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${item.rank === 1 ? "bg-amber-500/20 text-amber-400" :
+                            item.rank === 2 ? "bg-zinc-500/20 text-zinc-300" :
+                              item.rank === 3 ? "bg-orange-700/20 text-orange-400" :
+                                "bg-zinc-800 text-zinc-500"
+                          }`}>
                           #{item.rank}
                         </span>
                         <div className="flex-1 min-w-0">
@@ -471,11 +469,10 @@ export default function ZReportPage() {
                             <p className="text-[10px] text-zinc-500">{shift.cashierEmail}</p>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                              shift.status === "OPEN"
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${shift.status === "OPEN"
                                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                 : "bg-zinc-800 text-zinc-400 border-zinc-700"
-                            }`}>
+                              }`}>
                               <Clock className="h-2.5 w-2.5" />
                               {shift.status === "OPEN" ? "Đang mở" : "Đã đóng"}
                             </span>

@@ -39,7 +39,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen w-screen bg-zinc-950 text-zinc-50 font-sans relative">
+    <div className="flex min-h-screen w-full bg-zinc-950 text-zinc-50 font-sans relative">
       {/* Left Sidebar */}
       <AdminSidebar />
 

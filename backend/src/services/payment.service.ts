@@ -210,7 +210,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
       .map(i => ({ menuItemId: i.menuItemId, qty: i.qty }));
 
     if (itemsToDeduct.length > 0) {
-      await deductInventory(itemsToDeduct, sessionId, 'SYSTEM_CASHIER', tx as any).catch((deductErr: any) => {
+      await deductInventory(itemsToDeduct, sessionId, 'SYSTEM_CASHIER', tx as any, session.table.tenantId, session.table.branchId).catch((deductErr: any) => {
         console.warn('[processPayment] deductInventory skip:', deductErr?.message);
       });
     }
@@ -340,7 +340,7 @@ export async function confirmManualPayment(paymentId: string, cashierId: string,
 
     if (itemsToDeduct.length > 0) {
       try {
-        await deductInventory(itemsToDeduct, session.id, 'SYSTEM_CASHIER', tx as any);
+        await deductInventory(itemsToDeduct, session.id, 'SYSTEM_CASHIER', tx as any, session.table.tenantId, session.table.branchId);
       } catch (e) {
         console.warn('[confirmManualPayment] deduct skip', e);
       }

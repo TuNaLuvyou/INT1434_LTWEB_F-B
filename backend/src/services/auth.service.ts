@@ -70,7 +70,12 @@ export const loginUser = async (email: string, plainText: string) => {
 
   const { passwordHash, tenantUsers, ...userWithoutPassword } = user;
 
-  const tenants = tenantUsers.map(tu => ({
+  const activeTenants = tenantUsers.filter(tu => tu.tenant.isActive);
+  if (activeTenants.length === 0) {
+    throw new Error('TENANT_LOCKED');
+  }
+
+  const tenants = activeTenants.map(tu => ({
     id: tu.tenant.id,
     name: tu.tenant.name,
     domain: tu.tenant.domain,
@@ -210,13 +215,15 @@ export const getMe = async (userId: string, tenantId?: string) => {
 
   const { passwordHash, tenantUsers, ...userWithoutPassword } = user;
 
-  const tenants = tenantUsers.map(tu => ({
-    id: tu.tenant.id,
-    name: tu.tenant.name,
-    domain: tu.tenant.domain,
-    isOwner: tu.isOwner,
-    role: tu.customRole?.name || 'N/A'
-  }));
+  const tenants = tenantUsers
+    .filter(tu => tu.tenant.isActive)
+    .map(tu => ({
+      id: tu.tenant.id,
+      name: tu.tenant.name,
+      domain: tu.tenant.domain,
+      isOwner: tu.isOwner,
+      role: tu.customRole?.name || 'N/A'
+    }));
 
   // If tenantId is provided in JWT, we can return the current tenant details
   let currentTenant = null;

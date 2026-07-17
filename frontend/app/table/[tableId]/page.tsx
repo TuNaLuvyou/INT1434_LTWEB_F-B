@@ -11,26 +11,6 @@ const SystemConfig = {
   restaurantName: 'HiAI-MenuGo Demo',
 };
 
-// ─── TẠI SAO DÙNG SSG + ISR (revalidate = 300) THAY VÌ SSR? ─────────────────
-// 1. Menu nhà hàng hiếm khi thay đổi liên tục từng giây (thường theo ngày/tuần).
-//    Nếu dùng SSR, mỗi lần user quét QR code server phải query DB từ đầu → tăng tải, chậm.
-// 2. SSG render sẵn thành HTML siêu nhẹ lúc build → load "nhanh như chớp" (Zero delay).
-// 3. ISR (revalidate=300): cứ 5 phút Next.js âm thầm fetch data mới ở background.
-//    → Data luôn được cập nhật mà không bắt user nào phải chờ.
-//
-// ─── TẠI SAO CẦN CẢ revalidatePath VÀ socket event? ────────────────────────
-// • Socket.io event "menu:soldout":
-//   → Cập nhật ngay lập tức cho user ĐANG XEM trang (tab đã mở).
-//   → Patch state client-side mà không reload trang → UX mượt mà.
-//
-// • revalidatePath('/menu/[tableId]', 'page') (On-Demand ISR):
-//   → Invalidate SSG cache ngay khi bếp báo hết món.
-//   → User MỞ TAB MỚI sau đó sẽ nhận được HTML đã cập nhật (isSoldOut=true).
-//   → Nếu không có bước này, user mới vào thấy trang cũ cho đến hết 300 giây.
-//
-// Kết luận: Hai cơ chế bổ trợ nhau — Socket cho user online, revalidate cho user mới vào.
-// ─────────────────────────────────────────────────────────────────────────────
-
 interface Table {
   id: string;
   tableNumber: number;
@@ -53,6 +33,10 @@ interface MenuData {
 interface PageProps {
   params: Promise<{
     tableId: string;
+  }>;
+  searchParams: Promise<{
+    tenantId?: string;
+    branchId?: string;
   }>;
 }
 
@@ -83,18 +67,26 @@ export async function generateMetadata({ params }: PageProps) {
   };
 }
 
-// ─── Server Component (SSG) ───────────────────────────────────────────────────
+// ─── Server Component (SSR / ISR) ───────────────────────────────────────────────────
 // Đây là Server Component → KHÔNG có useState, useEffect, hay 'use client'.
 // Chỉ phần MenuItemList (Client Component) mới có khả năng realtime.
-export default async function MenuPage({ params }: PageProps) {
+export default async function MenuPage({ params, searchParams }: PageProps) {
   const resolvedParams = await params;
   const tableId = resolvedParams?.tableId;
 
-  if (!tableId) return notFound();
+  const resolvedSearchParams = await searchParams;
+  const tenantId = resolvedSearchParams?.tenantId;
+  const branchId = resolvedSearchParams?.branchId;
 
-  const res = await fetch(`${API_URL}/api/menu`, { next: { revalidate: 300 } });
+  if (!tableId || !tenantId || !branchId) return notFound();
 
-  if (!res.ok) return notFound();
+  // Gọi API menu với tenantId và branchId
+  const res = await fetch(`${API_URL}/api/menu?tenantId=${tenantId}&branchId=${branchId}`, { next: { revalidate: 300 } });
+
+  if (!res.ok) {
+    console.error('[Menu Error] API returned status:', res.status);
+    return notFound();
+  }
 
   const result = await res.json();
   if (!result.success || !result.data) return notFound();

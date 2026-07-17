@@ -186,7 +186,7 @@ export default function AdminMenuPage() {
 
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
+    <div className="h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
       {/* Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between">
@@ -200,7 +200,9 @@ export default function AdminMenuPage() {
       </header>
 
       {/* Content Area */}
-      <main className="flex-1 overflow-hidden flex flex-col p-6 space-y-4 max-w-7xl w-full mx-auto relative z-10">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col p-3 sm:p-6 max-w-7xl w-full mx-auto relative z-10">
+        {/* Scrollable content */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
         {/* Header Dashboard */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shrink-0">
           <div>
@@ -307,8 +309,8 @@ export default function AdminMenuPage() {
           </div>
         ) : (
           /* Bảng dữ liệu */
-          <div className="flex-1 min-h-0 bg-zinc-900/20 border border-zinc-900/80 shadow-xl backdrop-blur-sm rounded-2xl overflow-hidden flex flex-col">
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+          <div className="flex-1 min-h-0 bg-zinc-800/30 border border-zinc-800/50 rounded-3xl overflow-hidden flex flex-col">
+            <div className="flex-1 min-h-0 overflow-x-auto scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
               <table className="w-full min-w-[700px] border-collapse text-left whitespace-nowrap">
                 <thead>
                   <tr className="bg-zinc-950/80 border-b border-zinc-900">
@@ -418,6 +420,7 @@ export default function AdminMenuPage() {
             </div>
           </div>
         )}
+        </div>
       </main>
 
       {/* Modal Form Thêm/Sửa */}

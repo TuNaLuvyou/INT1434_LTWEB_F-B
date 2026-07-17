@@ -16,7 +16,9 @@ import prisma from '../config/prisma';
  */
 export const reverseInventory = async (
   orderItemId: string,
-  reversedBy?: string
+  reversedBy?: string,
+  tenantId?: string,
+  branchId?: string
 ): Promise<Array<{ ingredientId: string; name: string; delta: number; newStock: number }>> => {
   // 1. Kiểm tra OrderItem có tồn tại và đã ở trạng thái VOID chưa
   const orderItem = await prisma.orderItem.findUnique({
@@ -87,6 +89,8 @@ export const reverseInventory = async (
       // Ghi log hoàn kho
       await tx.inventoryLog.create({
         data: {
+          tenantId: tenantId || currentIng.tenantId,
+          branchId: branchId || tenantId || currentIng.tenantId,
           ingredientId,
           delta,
           reason: `VOID_REVERSE: OrderItem ${orderItemId}`,
@@ -158,20 +162,31 @@ export const adjustStock = async (
   delta: number,
   reason: 'MANUAL_IMPORT' | 'ADJUSTMENT' | 'MANUAL_EXPORT',
   createdBy: string,
-  note?: string
+  note?: string,
+  tenantId?: string,
+  branchId?: string
 ) => {
   const ingredient = await prisma.ingredient.findUnique({ where: { id } });
   if (!ingredient) throw new Error('Ingredient not found');
 
+  const tid = tenantId || ingredient.tenantId;
+
   const newStock = Number(ingredient.stock) + delta;
+
+  const updateData: any = { stock: newStock };
+  if (delta < 0) {
+    updateData.totalExported = { increment: Math.abs(delta) };
+  }
 
   const [updated] = await prisma.$transaction([
     prisma.ingredient.update({
       where: { id },
-      data: { stock: newStock },
+      data: updateData,
     }),
     prisma.inventoryLog.create({
       data: {
+        tenantId: tid,
+        branchId: branchId || tid,
         ingredientId: id,
         delta,
         reason,

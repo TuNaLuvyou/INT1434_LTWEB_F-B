@@ -41,7 +41,7 @@ export const reverseStock = async (req: Request, res: Response): Promise<void> =
     const authReq = req as AuthenticatedRequest;
     const reversedBy = authReq.user?.userId;
 
-    const reversed = await svc.reverseInventory(orderItemId, reversedBy);
+    const reversed = await svc.reverseInventory(orderItemId, reversedBy, authReq.user?.tenantId, authReq.user?.branchId);
 
     res.json({
       success: true,
@@ -135,7 +135,7 @@ export const deleteIngredient = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const adjustStock = async (req: Request, res: Response): Promise<void> => {
+export const adjustStock = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
     const { delta, reason, note } = stockAdjSchema.parse(req.body);
@@ -150,7 +150,7 @@ export const adjustStock = async (req: Request, res: Response): Promise<void> =>
     }
 
     const result = await svc.adjustStock(
-      id, delta, reason as any, req.user!.userId, note
+      id, delta, reason as any, req.user!.userId, note, req.user!.tenantId, req.user!.branchId
     );
     res.json({ success: true, data: result });
   } catch (e: any) {

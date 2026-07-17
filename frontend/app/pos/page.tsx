@@ -177,7 +177,7 @@ export default function POSPage() {
       }
 
       // Fetch Tables
-      const tablesRes = await fetch(`${API_URL}/api/tables`, {
+      const tablesRes = await fetch(`${API_URL}/api/tables?t=${Date.now()}`, {
         headers: {
           'Authorization': `Bearer ${accessToken || ''}`,
         }
@@ -808,6 +808,7 @@ export default function POSPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
             {tables.map(table => {
+              const isExcess = table.isExcess;
               const isOccupied = table.status === 'OCCUPIED';
               const isReserved = table.status === 'RESERVED';
               const isAvailable = table.status === 'AVAILABLE' || table.status === 'EMPTY' || !isOccupied && !isReserved;
@@ -817,20 +818,25 @@ export default function POSPage() {
               return (
                 <button
                   key={table.id}
-                  onClick={() => handleSelectTable(table.id)}
-                  disabled={isOccupied || selectingTableId === table.id || !!isBlocked || isCancelling}
+                  onClick={() => {
+                    if (isExcess) return;
+                    handleSelectTable(table.id);
+                  }}
+                  disabled={isExcess || isOccupied || selectingTableId === table.id || !!isBlocked || isCancelling}
                   className={`relative group flex flex-col items-center justify-center p-4 sm:p-6 rounded-2xl border transition-all duration-300 cursor-pointer ${
-                    isOccupied
-                      ? 'bg-rose-500/5 border-rose-500/20 text-rose-400 cursor-not-allowed opacity-70'
-                      : selectingTableId === table.id
-                        ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-                        : isReserved
-                          ? 'bg-amber-500/5 border-amber-500/20 text-amber-400'
-                          : isCurrentTable
-                            ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-lg shadow-emerald-500/10'
-                            : isBlocked
-                              ? 'bg-zinc-900/30 border-zinc-800 text-zinc-500 cursor-not-allowed opacity-50'
-                              : 'bg-zinc-900/30 border-zinc-800 text-zinc-300 hover:border-emerald-500/40 hover:bg-emerald-500/5 hover:text-emerald-300 hover:shadow-lg hover:shadow-emerald-500/5 active:scale-[0.97]'
+                    isExcess
+                      ? 'bg-red-950/10 border-red-900/30 text-red-400 cursor-not-allowed opacity-50 grayscale'
+                      : isOccupied
+                        ? 'bg-rose-500/5 border-rose-500/20 text-rose-400 cursor-not-allowed opacity-70'
+                        : selectingTableId === table.id
+                          ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                          : isReserved
+                            ? 'bg-amber-500/5 border-amber-500/20 text-amber-400'
+                            : isCurrentTable
+                              ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-lg shadow-emerald-500/10'
+                              : isBlocked
+                                ? 'bg-zinc-900/30 border-zinc-800 text-zinc-500 cursor-not-allowed opacity-50'
+                                : 'bg-zinc-900/30 border-zinc-800 text-zinc-300 hover:border-emerald-500/40 hover:bg-emerald-500/5 hover:text-emerald-300 hover:shadow-lg hover:shadow-emerald-500/5 active:scale-[0.97]'
                   }`}
                 >
                   {/* Table number */}

@@ -67,7 +67,9 @@ export async function deductInventory(
   orderItems: OrderItemInput[],
   sessionId: string,
   createdBy: string,
-  tx?: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
+  tx?: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>,
+  tenantId?: string,
+  branchId?: string
 ): Promise<void> {
   // Nếu không có món nào → không cần làm gì
   if (!orderItems || orderItems.length === 0) return;
@@ -114,9 +116,9 @@ export async function deductInventory(
     const ingredientIds = Array.from(ingredientDemand.keys());
 
     const lockedIngredients = await client.$queryRawUnsafe<
-      Array<{ id: string; name: string; unit: string; stock: string; minStock: string }>
+      Array<{ id: string; name: string; unit: string; stock: string; minStock: string; tenantId: string }>
     >(
-      `SELECT id, name, unit, stock, "minStock"
+      `SELECT id, name, unit, stock, "minStock", "tenantId"
        FROM "Ingredient"
        WHERE id = ANY($1::text[])
        FOR UPDATE`,
@@ -154,15 +156,21 @@ export async function deductInventory(
       const delta    = -(ingredientDemand.get(ing.id) ?? 0); // giá trị âm = trừ kho
       const newStock = Number(ing.stock) + delta;            // delta < 0
 
-      // UPDATE stock
+      // UPDATE stock + totalExported
+      const consumed = Math.abs(delta);
       await client.ingredient.update({
         where: { id: ing.id },
-        data:  { stock: newStock },
+        data:  {
+          stock: newStock,
+          totalExported: { increment: consumed },
+        },
       });
 
       // INSERT InventoryLog
       await client.inventoryLog.create({
         data: {
+          tenantId: tenantId || ing.tenantId,
+          branchId: branchId || tenantId || ing.tenantId,
           ingredientId: ing.id,
           delta,
           reason: 'ORDER_DEDUCT',

@@ -291,17 +291,18 @@ model OrderItem {
 }
 
 model Ingredient {
-  id        String         @id @default(cuid())
-  tenantId  String
-  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name      String
-  unit      String
-  stock     Decimal
-  minStock  Decimal
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  bom       BOM[]
-  logs      InventoryLog[]
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name           String
+  unit           String
+  stock          Decimal
+  minStock       Decimal
+  totalExported  Decimal        @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  bom            BOM[]
+  logs           InventoryLog[]
 
   @@index([tenantId])
 }

@@ -62,3 +62,36 @@ export async function checkUsageLimit(tenantId: string, resourceCode: string): P
     throw new AppError(403, 'USAGE_LIMIT_EXCEEDED', `Goi cuoc hien tai chi cho phep toi da ${maxLimit} ${resourceCode}. Vui long nang cap goi cuoc de them moi.`);
   }
 }
+export async function getTenantMaxLimit(tenantId: string, resourceCode: string): Promise<number> {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    include: {
+      subscription: {
+        include: {
+          plan: {
+            include: {
+              limits: true,
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!tenant) return 0;
+
+  const limits = tenant.subscription?.plan?.limits || [];
+  const limit = limits.find(l => l.resourceCode === resourceCode);
+  
+  let maxLimit = limit ? limit.maxLimit : 0; 
+  if (maxLimit === 0 && !tenant.subscription) {
+    const defaultLimits: Record<string, number> = {
+      'BRANCH': 1,
+      'TABLE': 10,
+      'USER': 3,
+      'MENU_ITEM': 50
+    };
+    maxLimit = defaultLimits[resourceCode] || 0;
+  }
+  return maxLimit;
+}

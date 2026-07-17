@@ -434,7 +434,7 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
       itemsCount,
       timestamp: new Date(activeDate).getTime()
     };
-  });
+  }).filter(t => t.amount > 0 || t.itemsCount > 0);
 
   const allTransactions = [...completedTransactions, ...cancelledTransactions]
     .sort((a, b) => b.timestamp - a.timestamp)

@@ -282,7 +282,7 @@ export default function CashierClient({
     const fetchOverview = async () => {
       try {
         const token = getAccessTokenFromCookie();
-        const res = await fetch(`${API_URL}/api/cashier/overview`, {
+        const res = await fetch(`${API_URL}/api/cashier/overview?t=${Date.now()}`, {
           headers: { Authorization: `Bearer ${token || ""}` },
         });
         if (res.ok) {
@@ -1669,24 +1669,34 @@ export default function CashierClient({
                   statusClass = "text-emerald-400 font-bold";
                 }
 
+                const isExcess = table.isExcess;
+
                 return (
                   <button
                     key={table.tableId}
                     type="button"
                     onClick={() => {
+                      if (isExcess) return;
                       handleSelectTable(table);
                       setActiveTab("details");
                     }}
-                    className={`w-full rounded-xl border px-3.5 py-2.5 text-left transition-all ${
-                      isSelected
+                    disabled={isExcess}
+                    className={`w-full rounded-xl border px-3.5 py-2.5 text-left transition-all relative ${
+                      isExcess
+                        ? "opacity-50 grayscale cursor-not-allowed border-red-900/30 bg-red-950/10"
+                        : isSelected
                         ? "border-zinc-500 bg-zinc-900 text-zinc-100"
                         : "border-zinc-900 bg-zinc-900/20 text-zinc-400 hover:bg-zinc-900/40"
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot}`} />
-                      <span className="text-sm font-bold text-zinc-100 shrink-0">Bàn {table.tableNumber}</span>
-                      <span className={`text-[10px] ml-auto font-semibold ${statusClass}`}>{statusLabel}</span>
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${isExcess ? 'bg-red-500' : statusDot}`} />
+                      <span className={`text-sm font-bold shrink-0 ${isExcess ? 'text-red-400' : 'text-zinc-100'}`}>Bàn {table.tableNumber}</span>
+                      {isExcess ? (
+                        <span className="text-[9px] ml-auto font-semibold text-red-500 bg-red-950/40 px-1.5 py-0.5 rounded">Quá giới hạn</span>
+                      ) : (
+                        <span className={`text-[10px] ml-auto font-semibold ${statusClass}`}>{statusLabel}</span>
+                      )}
                     </div>
                   </button>
                 );

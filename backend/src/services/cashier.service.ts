@@ -17,6 +17,7 @@ export interface CashierTableOverview {
   tableNumber: number;
   tableLabel: string;
   tableStatus: TableStatus;
+  isExcess?: boolean;
   session: CashierSessionOverview | null;
 }
 
@@ -57,6 +58,7 @@ export async function getCashierOverview(tenantId: string, branchId?: string): P
       tableNumber: true,
       label: true,
       status: true,
+      createdAt: true,
       sessions: {
         where: { status: 'OPEN' },
         select: {
@@ -68,6 +70,11 @@ export async function getCashierOverview(tenantId: string, branchId?: string): P
       },
     },
   });
+
+  const maxTables = 5; // FOR TESTING ONLY: Hardcode maxTables to 5
+  const allTenantTables = [...tables].sort((a, b) => (a.createdAt as any) - (b.createdAt as any));
+  const validTableIds = new Set<string>();
+  allTenantTables.slice(0, maxTables).forEach(t => validTableIds.add(t.id));
 
   const openSessionIds = tables
     .map((t) => t.sessions[0])
@@ -127,6 +134,29 @@ export async function getCashierOverview(tenantId: string, branchId?: string): P
     }
   }
 
+  const excessTableIdsToCancel = tables
+    .filter((t: any) => !validTableIds.has(t.id) && t.status !== 'AVAILABLE')
+    .map((t: any) => t.id);
+
+  if (excessTableIdsToCancel.length > 0) {
+    await prisma.$transaction([
+      prisma.tableSession.updateMany({
+        where: { tableId: { in: excessTableIdsToCancel }, status: 'OPEN' },
+        data: { status: 'CANCELLED', closedAt: new Date() }
+      }),
+      prisma.table.updateMany({
+        where: { id: { in: excessTableIdsToCancel } },
+        data: { status: 'AVAILABLE' }
+      })
+    ]);
+    tables.forEach((t: any) => { 
+      if (excessTableIdsToCancel.includes(t.id)) { 
+        t.status = 'AVAILABLE'; 
+        if (t.sessions) t.sessions = []; 
+      } 
+    });
+  }
+
   return tables.map((table) => {
     const activeSession = table.sessions[0] || null;
 
@@ -136,6 +166,7 @@ export async function getCashierOverview(tenantId: string, branchId?: string): P
         tableNumber: table.tableNumber,
         tableLabel: table.label,
         tableStatus: table.status,
+        isExcess: !validTableIds.has(table.id),
         session: null,
       };
     }
@@ -147,6 +178,7 @@ export async function getCashierOverview(tenantId: string, branchId?: string): P
       tableNumber: table.tableNumber,
       tableLabel: table.label,
       tableStatus: table.status,
+      isExcess: !validTableIds.has(table.id),
       session: {
         sessionId: sid,
         openedAt: activeSession.openedAt,

@@ -12,7 +12,8 @@ import {
   TrendingUp, 
   Layers,
   Table,
-  LogOut
+  LogOut,
+  Server
 } from "lucide-react";
 import { useAuthStore } from "../stores/auth.store";
 import { logout, getAccessTokenFromCookie } from "../lib/auth/client";
@@ -54,6 +55,9 @@ export default function Home() {
 
   const hasToken = isMounted ? !!getAccessTokenFromCookie() : false;
 
+  const isGuest = !hasToken;
+  const isAuthLoading = hasToken && isLoading;
+
   const apps = [
     {
       title: "Point of Sale (POS)",
@@ -63,7 +67,7 @@ export default function Home() {
       color: "from-blue-600 to-cyan-500",
       accent: "blue",
       metrics: { label: "Hệ thống", value: "Online" },
-      visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "CASHIER"
+      visible: !isAuthLoading && (isGuest || (user && ["ADMIN", "MANAGER", "CASHIER"].includes(user.role)))
     },
     {
       title: "Kitchen Display (KDS)",
@@ -73,7 +77,7 @@ export default function Home() {
       color: "from-amber-500 to-orange-600",
       accent: "orange",
       metrics: { label: "Đang xử lý", value: `${stats.pendingOrdersCount} Đơn hàng` },
-      visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "KITCHEN"
+      visible: !isAuthLoading && (isGuest || (user && ["ADMIN", "MANAGER", "KITCHEN"].includes(user.role)))
     },
     {
       title: "Admin Analytics",
@@ -83,7 +87,7 @@ export default function Home() {
       color: "from-violet-600 to-purple-500",
       accent: "violet",
       metrics: { label: "Doanh thu hôm nay", value: isMounted ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stats.todayRevenue) : "0 ₫" },
-      visible: !user || user.role === "ADMIN" || user.role === "MANAGER"
+      visible: !isAuthLoading && (isGuest || (user && ["ADMIN", "MANAGER"].includes(user.role)))
     },
 
     {
@@ -94,7 +98,17 @@ export default function Home() {
       color: "from-emerald-700 to-emerald-500",
       accent: "emerald",
       metrics: { label: "Đang phục vụ", value: `${stats.occupiedTablesCount} Bàn` },
-      visible: !user || user.role === "ADMIN" || user.role === "MANAGER" || user.role === "CASHIER"
+      visible: !isAuthLoading && (isGuest || (user && ["ADMIN", "MANAGER", "CASHIER"].includes(user.role)))
+    },
+    {
+      title: "Platform Admin",
+      description: "Bảng điều khiển trung tâm dành cho System Admin. Quản lý toàn bộ SaaS, các chuỗi nhà hàng (Tenants) và hệ thống.",
+      href: "/platform-admin",
+      icon: Server,
+      color: "from-rose-600 to-pink-500",
+      accent: "rose",
+      metrics: { label: "Hệ thống", value: "Root" },
+      visible: !isAuthLoading && user?.role === "PLATFORM_ADMIN"
     }
   ].filter(app => app.visible);
 

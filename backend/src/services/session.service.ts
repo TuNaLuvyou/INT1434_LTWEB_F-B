@@ -253,7 +253,7 @@ export async function updateSessionStatus(
       if (itemsToDeduct.length > 0) {
         // Truyền tx vào deductInventory để chạy trong cùng 1 transaction
         // → nếu deduct fail (thiếu stock) toàn bộ PAID operation sẽ rollback
-        await deductInventory(itemsToDeduct, sessionId, 'SYSTEM_CASHIER', tx as any);
+        await deductInventory(itemsToDeduct, sessionId, 'SYSTEM_CASHIER', tx as any, session.table.tenantId, session.table.branchId);
       }
 
       // 3. Cập nhật TableSession thành PAID, closedAt, và lockedAt (nếu chưa locked)

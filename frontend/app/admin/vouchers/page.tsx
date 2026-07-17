@@ -37,6 +37,7 @@ export default function AdminVouchersPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [featureLocked, setFeatureLocked] = useState(false);
 
   // Form States
   const [code, setCode] = useState("");
@@ -64,8 +65,13 @@ export default function AdminVouchersPage() {
       const result = await res.json();
       if (res.ok && result.success) {
         setVouchers(result.data || []);
+        setFeatureLocked(false);
       } else {
-        setErrorMsg(result.message || "Không thể tải danh sách voucher.");
+        const msg = result.message || "";
+        if (msg.includes("PROMOTION_ENGINE")) {
+          setFeatureLocked(true);
+        }
+        setErrorMsg(msg);
       }
     } catch (err) {
       console.error("[Voucher Admin] Lỗi fetch:", err);
@@ -158,7 +164,7 @@ export default function AdminVouchersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative">
+    <div className="h-screen bg-zinc-950 text-zinc-50 flex flex-col font-sans relative overflow-hidden">
       {/* Background Glow */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-900/10 blur-[130px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[130px] pointer-events-none" />
@@ -178,10 +184,35 @@ export default function AdminVouchersPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col p-3 sm:p-6 space-y-4 max-w-7xl w-full mx-auto">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col p-3 sm:p-6 max-w-7xl w-full mx-auto relative">
 
-        {/* Feedback Alerts */}
-        {errorMsg && (
+        {/* Feature Lock Overlay */}
+        {featureLocked && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center">
+            <div className="absolute inset-0 backdrop-blur-sm bg-zinc-950/60" />
+            <div className="relative flex flex-col items-center gap-4 max-w-md text-center px-6">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600/20 to-indigo-600/20 border border-violet-500/20 flex items-center justify-center">
+                <Sparkles className="h-8 w-8 text-violet-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Tính năng chưa được hỗ trợ</h3>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Gói cước hiện tại của bạn không hỗ trợ quản lý voucher (PROMOTION_ENGINE). 
+                Vui lòng nâng cấp gói cước để sử dụng tính năng này.
+              </p>
+              <a
+                href="/admin/settings"
+                className="mt-2 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)]"
+              >
+                Nâng cấp ngay
+              </a>
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+
+        {/* Feedback Alerts (chỉ hiện khi không bị feature lock) */}
+        {!featureLocked && errorMsg && (
           <div className="flex items-center gap-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 text-sm text-rose-400 shrink-0">
             <AlertCircle className="h-5 w-5 shrink-0" />
             <span>{errorMsg}</span>
@@ -351,7 +382,7 @@ export default function AdminVouchersPage() {
                 <span>Chưa có mã giảm giá nào được tạo.</span>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent" style={{ maxHeight: '65vh' }}>
+              <div className="flex-1 overflow-y-auto overflow-x-auto border border-zinc-900 rounded-2xl bg-zinc-950/20 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                 <table className="w-full text-left border-collapse whitespace-nowrap">
                   <thead>
                     <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
@@ -419,6 +450,7 @@ export default function AdminVouchersPage() {
               </div>
             )}
           </div>
+        </div>
         </div>
       </main>
     </div>

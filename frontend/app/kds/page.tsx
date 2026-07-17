@@ -141,6 +141,7 @@ export default function KDSPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [featureLocked, setFeatureLocked] = useState(false);
 
   const fetchMenuItems = async () => {
     setMenuLoading(true);
@@ -185,11 +186,16 @@ export default function KDSPage() {
         }
       });
       if (!response.ok) {
+        if (response.status === 403) {
+          setFeatureLocked(true);
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const result = await response.json();
       if (result.success) {
         setRawSessions(result.data || []);
+        setFeatureLocked(false);
       }
     } catch (err) {
       console.error("[KDS] Lỗi tải đơn hàng:", err);
@@ -892,8 +898,31 @@ export default function KDSPage() {
         </div>
       </div>
 
+      {/* Feature Lock Overlay */}
+      {featureLocked && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center">
+          <div className="absolute inset-0 backdrop-blur-sm bg-zinc-950/60" />
+          <div className="relative flex flex-col items-center gap-4 max-w-md text-center px-6">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-600/20 to-amber-600/20 border border-orange-500/20 flex items-center justify-center">
+              <ChefHat className="h-8 w-8 text-orange-400" />
+            </div>
+            <h3 className="text-lg font-bold text-white">Tính năng chưa được hỗ trợ</h3>
+            <p className="text-sm text-zinc-400 leading-relaxed">
+              Gói cước hiện tại của bạn không hỗ trợ KDS (Kitchen Display System). 
+              Vui lòng nâng cấp gói cước để sử dụng tính năng này.
+            </p>
+            <a
+              href="/admin/settings"
+              className="mt-2 px-6 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl text-sm font-semibold transition-all shadow-[0_0_15px_rgba(234,88,12,0.3)]"
+            >
+              Nâng cấp ngay
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Kanban Columns */}
-      <div className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+      <div className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 relative">
         
         {/* Column 1: PENDING */}
         <div className="flex flex-col bg-zinc-900/20 border border-zinc-900 rounded-3xl p-4 sm:p-5 max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-210px)] overflow-hidden">

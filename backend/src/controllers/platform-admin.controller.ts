@@ -54,3 +54,14 @@ export const getAuditLogs = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+export const updateTenantSubscription = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { planName } = req.body;
+    if (!planName) return res.status(400).json({ success: false, message: 'Missing planName' });
+    const result = await platformAdminService.updateTenantSubscriptionPlan(id, planName);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

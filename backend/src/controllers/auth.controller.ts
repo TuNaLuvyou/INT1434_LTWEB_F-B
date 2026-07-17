@@ -87,6 +87,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác' });
     } else if (error.message === 'ACCOUNT_INACTIVE') {
       res.status(401).json({ success: false, message: 'Tài khoản đã bị vô hiệu hóa' });
+    } else if (error.message === 'TENANT_LOCKED') {
+      res.status(403).json({ success: false, message: 'Tài khoản đã bị khoá' });
     } else {
       console.error('Login error:', error);
       res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });
