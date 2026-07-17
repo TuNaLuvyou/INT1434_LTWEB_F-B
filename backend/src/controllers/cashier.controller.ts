@@ -164,6 +164,9 @@ export async function voidOrderItem(req: Request, res: Response): Promise<void> 
       orderItemId,
       tableId,
       menuItemName: voidedItem.menuItem.name,
+      qty: voidedItem.qty,
+      deltaQty: voidedItem.qty,
+      note: voidedItem.note,
       status: 'VOID',
       updatedAt: now,
     });

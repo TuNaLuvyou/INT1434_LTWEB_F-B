@@ -94,6 +94,37 @@ interface MenuItem {
   };
 }
 
+interface KitchenRealtimePayload {
+  sessionId: string;
+  tableId: string;
+  tableNumber?: number;
+  tableLabel?: string;
+  items: Array<{
+    orderItemId: string;
+    menuItemId: string;
+    menuItemName: string;
+    qty: number;
+    note?: string;
+    status: string;
+    createdAt?: string;
+  }>;
+  createdAt: string;
+}
+
+interface KitchenItemRealtimePayload {
+  orderItemId: string;
+  sessionId: string;
+  tableId: string;
+  menuItemId?: string;
+  menuItemName?: string;
+  qty?: number;
+  deltaQty?: number;
+  note?: string | null;
+  removedOrderItemId?: string;
+  status: "PREPARING" | "DONE" | "VOID";
+  previousStatus?: "PENDING" | "PREPARING" | "DONE" | "VOID";
+  updatedAt: string;
+}
 export default function KDSPage() {
   const [orders, setOrders] = useState<KDSOther[]>([]);
   const [isVoidingId, setIsVoidingId] = useState<string | null>(null);
@@ -205,7 +236,18 @@ export default function KDSPage() {
 
   const playBeep = () => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextCtor) return;
+
+      if (!(window as any).__kdsAudioCtx) {
+        (window as any).__kdsAudioCtx = new AudioContextCtor();
+      }
+
+      const ctx = (window as any).__kdsAudioCtx as AudioContext;
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+      
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       
@@ -223,6 +265,121 @@ export default function KDSPage() {
     } catch (e) {
       console.error('Audio api error', e);
     }
+  };
+
+
+  const appendOrCreateKitchenSession = (payload: KitchenRealtimePayload) => {
+    setRawSessions((prev) => {
+      const nextItems = payload.items.map((item) => ({
+        id: item.orderItemId,
+        sessionId: payload.sessionId,
+        menuItemId: item.menuItemId,
+        qty: item.qty,
+        note: item.note ?? null,
+        status: item.status,
+        createdAt: item.createdAt || payload.createdAt,
+        updatedAt: payload.createdAt,
+        menuItem: {
+          id: item.menuItemId,
+          name: item.menuItemName,
+          imageUrl: null,
+          isSoldOut: false,
+        },
+      }));
+
+      const existingIndex = prev.findIndex((session) => session.id === payload.sessionId);
+      if (existingIndex === -1) {
+        return [
+          {
+            id: payload.sessionId,
+            tableId: payload.tableId,
+            openedAt: payload.createdAt,
+            lockedAt: payload.createdAt,
+            table: {
+              tableNumber: payload.tableNumber || 0,
+              label: payload.tableLabel || `Bàn ${payload.tableNumber || ""}`,
+            },
+            orderItems: nextItems,
+          },
+          ...prev,
+        ];
+      }
+
+      return prev.map((session, index) => {
+        if (index !== existingIndex) return session;
+        const existingIds = new Set(session.orderItems.map((item: any) => item.id));
+        return {
+          ...session,
+          table: {
+            ...session.table,
+            tableNumber: payload.tableNumber || session.table?.tableNumber || 0,
+            label: payload.tableLabel || session.table?.label || `Bàn ${payload.tableNumber || ""}`,
+          },
+          orderItems: [
+            ...session.orderItems,
+            ...nextItems.filter((item) => !existingIds.has(item.id)),
+          ],
+        };
+      });
+    });
+  };
+
+  const applyKitchenItemUpdate = (payload: KitchenItemRealtimePayload) => {
+    setRawSessions((prev) =>
+      prev
+        .map((session) => {
+          if (session.id !== payload.sessionId) return session;
+
+          let foundUpdatedItem = false;
+          const nextItems = session.orderItems
+            .filter((item: any) => item.id !== payload.removedOrderItemId)
+            .map((item: any) => {
+              if (item.id !== payload.orderItemId) return item;
+              foundUpdatedItem = true;
+
+              if (payload.status === "VOID") return null;
+
+              return {
+                ...item,
+                qty: payload.qty ?? item.qty,
+                note: payload.note !== undefined ? payload.note : item.note,
+                status: payload.status,
+                updatedAt: payload.updatedAt,
+                menuItem: {
+                  ...item.menuItem,
+                  id: payload.menuItemId || item.menuItem?.id,
+                  name: payload.menuItemName || item.menuItem?.name,
+                },
+              };
+            })
+            .filter(Boolean);
+
+          if (!foundUpdatedItem && payload.status !== "VOID" && payload.menuItemId && payload.menuItemName) {
+            nextItems.push({
+              id: payload.orderItemId,
+              sessionId: payload.sessionId,
+              menuItemId: payload.menuItemId,
+              qty: payload.qty ?? payload.deltaQty ?? 1,
+              note: payload.note ?? null,
+              status: payload.status,
+              createdAt: payload.updatedAt,
+              updatedAt: payload.updatedAt,
+              menuItem: {
+                id: payload.menuItemId,
+                name: payload.menuItemName,
+                imageUrl: null,
+                isSoldOut: false,
+              },
+            });
+          }
+
+          return {
+            ...session,
+            orderItems: nextItems,
+          };
+        })
+        .filter((session) => session.orderItems.length > 0)
+    );
   };
 
   // Listen to menu soldout
@@ -512,6 +669,19 @@ export default function KDSPage() {
       
       const result = await response.json();
       if (response.ok && result.success) {
+        setRawSessions((prev) =>
+          prev.map((session) => {
+            if (session.id !== sessionId) return session;
+            return {
+              ...session,
+              orderItems: session.orderItems.map((item: any) =>
+                item.status === (currentStatus === "pending" ? "PENDING" : "PREPARING")
+                  ? { ...item, status: newStatus, updatedAt: new Date().toISOString() }
+                  : item
+              ),
+            };
+          })
+        );
         fetchKdsOrders();
       } else {
         alert(result.message || "Không thể cập nhật trạng thái");
@@ -605,11 +775,36 @@ export default function KDSPage() {
     setOrders(prev => prev.filter(order => order.id !== session.id));
   };
 
-  const completeOrder = (sessionId: string) => {
+  const completeOrder = async (sessionId: string) => {
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      const response = await fetch(`${API_URL}/api/kds/orders/${sessionId}/deliver`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${accessToken || ''}`,
+        },
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        console.error("[KDS] Lỗi khi giao món trên DB:", result.message);
+        toast.error("Không thể lưu trữ đơn, vui lòng thử lại!");
+        return;
+      }
+    } catch (err) {
+      console.error("[KDS] Lỗi kết nối khi lưu trữ:", err);
+      toast.error("Lỗi kết nối, vui lòng thử lại!");
+      return;
+    }
+
     const session = rawSessions.find(s => s.id === sessionId);
     if (session) {
       archiveSession(session);
     }
+
+    setOrders(prev => prev.filter(o => o.id !== sessionId));
+    setRawSessions(prev => prev.filter(s => s.id !== sessionId));
+
+    toast.success("Đã lưu trữ và giao món thành công!");
   };
 
   const formatTimer = (seconds: number) => {
@@ -675,12 +870,10 @@ export default function KDSPage() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-500" />
             <span className="text-[10px] sm:text-xs text-zinc-400">Chờ/nấu:</span>
-            <span className="font-bold font-mono text-xs sm:text-sm">{orders.filter(o => o.status !== "ready").length}</span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-500" />
-            <span className="text-[10px] sm:text-xs text-zinc-400">TB nấu:</span>
-            <span className="font-bold font-mono text-xs sm:text-sm text-amber-400">11:24</span>
+            <span className="font-bold font-mono text-xs sm:text-sm">
+              {orders.filter(o => o.items.some(item => item.status === 'PENDING' || item.status === 'PREPARING'))
+                .reduce((sum, o) => sum + o.items.filter(i => i.status === 'PENDING' || i.status === 'PREPARING').reduce((s, i) => s + i.quantity, 0), 0)}
+            </span>
           </div>
         </div>
         <div className="text-[10px] sm:text-xs text-zinc-500 font-light italic hidden sm:block">
@@ -699,7 +892,8 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Hàng Chờ (Pending)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-amber-400 font-bold border border-zinc-800">
-              {orders.filter(o => o.status === "pending").length}
+              {orders.filter(o => o.items.some(item => item.status === 'PENDING'))
+                .reduce((sum, o) => sum + o.items.filter(i => i.status === 'PENDING').reduce((s, i) => s + i.quantity, 0), 0)} món
             </span>
           </div>
 
@@ -784,7 +978,8 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Đang nấu (Preparing)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-orange-400 font-bold border border-zinc-800">
-              {orders.filter(o => o.status === "preparing").length}
+              {orders.filter(o => o.items.some(item => item.status === 'PREPARING'))
+                .reduce((sum, o) => sum + o.items.filter(i => i.status === 'PREPARING').reduce((s, i) => s + i.quantity, 0), 0)} món
             </span>
           </div>
 
@@ -864,7 +1059,8 @@ export default function KDSPage() {
               <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Sẵn Sàng (Ready)</h2>
             </div>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-emerald-400 font-bold border border-zinc-800">
-              {orders.filter(o => o.status === "ready").length}
+              {orders.filter(o => o.items.some(item => item.status === 'DONE'))
+                .reduce((sum, o) => sum + o.items.filter(i => i.status === 'DONE').reduce((s, i) => s + i.quantity, 0), 0)} món
             </span>
           </div>
 

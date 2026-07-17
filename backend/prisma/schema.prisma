@@ -170,6 +170,7 @@ model SystemConfig {
   updatedAt         DateTime @updatedAt
 }
 
+
 model Category {
   id        String     @id @default(uuid())
   tenantId  String
@@ -283,6 +284,7 @@ model OrderItem {
 
   @@unique([sessionId, menuItemId, status])
   @@index([sessionId])
+  @@index([sessionId, status])
   @@index([menuItemId])
   @@index([tenantId])
 }
@@ -445,6 +447,7 @@ model Voucher {
   @@unique([tenantId, code])
 }
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SAAS BILLING MODELS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -546,4 +549,5 @@ model SubscriptionPayment {
   transactionId String?
   status        String   // e.g., 'SUCCESS', 'FAILED'
   createdAt     DateTime @default(now())
+}
 }

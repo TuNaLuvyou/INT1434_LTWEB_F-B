@@ -219,7 +219,9 @@ export class ExcelService {
         }
       },
       _sum: {
-        qty: true,
+        qty: true
+      },
+      _avg: {
         unitPrice: true
       }
     });
@@ -230,7 +232,7 @@ export class ExcelService {
         where: { id: oi.menuItemId },
         include: { category: true }
       });
-      const rev = Number(oi._sum.unitPrice || 0) * Number(oi._sum.qty || 0); // approx
+      const rev = Number(oi._avg.unitPrice || 0) * Number(oi._sum.qty || 0);
       totalRevenue += rev;
       return {
         name: menuItem?.name || 'Unknown',

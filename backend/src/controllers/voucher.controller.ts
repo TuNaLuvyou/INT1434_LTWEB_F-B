@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import prisma from '../config/prisma';
 import * as voucherService from '../services/voucher.service';
 import { AppError } from '../utils/app-error';
 
@@ -99,24 +100,27 @@ export async function updateVoucherHandler(req: Request, res: Response): Promise
     if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
 
     const valueNum = parseFloat(discountValue);
+    if (isNaN(valueNum) || valueNum <= 0) {
+      res.status(400).json({ success: false, message: 'Giá trị giảm giá không hợp lệ.' });
+      return;
+    }
+
     if (discountType === 'PERCENT' && valueNum > 100) {
       res.status(400).json({ success: false, message: 'Phần trăm giảm giá tối đa là 100%.' });
       return;
     }
 
-    const updated = await import('../config/prisma').then(m => m.default).then(async prisma => {
-      const existing = await prisma.voucher.findFirst({ where: { id, tenantId } });
-      if (!existing) throw new AppError(404, 'NOT_FOUND', 'Voucher không tồn tại');
-      return prisma.voucher.update({
-        where: { id },
-        data: {
-          code: code?.toUpperCase(),
-          discountType,
-          discountValue: valueNum,
-          maxUsage: maxUsage !== undefined ? maxUsage : undefined,
-          expiredAt: expiredAt !== undefined ? (expiredAt ? new Date(expiredAt) : null) : undefined,
-        }
-      });
+    const existing = await prisma.voucher.findFirst({ where: { id, tenantId } });
+    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Voucher không tồn tại');
+    const updated = await prisma.voucher.update({
+      where: { id },
+      data: {
+        code: code?.toUpperCase(),
+        discountType,
+        discountValue: valueNum,
+        maxUsage: maxUsage !== undefined ? maxUsage : undefined,
+        expiredAt: expiredAt !== undefined ? (expiredAt ? new Date(expiredAt) : null) : undefined,
+      }
     });
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
@@ -142,8 +146,6 @@ export async function validateVoucherHandler(req: Request, res: Response): Promi
       res.status(400).json({ valid: false, reason: 'Thiếu tenantId' });
       return;
     }
-
-    const prisma = await import('../config/prisma').then(m => m.default);
     const voucher = await prisma.voucher.findUnique({
       where: { tenantId_code: { tenantId: tId, code: code.toUpperCase() } }
     });

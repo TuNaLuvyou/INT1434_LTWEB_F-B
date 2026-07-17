@@ -69,6 +69,10 @@ export interface KitchenItemUpdatedPayload {
   orderItemId: string;
   tableId: string;
   menuItemName?: string;
+  qty?: number;
+  deltaQty?: number;
+  note?: string | null;
+  removedOrderItemId?: string;
   status: 'PREPARING' | 'DONE' | 'VOID';
   updatedAt: string;
 }
@@ -142,19 +146,6 @@ export function emitSessionAllDone(tenantId: string, branchId: string, payload: 
     console.log(`[emit] session:all-done → cashier | session: ${payload.sessionId}`);
   } catch (err) {
     console.warn('[emit] emitSessionAllDone failed:', err);
-  }
-}
-
-/**
- * Emit khi một item trong giỏ hàng bị sold-out (bếp toggle).
- * Target: room table:[tableId]
- */
-export function emitCartItemSoldOut(tableId: string, payload: { menuItemId: string; isSoldOut: boolean }): void {
-  try {
-    getIO().to(SOCKET_ROOMS.table(tableId)).emit(SOCKET_EVENTS.CART_ITEM_SOLD_OUT, payload);
-    console.log(`[emit] cart:item-soldout → room table:${tableId} | item: ${payload.menuItemId}`);
-  } catch (err) {
-    console.warn('[emit] emitCartItemSoldOut failed:', err);
   }
 }
 

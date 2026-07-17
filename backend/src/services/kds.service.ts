@@ -16,8 +16,17 @@ export async function getActiveKdsTickets(tenantId: string, branchId?: string) {
         }
       }
     },
-    include: {
-      table: true,
+    select: {
+      id: true,
+      tableId: true,
+      openedAt: true,
+      lockedAt: true,
+      table: {
+        select: {
+          tableNumber: true,
+          label: true,
+        },
+      },
       orderItems: {
         where: {
           status: { in: [OrderItemStatus.PENDING, OrderItemStatus.PREPARING] }
@@ -25,9 +34,24 @@ export async function getActiveKdsTickets(tenantId: string, branchId?: string) {
         orderBy: {
           createdAt: 'asc'
         },
-        include: {
-          menuItem: true
-        }
+        select: {
+          id: true,
+          sessionId: true,
+          menuItemId: true,
+          qty: true,
+          note: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          menuItem: {
+            select: {
+              id: true,
+              name: true,
+              imageUrl: true,
+              isSoldOut: true,
+            },
+          },
+        },
       }
     },
     orderBy: {
@@ -37,7 +61,40 @@ export async function getActiveKdsTickets(tenantId: string, branchId?: string) {
 }
 
 export async function updateOrderItemStatus(orderItemId: string, newStatus: OrderItemStatus) {
-  return await prisma.orderItem.update({
+  const item = await prisma.orderItem.findUnique({ where: { id: orderItemId } });
+  if (!item) throw new Error("Order item not found");
+
+  const existing = await prisma.orderItem.findUnique({
+    where: {
+      sessionId_menuItemId_status: {
+        sessionId: item.sessionId,
+        menuItemId: item.menuItemId,
+        status: newStatus
+      }
+    }
+  });
+
+  if (existing) {
+    const updated = await prisma.orderItem.update({
+      where: { id: existing.id },
+      data: {
+        qty: existing.qty + item.qty,
+        note: item.note ? (existing.note ? `${existing.note}, ${item.note}` : item.note) : existing.note
+      },
+      include: {
+        session: { include: { table: true } },
+        menuItem: true
+      }
+    });
+    await prisma.orderItem.delete({ where: { id: orderItemId } });
+    return {
+      item: updated,
+      removedOrderItemId: orderItemId,
+      deltaQty: item.qty,
+    };
+  }
+
+  const updated = await prisma.orderItem.update({
     where: { id: orderItemId },
     data: { status: newStatus },
     include: {
@@ -47,6 +104,11 @@ export async function updateOrderItemStatus(orderItemId: string, newStatus: Orde
       menuItem: true
     }
   });
+
+  return {
+    item: updated,
+    deltaQty: item.qty,
+  };
 }
 
 export async function checkAllItemsDone(sessionId: string): Promise<boolean> {

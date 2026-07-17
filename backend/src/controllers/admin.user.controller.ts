@@ -1,10 +1,11 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 import prisma from '../config/prisma';
 import bcrypt from 'bcrypt';
 import { checkUsageLimit } from '../services/usage-limit.service';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 
-export const getUsers = async (req: Request, res: Response): Promise<void> => {
+export const getUsers = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const authReq = req as AuthenticatedRequest;
     if (!authReq.user?.tenantId) {
@@ -37,7 +38,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const createUser = async (req: Request, res: Response): Promise<void> => {
+export const createUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { email, password, name, role } = req.body;
     
@@ -65,7 +66,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const updateUser = async (req: Request, res: Response): Promise<void> => {
+export const updateUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
     const { name, role, isActive } = req.body;
@@ -111,7 +112,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+export const resetPassword = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
     const { newPassword } = req.body;
@@ -119,7 +120,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     const authReq = req as AuthenticatedRequest;
     if (!authReq.user?.tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
 
-    if (!newPassword || newPassword.length < 8) {
+    if (!newPassword || newPassword.trim().length < 8) {
       res.status(400).json({ success: false, message: 'Mật khẩu phải từ 8 ký tự' });
       return;
     }
@@ -144,7 +145,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const deleteUser = async (req: Request, res: Response): Promise<void> => {
+export const deleteUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
     

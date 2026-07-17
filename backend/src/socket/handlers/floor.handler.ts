@@ -1,5 +1,4 @@
 import { Socket, Server } from 'socket.io';
-import { SOCKET_EVENTS, SOCKET_ROOMS } from '../events';
 
 /**
  * floorHandler — xử lý events liên quan màn hình sơ đồ bàn (Floor Plan)

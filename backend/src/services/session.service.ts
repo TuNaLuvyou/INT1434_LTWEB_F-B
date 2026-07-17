@@ -70,7 +70,7 @@ export async function joinOrCreateSession(tableId: string, createdViaPos?: boole
   if (!table) {
     const parsedNum = parseInt(tableId, 10);
     if (!isNaN(parsedNum)) {
-      table = await prisma.table.findUnique({ where: { tableNumber: parsedNum } });
+      table = await prisma.table.findFirst({ where: { tableNumber: parsedNum } });
     }
   }
 
@@ -122,6 +122,8 @@ export async function joinOrCreateSession(tableId: string, createdViaPos?: boole
     prisma.tableSession.create({
       data: {
         tableId: actualTableId,
+        tenantId: table.tenantId,
+        branchId: table.branchId,
         status: 'OPEN',
         version: 0,
         createdViaPos: !!createdViaPos,
@@ -352,38 +354,35 @@ export async function addToCart(
   clientTimestamp: number
 ) {
   return await prisma.$transaction(async (tx) => {
-    // STEP 1: Verify session còn OPEN
-    const session = await tx.tableSession.findUnique({
-      where: { id: sessionId },
-      include: { table: true }
-    });
+    // STEP 1-3: Thực hiện query song song để giảm latency (đặc biệt khi DB remote)
+    const [session, menuItem, existing] = await Promise.all([
+      tx.tableSession.findUnique({
+        where: { id: sessionId },
+        include: { table: true }
+      }),
+      tx.menuItem.findUnique({
+        where: { id: menuItemId },
+      }),
+      tx.orderItem.findUnique({
+        where: {
+          sessionId_menuItemId_status: {
+            sessionId,
+            menuItemId,
+            status: 'CART',
+          },
+        },
+      }),
+    ]);
     if (!session || session.status !== 'OPEN') {
       throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
     }
 
-    // Removed locked check so customers can continuously place additional orders.
-
-    // STEP 2: Verify menuItem isActive và không sold out
-    const menuItem = await tx.menuItem.findUnique({
-      where: { id: menuItemId },
-    });
     if (!menuItem || !menuItem.isActive) {
       throw new AppError(404, 'ITEM_NOT_FOUND', 'Món không còn phục vụ');
     }
     if (menuItem.isSoldOut) {
       throw new AppError(409, 'ITEM_SOLD_OUT', `Món "${menuItem.name}" đã hết`);
     }
-
-    // STEP 3: LWW CONFLICT CHECK
-    const existing = await tx.orderItem.findUnique({
-      where: {
-        sessionId_menuItemId_status: {
-          sessionId,
-          menuItemId,
-          status: 'CART',
-        },
-      },
-    });
 
     if (existing) {
       const dbTimestamp = existing.updatedAt.getTime();
@@ -427,6 +426,7 @@ export async function addToCart(
           note: note ?? '',
         },
         create: {
+          tenantId: session.tenantId,
           sessionId,
           menuItemId,
           qty,
@@ -466,27 +466,25 @@ export async function deleteCartItem(
   clientTimestamp: number
 ) {
   return await prisma.$transaction(async (tx) => {
-    // STEP 1: Verify session còn OPEN
-    const session = await tx.tableSession.findUnique({
-      where: { id: sessionId },
-      include: { table: true }
-    });
+    // STEP 1-2: Query song song để giảm latency
+    const [session, existing] = await Promise.all([
+      tx.tableSession.findUnique({
+        where: { id: sessionId },
+        include: { table: true }
+      }),
+      tx.orderItem.findUnique({
+        where: {
+          sessionId_menuItemId_status: {
+            sessionId,
+            menuItemId,
+            status: 'CART',
+          },
+        },
+      }),
+    ]);
     if (!session || session.status !== 'OPEN') {
       throw new AppError(400, 'SESSION_CLOSED', 'Phiên đặt món đã kết thúc');
     }
-
-    // Removed locked check so customers can continuously place additional orders.
-
-    // STEP 2: LWW CONFLICT CHECK
-    const existing = await tx.orderItem.findUnique({
-      where: {
-        sessionId_menuItemId_status: {
-          sessionId,
-          menuItemId,
-          status: 'CART',
-        },
-      },
-    });
 
     if (existing) {
       const dbTimestamp = existing.updatedAt.getTime();
