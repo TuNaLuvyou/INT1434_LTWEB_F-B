@@ -36,9 +36,9 @@ import { PaymentStatus } from '@prisma/client';
  * Tim Shift OPEN cua cashier. Neu khong co thi tu dong tao moi.
  * Giai phap don gian hoa: khong can Thu ngan mo/dong ca thu cong.
  */
-export async function getOrCreateShift(cashierId: string): Promise<string> {
+export async function getOrCreateShift(cashierId: string, tenantId: string, branchId: string): Promise<string> {
   const existing = await prisma.shift.findFirst({
-    where: { cashierId, status: 'OPEN' },
+    where: { cashierId, status: 'OPEN', tenantId, branchId },
     select: { id: true },
     orderBy: { openedAt: 'desc' },
   });
@@ -48,6 +48,8 @@ export async function getOrCreateShift(cashierId: string): Promise<string> {
   const newShift = await prisma.shift.create({
     data: {
       cashierId,
+      tenantId,
+      branchId,
       openFloat: 0,
       status: 'OPEN',
     },
@@ -256,7 +258,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
     closedAt: paidAt.toISOString(),
   });
 
-  emitTableStatusChanged({
+  emitTableStatusChanged(session.tenantId, session.branchId, {
     tableId: session.tableId,
     status: keepOccupied ? 'OCCUPIED' : 'AVAILABLE',
     tableNumber: session.table.tableNumber,
@@ -265,7 +267,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
 
   // 5. Gui mon den bep (KDS) realtime
   if (itemsToSendToKitchen.length > 0) {
-    emitKitchenNewTicket({
+    emitKitchenNewTicket(session.tenantId, session.branchId, {
       sessionId,
       tableId: session.tableId,
       tableNumber: session.table.tableNumber,
@@ -363,7 +365,7 @@ export async function confirmManualPayment(paymentId: string, cashierId: string,
     closedAt: paidAt.toISOString(),
   });
 
-  emitTableStatusChanged({
+  emitTableStatusChanged(session.tenantId, session.branchId, {
     tableId: session.tableId,
     status: keepOccupied ? 'OCCUPIED' : 'AVAILABLE',
     tableNumber: session.table.tableNumber,
@@ -371,7 +373,7 @@ export async function confirmManualPayment(paymentId: string, cashierId: string,
   });
 
   if (itemsToSendToKitchen.length > 0) {
-    emitKitchenNewTicket({
+    emitKitchenNewTicket(session.tenantId, session.branchId, {
       sessionId: session.id,
       tableId: session.tableId,
       tableNumber: session.table.tableNumber,

@@ -110,7 +110,7 @@ export const handleUpdateTable = async (req: Request, res: Response) => {
 
     // Nếu thay đổi trạng thái, phát tín hiệu Socket.io tới room "floor-plan"
     if (status) {
-      emitTableStatusChanged({
+      emitTableStatusChanged(updatedTable.tenantId, updatedTable.branchId, {
         tableId: updatedTable.id,
         status: updatedTable.status as any,
         tableNumber: updatedTable.tableNumber,
@@ -186,7 +186,7 @@ export const handleUpdateTableStatus = async (req: Request, res: Response) => {
     const updatedTable = await TableService.updateTable(id, tenantId, undefined, status);
 
     // Phát tín hiệu Socket.io tới room "floor-plan"
-    emitTableStatusChanged({
+    emitTableStatusChanged(updatedTable.tenantId, updatedTable.branchId, {
       tableId: updatedTable.id,
       status: updatedTable.status as any,
       tableNumber: updatedTable.tableNumber,

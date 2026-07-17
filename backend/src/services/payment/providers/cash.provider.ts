@@ -4,7 +4,7 @@ import { getOrCreateShift } from '../../payment.service';
 
 export class CashProvider implements PaymentProvider {
   async createPayment(input: CreatePaymentInput, tx: Prisma.TransactionClient): Promise<PaymentCreationResult> {
-    const shiftId = await getOrCreateShift(input.cashierId);
+    const shiftId = await getOrCreateShift(input.cashierId, input.tenantId, input.branchId);
     const paidAt = new Date();
 
     const payment = await tx.payment.create({

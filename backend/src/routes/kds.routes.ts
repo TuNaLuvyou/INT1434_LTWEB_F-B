@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 import { requireFeature } from '../middlewares/feature.guard';
-import { getKdsTickets, updateKdsItemStatus, getKdsOrders, updateKdsOrderStatus, voidKdsOrderItem } from '../controllers/kds.controller';
+import { getKdsTickets, updateKdsItemStatus, getKdsOrders, updateKdsOrderStatus, voidKdsOrderItem, deliverKdsOrder } from '../controllers/kds.controller';
 
 const router = Router();
 
@@ -17,5 +17,8 @@ router.patch('/orders/:sessionId/status', updateKdsOrderStatus);
 
 // KDS Void Item: Cho phép bếp huỷ món khi hết hàng trực tiếp từ màn hình bếp
 router.patch('/sessions/:sessionId/items/:orderItemId/void', voidKdsOrderItem);
+
+// KDS Deliver Order: Lưu trữ (giao xong toàn bộ các món trong session)
+router.patch('/orders/:sessionId/deliver', deliverKdsOrder);
 
 export default router;

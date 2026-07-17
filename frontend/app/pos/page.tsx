@@ -158,8 +158,18 @@ export default function POSPage() {
     try {
       const accessToken = getAccessTokenFromCookie();
       
+      let tId = '';
+      let bId = '';
+      if (accessToken) {
+        try {
+          const payload = JSON.parse(atob(accessToken.split('.')[1]));
+          tId = payload.tenantId || '';
+          bId = payload.branchId || '';
+        } catch(e) {}
+      }
+
       // Fetch Menu & Categories
-      const menuRes = await fetch(`${API_URL}/api/menu`);
+      const menuRes = await fetch(`${API_URL}/api/menu?tenantId=${tId}&branchId=${bId}`);
       const menuData = await menuRes.json();
       if (menuRes.ok && menuData.success) {
         setMenuItems(menuData.data.items || []);
@@ -378,7 +388,7 @@ export default function POSPage() {
   });
 
   const { socket: orderSocket, isConnected: isOrderConnected } = useSocket({
-    room: 'cashier',
+    room: `tenant:${tenantId}:branch:${branchId}:cashier`,
     token,
   });
 

@@ -11,7 +11,7 @@ export function requireFeature(featureCode: string) {
     try {
       const authReq = req as AuthenticatedRequest;
       // Uu tien lay tenantId tu JWT (neu da login vao tenant), sau do lay tu param/body/header
-      const tenantId = authReq.user?.tenantId || req.params.tenantId || req.body.tenantId || req.headers['x-tenant-id'];
+      const tenantId = authReq.user?.tenantId || req.params?.tenantId || req.body?.tenantId || req.headers['x-tenant-id'];
 
       if (!tenantId) {
         return next(new AppError(400, 'MISSING_TENANT_ID', 'Khong xac dinh duoc Tenant hien tai de kiem tra tinh nang.'));

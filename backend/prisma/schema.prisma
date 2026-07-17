@@ -264,6 +264,7 @@ enum OrderItemStatus {
   PENDING
   PREPARING
   DONE
+  DELIVERED
   VOID
 }
 
@@ -549,5 +550,4 @@ model SubscriptionPayment {
   transactionId String?
   status        String   // e.g., 'SUCCESS', 'FAILED'
   createdAt     DateTime @default(now())
-}
 }

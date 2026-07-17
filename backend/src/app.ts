@@ -28,6 +28,8 @@ import { initSocket } from './socket';
 import { globalErrorHandler } from './middlewares/error.middleware';
 import { startAutomaticCleanupJob } from './services/cleanup.service';
 
+import bankRoutes from './routes/bank.routes';
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -86,6 +88,7 @@ app.use('/api/admin/users', adminUserRoutes);
 // System routes
 app.use('/api/system', systemRoutes);
 app.use('/api/platform-admin', platformAdminRoutes);
+app.use('/api/banks', bankRoutes);
 
 // SaaS Feature protected stubs
 app.use('/api/integration', integrationRoutes);

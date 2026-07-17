@@ -5,7 +5,7 @@ import { AppError } from '../../../utils/app-error';
 
 export class VietQrProvider implements PaymentProvider {
   async createPayment(input: CreatePaymentInput, tx: Prisma.TransactionClient): Promise<PaymentCreationResult> {
-    const shiftId = await getOrCreateShift(input.cashierId);
+    const shiftId = await getOrCreateShift(input.cashierId, input.tenantId, input.branchId);
     
     // Fetch bank account
     const bankAccount = await tx.tenantBankAccount.findFirst({

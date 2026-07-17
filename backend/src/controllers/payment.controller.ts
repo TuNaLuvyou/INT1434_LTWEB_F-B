@@ -116,6 +116,7 @@ export async function processPaymentHandler(req: Request, res: Response): Promis
       });
       return;
     }
+    console.error('[processPaymentHandler] error:', error);
     res.status(500).json({ success: false, message: 'Loi server noi bo.' });
   }
 }

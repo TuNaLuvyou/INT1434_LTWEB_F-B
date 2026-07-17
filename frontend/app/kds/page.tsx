@@ -146,7 +146,18 @@ export default function KDSPage() {
     setMenuLoading(true);
     setFetchError(null);
     try {
-      const response = await fetch(`${API_URL}/api/menu`);
+      const token = getAccessTokenFromCookie();
+      let tId = '';
+      let bId = '';
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          tId = payload.tenantId || '';
+          bId = payload.branchId || '';
+        } catch(e) {}
+      }
+      
+      const response = await fetch(`${API_URL}/api/menu?tenantId=${tId}&branchId=${bId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

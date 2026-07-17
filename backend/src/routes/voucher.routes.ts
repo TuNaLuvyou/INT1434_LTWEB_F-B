@@ -11,21 +11,19 @@ import { requireFeature } from '../middlewares/feature.guard';
 
 const router = Router();
 
-router.use(requireFeature('PROMOTION_ENGINE'));
-
 // Lấy danh sách voucher (ADMIN, MANAGER, CASHIER)
-router.get('/', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'CASHIER']), getAllVouchersHandler);
+router.get('/', authMiddleware as any, requireFeature('PROMOTION_ENGINE') as any, requireRole(['ADMIN', 'MANAGER', 'CASHIER']) as any, getAllVouchersHandler as any);
 
 // Tạo mới voucher (ADMIN, MANAGER)
-router.post('/', authMiddleware, requireRole(['ADMIN', 'MANAGER']), createVoucherHandler);
+router.post('/', authMiddleware as any, requireFeature('PROMOTION_ENGINE') as any, requireRole(['ADMIN', 'MANAGER']) as any, createVoucherHandler as any);
 
 // Validate voucher — phải đặt TRƯỚC /:id để tránh bị capture nhầm
-router.post('/validate', authMiddleware, requireRole(['ADMIN', 'MANAGER', 'CASHIER']), validateVoucherHandler);
+router.post('/validate', authMiddleware as any, requireFeature('PROMOTION_ENGINE') as any, requireRole(['ADMIN', 'MANAGER', 'CASHIER']) as any, validateVoucherHandler as any);
 
 // Sửa voucher (ADMIN, MANAGER)
-router.put('/:id', authMiddleware, requireRole(['ADMIN', 'MANAGER']), updateVoucherHandler);
+router.put('/:id', authMiddleware as any, requireFeature('PROMOTION_ENGINE') as any, requireRole(['ADMIN', 'MANAGER']) as any, updateVoucherHandler as any);
 
 // Xóa/Vô hiệu hóa voucher (ADMIN, MANAGER)
-router.delete('/:id', authMiddleware, requireRole(['ADMIN', 'MANAGER']), deleteVoucherHandler);
+router.delete('/:id', authMiddleware as any, requireFeature('PROMOTION_ENGINE') as any, requireRole(['ADMIN', 'MANAGER']) as any, deleteVoucherHandler as any);
 
 export default router;
