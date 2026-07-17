@@ -3,6 +3,7 @@ import {
   getIngredients, createIngredient, updateIngredient,
   deleteIngredient, adjustStock, getLogs, reverseStock,
   getBom, addBomEntry, updateBomEntry, deleteBomEntry,
+  getBranchStock, transferToBranch, getExportedStats,
 } from '../controllers/ingredient.controller';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 
@@ -10,12 +11,21 @@ import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 const adminRouter = Router();
 adminRouter.use(authMiddleware, requireRole(['ADMIN', 'MANAGER']));
 
-// ── Ingredients ──────────────────────────────────────────────────
-adminRouter.get('/',           getIngredients);
-adminRouter.post('/',          createIngredient);
-adminRouter.put('/:id',        updateIngredient);
+// ── Kho tổng & Kho chi nhánh ──────────────────────────────────────
+adminRouter.get('/',           requireRole(['ADMIN', 'MANAGER']), getIngredients);
+adminRouter.post('/',          requireRole(['ADMIN', 'MANAGER']), createIngredient);
+adminRouter.put('/:id',        requireRole(['ADMIN', 'MANAGER']), updateIngredient);
 adminRouter.delete('/:id',     requireRole(['ADMIN', 'MANAGER']), deleteIngredient);
-adminRouter.patch('/:id/stock', adjustStock);
+// Nhập vào kho tổng / kho chi nhánh
+adminRouter.patch('/:id/stock', requireRole(['ADMIN', 'MANAGER']), adjustStock);
+// Xuất từ kho tổng sang kho chi nhánh: ADMIN only
+adminRouter.post('/transfer-to-branch', requireRole(['ADMIN']), transferToBranch);
+
+// ── Kho chi nhánh: ADMIN + Manager ──────────────────────────────
+adminRouter.get('/branch-stock', getBranchStock);
+
+// ── Đã xuất: ADMIN + Manager ─────────────────────────────────────
+adminRouter.get('/exported-stats', getExportedStats);
 
 // ── Inventory Logs ───────────────────────────────────────────────
 adminRouter.get('/logs',       getLogs);
@@ -34,3 +44,4 @@ reverseRouter.post('/reverse', reverseStock);
 
 export { reverseRouter };
 export default adminRouter;
+

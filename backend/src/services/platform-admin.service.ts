@@ -1,4 +1,5 @@
 import prisma from '../config/prisma';
+import bcrypt from 'bcrypt';
 
 export const getTenants = async () => {
   const tenants = await prisma.tenant.findMany({
@@ -61,33 +62,29 @@ export const getTenants = async () => {
   });
 };
 
-export const createTenant = async (data: { name: string; domain?: string; ownerEmail: string; ownerName: string }) => {
-  const { name, domain, ownerEmail, ownerName } = data;
+export const createTenant = async (data: { name: string; domain?: string; ownerEmail: string; ownerName: string; ownerPassword?: string; ownerPhone?: string }) => {
+  const { name, domain, ownerEmail, ownerName, ownerPassword, ownerPhone } = data;
   
   // 1. Kiểm tra user hoặc tạo mới
   let user = await prisma.user.findUnique({ where: { email: ownerEmail } });
-  if (!user) {
-    // Tạm thời tạo password mặc định (hoặc dùng hàm hash)
-    // Để an toàn, trong thực tế sẽ gửi email yêu cầu đổi pass, hoặc gen mật khẩu ngẫu nhiên
-    const bcrypt = require('bcrypt');
-    const defaultPassword = await bcrypt.hash('12345678', 10);
-    
-    user = await prisma.user.create({
-      data: {
-        email: ownerEmail,
-        name: ownerName,
-        passwordHash: defaultPassword,
-        role: 'ADMIN',
-        domain: domain || null // Gán domain cho admin
-      }
-    });
-  } else if (domain) {
-    // Nếu user đã tồn tại, cập nhật domain
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { domain }
-    });
+  if (user) {
+    throw new Error('Email này đã được sử dụng bởi một tài khoản hoặc cửa hàng khác. Vui lòng sử dụng email khác.');
   }
+
+  // Tạm thời tạo password mặc định (hoặc dùng hàm hash)
+  // Để an toàn, trong thực tế sẽ gửi email yêu cầu đổi pass, hoặc gen mật khẩu ngẫu nhiên
+  // Lấy password từ input (hoặc nếu lỗi thì fallback)
+  const defaultPassword = await bcrypt.hash(ownerPassword || '12345678', 10);
+  
+  user = await prisma.user.create({
+    data: {
+      email: ownerEmail,
+      name: ownerName,
+      passwordHash: defaultPassword,
+      role: 'ADMIN',
+      phone: ownerPhone || null
+    }
+  });
 
   // 2. Tạo tenant mới
   const tenant = await prisma.tenant.create({
@@ -146,6 +143,47 @@ export const createTenant = async (data: { name: string; domain?: string; ownerE
       name: 'Chi nhánh chính'
     }
   });
+
+  return tenant;
+};
+
+export const updateTenant = async (id: string, data: { name?: string; domain?: string; ownerEmail?: string; ownerName?: string; ownerPassword?: string; ownerPhone?: string; isActive?: boolean; subscription?: string }) => {
+  const tenantUpdateData: any = {};
+  if (data.name !== undefined) tenantUpdateData.name = data.name;
+  if (data.domain !== undefined) tenantUpdateData.domain = data.domain;
+  if (data.isActive !== undefined) tenantUpdateData.isActive = data.isActive;
+
+  const tenant = await prisma.tenant.update({
+    where: { id },
+    data: tenantUpdateData
+  });
+
+  if (data.subscription !== undefined) {
+    await updateTenantSubscriptionPlan(id, data.subscription);
+  }
+
+  if (data.ownerEmail || data.ownerName || data.ownerPassword || data.ownerPhone) {
+    const tenantOwner = await prisma.tenantUser.findFirst({
+      where: { tenantId: id, isOwner: true },
+      include: { user: true }
+    });
+
+    if (tenantOwner && tenantOwner.user) {
+      const updateData: any = {};
+      if (data.ownerName) updateData.name = data.ownerName;
+      if (data.ownerEmail) updateData.email = data.ownerEmail;
+      if (data.ownerPhone !== undefined) updateData.phone = data.ownerPhone;
+      
+      if (data.ownerPassword) {
+        updateData.passwordHash = await bcrypt.hash(data.ownerPassword, 10);
+      }
+
+      await prisma.user.update({
+        where: { id: tenantOwner.userId },
+        data: updateData
+      });
+    }
+  }
 
   return tenant;
 };

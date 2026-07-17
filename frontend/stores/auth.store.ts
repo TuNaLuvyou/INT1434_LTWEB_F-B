@@ -14,6 +14,7 @@ type UserData = {
   customRole?: string;
   permissions?: string[];
   currentTenant?: any;
+  currentBranch?: any;
 };
 
 type AuthStore = {

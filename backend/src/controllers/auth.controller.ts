@@ -187,7 +187,7 @@ export const me = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const user = await authService.getMe(userId, tenantId);
+    const user = await authService.getMe(userId, tenantId, branchId);
     res.status(200).json({
       success: true,
       data: { 

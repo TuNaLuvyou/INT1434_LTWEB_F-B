@@ -18,11 +18,12 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 interface Props {
   ingredient?: any;
+  targetWarehouse?: 'main' | 'branch';
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function IngredientModal({ ingredient, onClose, onSaved }: Props) {
+export default function IngredientModal({ ingredient, targetWarehouse = 'main', onClose, onSaved }: Props) {
   const isEdit = !!ingredient;
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<any>({
@@ -30,14 +31,15 @@ export default function IngredientModal({ ingredient, onClose, onSaved }: Props)
     defaultValues: {
       name:     ingredient?.name || '',
       unit:     ingredient?.unit || '',
-      stock:    ingredient ? Number(ingredient.stock) : 0,
+      stock:    ingredient ? (targetWarehouse === 'branch' ? Number(ingredient.branchStock || 0) : Number(ingredient.mainStock || ingredient.stock || 0)) : 0,
       minStock: ingredient ? Number(ingredient.minStock) : 0,
     },
   });
 
   const onSubmit = async (values: any) => {
+    // API endpoint cho update là PUT, create là POST
     const url = isEdit ? `${API}/api/ingredients/${ingredient.id}` : `${API}/api/ingredients`;
-    const method = isEdit ? 'PATCH' : 'POST';
+    const method = isEdit ? 'PUT' : 'POST';
 
     const token = getAccessTokenFromCookie();
 
@@ -47,7 +49,10 @@ export default function IngredientModal({ ingredient, onClose, onSaved }: Props)
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
-      body: JSON.stringify(values),
+      body: JSON.stringify({
+        ...values,
+        targetWarehouse
+      }),
       credentials: 'include',
     });
 

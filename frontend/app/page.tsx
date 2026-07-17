@@ -49,7 +49,11 @@ export default function Home() {
       const token = getAccessTokenFromCookie();
       if (!token) return;
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/system/overview`, {
+        const url = new URL(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/system/overview`);
+        if (user?.currentBranchId) {
+          url.searchParams.append('branchId', user.currentBranchId);
+        }
+        const res = await fetch(url.toString(), {
           headers: { Authorization: `Bearer ${token}` }
         });
         const json = await res.json();
@@ -63,7 +67,7 @@ export default function Home() {
       const interval = setInterval(fetchStats, 30000);
       return () => clearInterval(interval);
     }
-  }, [isMounted]);
+  }, [isMounted, user?.currentBranchId]);
 
   const hasToken = isMounted ? !!getAccessTokenFromCookie() : false;
 
@@ -179,7 +183,11 @@ export default function Home() {
                 <div className="flex items-center gap-3 animate-fade-in">
                   <div className="text-right hidden sm:block">
                     <p className="text-xs font-bold text-zinc-200 leading-none">{user.name}</p>
-                    <p className="text-[9px] text-indigo-400 font-semibold tracking-wider uppercase mt-1">{user.role}{user.currentTenant?.name ? <span className="text-zinc-500 font-normal ml-1">· {user.currentTenant.name}</span> : ''}</p>
+                    <p className="text-[9px] text-indigo-400 font-semibold tracking-wider uppercase mt-1">
+                      {user.role}
+                      {user.currentTenant?.name ? <span className="text-zinc-500 font-normal ml-1">· {user.currentTenant.name}</span> : ''}
+                      {user.currentBranch?.name ? <span className="text-violet-400 font-normal ml-1">· {user.currentBranch.name}</span> : ''}
+                    </p>
                   </div>
                   {user.currentBranchId && user.role === 'ADMIN' && (
                     <Link

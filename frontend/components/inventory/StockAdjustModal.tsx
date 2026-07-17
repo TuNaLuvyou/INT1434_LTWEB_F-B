@@ -16,11 +16,12 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 interface Props {
   ingredient: any;
+  targetWarehouse?: 'main' | 'branch';
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function StockAdjustModal({ ingredient, onClose, onSaved }: Props) {
+export default function StockAdjustModal({ ingredient, targetWarehouse = 'main', onClose, onSaved }: Props) {
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<any>({
     resolver: zodResolver(schema),
     defaultValues: { delta: 0, reason: 'MANUAL_IMPORT' },
@@ -54,6 +55,7 @@ export default function StockAdjustModal({ ingredient, onClose, onSaved }: Props
       body: JSON.stringify({
         ...values,
         delta: finalDelta,
+        targetWarehouse
       }),
       credentials: 'include',
     });
@@ -98,7 +100,7 @@ export default function StockAdjustModal({ ingredient, onClose, onSaved }: Props
             <span>Tồn kho hiện tại:</span>
           </div>
           <span className="text-white text-sm font-bold bg-violet-600/20 px-2.5 py-0.5 rounded-full border border-violet-500/25">
-            {new Intl.NumberFormat('vi-VN').format(Number(ingredient.stock))} {ingredient.unit}
+            {new Intl.NumberFormat('vi-VN').format(targetWarehouse === 'branch' ? Number(ingredient.branchStock || 0) : Number(ingredient.mainStock || ingredient.stock || 0))} {ingredient.unit}
           </span>
         </div>
 

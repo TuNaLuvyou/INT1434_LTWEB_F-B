@@ -118,6 +118,25 @@ export async function joinOrCreateSession(tableId: string, createdViaPos?: boole
   }
 
   // 3b. Chưa có session — tạo mới trong transaction
+  // Generate orderNo: [First letters of Branch] - [Daily Count + 1]
+  const branch = await prisma.branch.findUnique({ where: { id: table.branchId } });
+  let prefix = 'ORD';
+  if (branch && branch.name) {
+    const normalized = branch.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const words = normalized.split(/\s+/).filter(w => w.length > 0);
+    prefix = words.map(w => w[0].toUpperCase()).join('').substring(0, 3);
+  }
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const count = await prisma.tableSession.count({
+    where: {
+      branchId: table.branchId,
+      openedAt: { gte: today }
+    }
+  });
+  const orderNo = `${prefix} - ${count + 1}`;
+
   const [newSession] = await prisma.$transaction([
     prisma.tableSession.create({
       data: {
@@ -127,6 +146,7 @@ export async function joinOrCreateSession(tableId: string, createdViaPos?: boole
         status: 'OPEN',
         version: 0,
         createdViaPos: !!createdViaPos,
+        orderNo,
       },
       include: orderItemsInclude,
     }),
@@ -294,6 +314,7 @@ export async function updateSessionStatus(
     if (itemsToSendToKitchen.length > 0) {
       emitKitchenNewTicket(session.table.tenantId, session.table.branchId, {
         sessionId,
+        orderNo: session.orderNo || undefined,
         tableId: session.tableId,
         tableNumber: session.table.tableNumber,
         items: itemsToSendToKitchen.map(item => ({

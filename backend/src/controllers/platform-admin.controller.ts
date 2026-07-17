@@ -12,14 +12,25 @@ export const listTenants = async (req: Request, res: Response) => {
 
 export const createTenant = async (req: Request, res: Response) => {
   try {
-    const { name, domain, ownerEmail, ownerName } = req.body;
+    const { name, domain, ownerEmail, ownerName, ownerPassword, ownerPhone } = req.body;
     
-    if (!name || !ownerEmail || !ownerName) {
+    if (!name || !ownerEmail || !ownerName || !ownerPassword) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
-    const tenant = await platformAdminService.createTenant({ name, domain, ownerEmail, ownerName });
+    const tenant = await platformAdminService.createTenant({ name, domain, ownerEmail, ownerName, ownerPassword, ownerPhone });
     res.status(201).json({ success: true, data: tenant });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updateTenant = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name, domain, ownerEmail, ownerName, ownerPassword, ownerPhone, isActive, subscription } = req.body;
+    const tenant = await platformAdminService.updateTenant(id, { name, domain, ownerEmail, ownerName, ownerPassword, ownerPhone, isActive, subscription });
+    res.json({ success: true, data: tenant });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

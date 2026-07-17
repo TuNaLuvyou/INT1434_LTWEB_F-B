@@ -20,7 +20,13 @@ export const getRevenue = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const data = await svc.getRevenue(from, to, groupBy);
+    const tenantId = (req as any).user?.tenantId;
+    let branchId = req.query.branchId as string | undefined;
+    if ((req as any).user?.role === 'MANAGER') {
+      branchId = (req as any).user?.branchId;
+    }
+
+    const data = await svc.getRevenue(from, to, groupBy, tenantId, branchId);
     res.json({ success: true, data });
   } catch (e: any) {
     if (e instanceof z.ZodError) {
@@ -44,7 +50,13 @@ export const getPeakHours = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const data = await svc.getPeakHours(from, to);
+    const tenantId = (req as any).user?.tenantId;
+    let branchId = req.query.branchId as string | undefined;
+    if ((req as any).user?.role === 'MANAGER') {
+      branchId = (req as any).user?.branchId;
+    }
+
+    const data = await svc.getPeakHours(from, to, tenantId, branchId);
     res.json({ success: true, data });
   } catch (e: any) {
     if (e instanceof z.ZodError) {
@@ -70,7 +82,13 @@ export const getTopSelling = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const data = await svc.getTopSellingItems(from, to, limit);
+    const tenantId = (req as any).user?.tenantId;
+    let branchId = req.query.branchId as string | undefined;
+    if ((req as any).user?.role === 'MANAGER') {
+      branchId = (req as any).user?.branchId;
+    }
+
+    const data = await svc.getTopSellingItems(from, to, limit, tenantId, branchId);
     res.json({ success: true, data });
   } catch (e: any) {
     console.error('[AnalyticsController] getTopSelling error:', e);
@@ -121,7 +139,13 @@ export const getTodayOverview = async (req: Request, res: Response): Promise<voi
   try {
     const rangeType = req.query.rangeType as string || 'today';
     const customDate = req.query.customDate as string || undefined;
-    const data = await svc.getTodayOverview(rangeType, customDate);
+    const tenantId = (req as any).user?.tenantId;
+    let branchId = req.query.branchId as string | undefined;
+    if ((req as any).user?.role === 'MANAGER') {
+      branchId = (req as any).user?.branchId;
+    }
+
+    const data = await svc.getTodayOverview(rangeType, customDate, tenantId, branchId);
     res.json({ success: true, data });
   } catch (e: any) {
     console.error('[AnalyticsController] getTodayOverview error:', e);

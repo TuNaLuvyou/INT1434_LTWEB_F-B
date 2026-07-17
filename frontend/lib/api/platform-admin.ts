@@ -25,9 +25,15 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
 export const platformAdminApi = {
   getTenants: () => fetchWithAuth('/api/platform-admin/tenants'),
   
-  createTenant: (data: { name: string; domain?: string; ownerEmail: string; ownerName: string }) => 
+  createTenant: (data: { name: string; domain?: string; ownerEmail: string; ownerName: string; ownerPassword?: string; ownerPhone?: string }) => 
     fetchWithAuth('/api/platform-admin/tenants', {
       method: 'POST',
+      body: JSON.stringify(data)
+    }),
+    
+  updateTenant: (id: string, data: { name?: string; domain?: string; ownerEmail?: string; ownerName?: string; ownerPassword?: string; ownerPhone?: string; isActive?: boolean; subscription?: string }) =>
+    fetchWithAuth(`/api/platform-admin/tenants/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(data)
     }),
     

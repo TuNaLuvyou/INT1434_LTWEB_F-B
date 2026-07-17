@@ -17,6 +17,7 @@ export interface CashierOverviewTable {
   tableNumber: number;
   tableLabel: string;
   tableStatus: "AVAILABLE" | "OCCUPIED" | "RESERVED";
+  isExcess?: boolean;
   session: {
     sessionId: string;
     openedAt: string | Date;
@@ -27,7 +28,7 @@ export interface CashierOverviewTable {
   } | null;
 }
 
-type OrderItemStatus = "PENDING" | "PREPARING" | "DONE" | "VOID";
+type OrderItemStatus = "PENDING" | "PREPARING" | "DONE" | "DELIVERED" | "VOID";
 
 interface OrderItem {
   id: string;
@@ -128,6 +129,7 @@ const statusLabels: Record<OrderItemStatus, string> = {
   PENDING: "⏳ Chờ duyệt",
   PREPARING: "👨‍🍳 Đang làm",
   DONE: "✓ Xong",
+  DELIVERED: "🚚 Đã giao",
   VOID: "✗ Đã hủy",
 };
 
@@ -135,6 +137,7 @@ const statusBadgeClass: Record<OrderItemStatus, string> = {
   PENDING: "bg-orange-500/15 text-orange-300 border border-orange-500/30",
   PREPARING: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
   DONE: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+  DELIVERED: "bg-blue-500/15 text-blue-300 border border-blue-500/30",
   VOID: "bg-rose-500/15 text-rose-300 border border-rose-500/30",
 };
 
@@ -215,7 +218,7 @@ const formatHeaderDate = (rangeStr: string) => {
 };
 
 function createEmptyGroups(): Record<OrderItemStatus, OrderItem[]> {
-  return { PENDING: [], PREPARING: [], DONE: [], VOID: [] };
+  return { PENDING: [], PREPARING: [], DONE: [], DELIVERED: [], VOID: [] };
 }
 
 function buildGroupsFromRealtimeItems(items: RealtimeSessionItem[]): Record<OrderItemStatus, OrderItem[]> {
@@ -253,10 +256,12 @@ export default function CashierClient({
   const [tables, setTables] = useState<CashierOverviewTable[]>(initialTables);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(initialSelectedSessionId);
 
+  const totalPending = useMemo(() => {
+    return tables.reduce((sum, t) => sum + (t.session?.pendingCount || 0), 0);
+  }, [tables]);
+
   // Loop sound while there are pending orders
   useEffect(() => {
-    const totalPending = tables.reduce((sum, t) => sum + (t.session?.pendingCount || 0), 0);
-    
     if (onPendingCountChange) {
       onPendingCountChange(totalPending);
     }
@@ -267,7 +272,7 @@ export default function CashierClient({
       playCashierBeep();
     }, 1000); // Ring every 1 second
     return () => clearInterval(interval);
-  }, [tables, disableSound, onPendingCountChange]);
+  }, [totalPending, disableSound, onPendingCountChange]);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(
     initialTables.find((table) => table.session?.sessionId === initialSelectedSessionId)?.tableId || null
   );
@@ -296,7 +301,7 @@ export default function CashierClient({
       }
     };
     fetchOverview();
-  }, [initialTables]);
+  }, []);
   const [activeTab, setActiveTab] = useState<"tables" | "details">(initialSelectedSessionId ? "details" : "tables");
   const [now, setNow] = useState(new Date());
   const [isApproving, setIsApproving] = useState(false);
@@ -332,6 +337,8 @@ export default function CashierClient({
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "TRANSFER" | null>(null);
   const [availableVouchers, setAvailableVouchers] = useState<any[]>([]);
   const [showVoucherDropdown, setShowVoucherDropdown] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
+  const [isConfirmingPending, setIsConfirmingPending] = useState(false);
 
   const token = typeof window !== "undefined" ? getAccessTokenFromCookie() || undefined : undefined;
   let tenantId = 'unknown';
@@ -344,7 +351,11 @@ export default function CashierClient({
     } catch(e) {}
   }
   
-  const { socket, isConnected } = useSocket({ room: `tenant:${tenantId}:branch:${branchId}:cashier`, token });
+  const socketRoom = branchId && branchId !== 'unknown' 
+    ? `tenant:${tenantId}:branch:${branchId}:cashier` 
+    : `tenant:${tenantId}:cashier`;
+  console.log('[CashierClient] Connecting to socket room:', socketRoom);
+  const { socket, isConnected } = useSocket({ room: socketRoom, token });
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -715,11 +726,57 @@ export default function CashierClient({
     }
   };
 
+  const handleManualConfirm = async () => {
+    if (!pendingPaymentData) return;
+    setIsConfirmingPending(true);
+    try {
+      const res = await fetch(`${API_URL}/api/payment/${pendingPaymentData.paymentId}/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ""}`,
+        },
+        body: JSON.stringify({ keepOccupied: false })
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setSuccessMsg(`✓ Xác nhận thanh toán thành công!`);
+        setPendingPaymentData(null);
+        setIsPaymentModalOpen(false);
+        setVoucherCode("");
+        setVoucherData(null);
+        setPaymentMethod(null);
+        
+        // Remove table from local state if empty
+        setTables((prev) => prev.filter((t) => t.tableId !== selectedTableId));
+        
+        // Update local session & table list
+        setTables((prev) =>
+          prev.map((t) => {
+            if (t.session?.sessionId === selectedSessionId) {
+              return { ...t, tableStatus: "AVAILABLE", session: null };
+            }
+            return t;
+          })
+        );
+        setSelectedSessionId(null);
+        setSelectedTableId(null);
+      } else {
+        setLocalErrorMsg(result.message || "Không thể xác nhận thanh toán");
+      }
+    } catch (e) {
+      console.error('[Cashier] Lỗi xác nhận thủ công:', e);
+      setLocalErrorMsg('Lỗi kết nối server.');
+    } finally {
+      setIsConfirmingPending(false);
+    }
+  };
+
   const handleConfirmPayment = async () => {
     if (!selectedSessionId || !paymentMethod) return;
     setIsPaying(true);
 
-    const baseAmount = subtotal;
+    const baseAmount = totalAmount;
     const discountAmount = voucherData?.discountAmount ?? 0;
     const finalTotal = Math.max(0, baseAmount - discountAmount);
 
@@ -736,14 +793,32 @@ export default function CashierClient({
           subtotal: baseAmount,
           discountAmount,
           total: finalTotal,
-          keepOccupied: false, // Cashier checkout releases the table!
+          keepOccupied: false,
         }),
       });
       const result = await res.json();
 
       if (res.ok && result.success) {
+        if (result.data?.status === 'PENDING' && result.data?.providerData?.qrUrl) {
+           setPendingPaymentData({
+              paymentId: result.data.paymentId || result.data.payment?.id,
+              sessionId: selectedSessionId,
+              ...result.data.providerData
+           });
+           setIsPaying(false);
+           return;
+        }
+
         setSuccessMsg(`✓ Thanh toán thành công hóa đơn cho Bàn ${selectedTable?.tableNumber || ""}!`);
-        setTimeout(() => setSuccessMsg(null), 5000);
+        setIsPaymentModalOpen(false);
+        setVoucherCode("");
+        setVoucherData(null);
+        setPaymentMethod(null);
+        setSelectedSessionId(null);
+        setSelectedTableId(null);
+        
+        // Remove table from local state if empty
+        setTables((prev) => prev.filter((t) => t.tableId !== selectedTableId));
 
         // Update local session & table list
         setTables((prev) =>
@@ -1136,13 +1211,14 @@ export default function CashierClient({
   };
 
   const groupedItems = useMemo(() => {
-    return sessionItems?.groups || { PENDING: [], PREPARING: [], DONE: [], VOID: [] };
+    return sessionItems?.groups || { PENDING: [], PREPARING: [], DONE: [], DELIVERED: [], VOID: [] };
   }, [sessionItems]);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<OrderItemStatus, boolean>>({
     PENDING: false,
     PREPARING: false,
     DONE: true,
+    DELIVERED: true,
     VOID: true,
   });
 
@@ -1151,14 +1227,18 @@ export default function CashierClient({
   };
 
   const subtotal = useMemo(() => {
-    const billItems = [...groupedItems.PENDING, ...groupedItems.PREPARING, ...groupedItems.DONE];
+    const billItems = [...groupedItems.PENDING, ...groupedItems.PREPARING, ...groupedItems.DONE, ...groupedItems.DELIVERED];
     return billItems.reduce((sum, item) => sum + Number(item.unitPrice) * item.qty, 0);
   }, [groupedItems]);
+
+  const taxAmount = useMemo(() => subtotal * 0.1, [subtotal]);
+  const totalAmount = useMemo(() => subtotal + taxAmount, [subtotal, taxAmount]);
 
   const hasPendingOrPreparing = groupedItems.PENDING.length > 0 || groupedItems.PREPARING.length > 0;
 
   const renderItemsGroup = (status: OrderItemStatus) => {
     const items = groupedItems[status];
+    if (!items || items.length === 0) return null;
     const isCollapsed = collapsedGroups[status];
 
     return (
@@ -1179,12 +1259,9 @@ export default function CashierClient({
 
         {!isCollapsed && (
           <div className="px-5 pb-5 space-y-3.5 animate-in fade-in slide-in-from-top-1 duration-200">
-            {items.length === 0 ? (
-              <div className="text-xs text-zinc-500 italic py-2 text-center">Không có món nào thuộc nhóm này</div>
-            ) : (
-              items.map((item) => (
-                <div key={item.id} className="flex items-start gap-3 border-b border-dashed border-zinc-900 pb-3.5 last:border-none last:pb-0">
-                  <div className="h-12 w-12 rounded-xl bg-zinc-950 overflow-hidden flex items-center justify-center border border-zinc-900 shrink-0">
+            {items.map((item) => (
+              <div key={item.id} className="flex items-start gap-3 border-b border-dashed border-zinc-900 pb-3.5 last:border-none last:pb-0">
+                <div className="h-12 w-12 rounded-xl bg-zinc-950 overflow-hidden flex items-center justify-center border border-zinc-900 shrink-0">
                     {item.menuItem.imageUrl ? (
                       <Image
                         src={item.menuItem.imageUrl}
@@ -1230,7 +1307,7 @@ export default function CashierClient({
                   </div>
                 </div>
               ))
-            )}
+            }
             {status === "PENDING" && items.length > 0 && (
               <div className="flex gap-3 pt-2">
                 <button
@@ -1752,6 +1829,7 @@ export default function CashierClient({
                     {renderItemsGroup("PENDING")}
                     {renderItemsGroup("PREPARING")}
                     {renderItemsGroup("DONE")}
+                    {renderItemsGroup("DELIVERED")}
                     {renderItemsGroup("VOID")}
                   </div>
                 )}
@@ -1759,7 +1837,7 @@ export default function CashierClient({
                 <div className="border-t border-zinc-900 pt-5 mt-auto">
                   <div className="flex items-center justify-between mb-4 bg-zinc-950/40 border border-zinc-900 rounded-2xl px-4 py-3">
                     <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Tổng tạm tính</div>
-                    <div className="text-xl font-black text-white font-mono">{currencyFormatter.format(subtotal)}</div>
+                    <div className="text-xl font-black text-white font-mono">{currencyFormatter.format(totalAmount)}</div>
                   </div>
                   <button
                     type="button"
@@ -1786,12 +1864,12 @@ export default function CashierClient({
       {/* Payment Modal */}
       {isPaymentModalOpen && selectedSessionId && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="w-full max-w-xl rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col max-h-[90vh]">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-900">
               <div>
-                <div className="text-sm font-bold text-white tracking-tight">💳 THANH TOÁN HÓA ĐƠN</div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">
+                <div className="text-lg font-bold text-white tracking-tight">💳 Thanh Toán Hóa Đơn (Cashier)</div>
+                <div className="text-sm text-zinc-500 mt-1">
                   Bàn {selectedTable?.tableNumber || ""} — {selectedTable?.tableLabel || ""}
                 </div>
               </div>
@@ -1807,14 +1885,15 @@ export default function CashierClient({
             <div className="overflow-y-auto scrollbar-thin px-6 py-5 space-y-5 flex-1">
               {/* Danh sach mon an */}
               <div>
-                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-3">Chi tiết hóa đơn</div>
-                <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-thin pr-1">
+                <div className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Chi tiết hóa đơn</div>
+                <div className="space-y-3 max-h-52 overflow-y-auto scrollbar-thin pr-2">
                   {[
                     ...groupedItems.PENDING,
                     ...groupedItems.PREPARING,
                     ...groupedItems.DONE,
+                    ...groupedItems.DELIVERED,
                   ].map((cartItem) => (
-                    <div key={cartItem.id} className="flex items-center justify-between text-xs">
+                    <div key={cartItem.id} className="flex items-center justify-between text-sm">
                       <span className="text-zinc-300 font-medium truncate flex-1 pr-3">{cartItem.menuItem.name}</span>
                       <span className="text-zinc-500 shrink-0">x{cartItem.qty}</span>
                       <span className="text-zinc-200 font-mono ml-4 shrink-0">
@@ -1823,10 +1902,18 @@ export default function CashierClient({
                     </div>
                   ))}
                 </div>
-                <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-zinc-900 text-xs text-zinc-400">
+                <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-zinc-900 text-sm text-zinc-400">
                   <div className="flex justify-between">
                     <span>Tạm tính</span>
                     <span className="font-mono text-zinc-300">{currencyFormatter.format(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Thuế VAT (10%)</span>
+                    <span className="font-mono text-zinc-300">{currencyFormatter.format(taxAmount)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-zinc-200 mt-2 text-base">
+                    <span>Tổng cộng</span>
+                    <span className="font-mono text-white text-lg">{currencyFormatter.format(totalAmount)}</span>
                   </div>
                 </div>
               </div>
@@ -1923,14 +2010,6 @@ export default function CashierClient({
                 )}
               </div>
 
-              {/* Tong sau giam gia */}
-              <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800 px-4 py-3.5 flex items-center justify-between">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Tổng thanh toán</span>
-                <span className="text-lg font-black text-indigo-400 font-mono">
-                  {currencyFormatter.format(Math.max(0, subtotal - (voucherData?.discountAmount ?? 0)))}
-                </span>
-              </div>
-
               {/* Phuong thuc thanh toan */}
               <div className="space-y-2">
                 <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Phương thức thanh toán</div>
@@ -1986,6 +2065,56 @@ export default function CashierClient({
                   "Chọn phương thức"
                 ) : (
                   `✓ Xác nhận thanh toán`
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pending Payment QR Modal */}
+      {pendingPaymentData && (
+        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-3xl w-full overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200 shadow-2xl">
+            <div className="p-6 border-b border-zinc-800 text-center relative">
+               <h3 className="font-bold text-2xl text-white">Chờ Thanh Toán VietQR</h3>
+               <button 
+                 onClick={() => setPendingPaymentData(null)}
+                 className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+               >
+                 <X className="h-6 w-6" />
+               </button>
+            </div>
+            <div className="p-8 flex flex-col md:flex-row items-center justify-center gap-8">
+              <div className="bg-white rounded-3xl shrink-0 shadow-2xl w-[300px] h-[380px] overflow-hidden relative">
+                 <img src={pendingPaymentData.qrUrl} alt="VietQR" className="w-[110%] max-w-none h-auto absolute left-1/2 -translate-x-1/2 top-0" />
+              </div>
+              <div className="text-left space-y-3 flex-1 w-full border border-zinc-800/50 bg-zinc-800/20 rounded-3xl p-6">
+                 <p className="text-zinc-400 text-sm">Ngân hàng: <br/><span className="text-white font-semibold text-lg">{pendingPaymentData.bankName}</span></p>
+                 <p className="text-zinc-400 text-sm mt-2">Số TK: <br/><span className="text-white font-bold text-2xl tracking-wider text-blue-300">{pendingPaymentData.accountNumber}</span></p>
+                 <p className="text-zinc-400 text-sm mt-2">Chủ TK: <br/><span className="text-white font-semibold text-lg">{pendingPaymentData.accountName}</span></p>
+                 <div className="mt-6 border-t border-zinc-800 pt-6">
+                   <p className="text-zinc-400 text-base mb-1">Tổng tiền thanh toán</p>
+                   <span className="text-blue-400 font-black text-4xl drop-shadow-[0_0_15px_rgba(96,165,250,0.5)]">{currencyFormatter.format(pendingPaymentData.total || totalAmount)}</span>
+                 </div>
+              </div>
+            </div>
+            <div className="p-6 bg-zinc-950 border-t border-zinc-800 flex gap-4">
+              <button
+                onClick={() => setPendingPaymentData(null)}
+                className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white hover:bg-zinc-800 py-4 text-base font-bold uppercase tracking-wider transition-all"
+              >
+                Đóng lại
+              </button>
+              <button
+                onClick={handleManualConfirm}
+                disabled={isConfirmingPending}
+                className="flex-[2] rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-4 text-base font-black uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(99,102,241,0.4)]"
+              >
+                {isConfirmingPending ? (
+                  <><Loader2 className="h-5 w-5 animate-spin" /> Đang xác nhận...</>
+                ) : (
+                  "✓ XÁC NHẬN ĐÃ NHẬN TIỀN"
                 )}
               </button>
             </div>

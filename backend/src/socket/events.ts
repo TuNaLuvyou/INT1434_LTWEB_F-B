@@ -70,6 +70,7 @@ export const SOCKET_ROOMS = {
   BAR:          (tenantId: string, branchId: string) => `tenant:${tenantId}:branch:${branchId}:bar`,
   STAFF:        (tenantId: string, branchId: string) => `tenant:${tenantId}:branch:${branchId}:staff`,
   CASHIER:      (tenantId: string, branchId: string) => `tenant:${tenantId}:branch:${branchId}:cashier`,
+  TENANT_CASHIER: (tenantId: string) => `tenant:${tenantId}:cashier`,
   FLOOR_PLAN:   (tenantId: string, branchId: string) => `tenant:${tenantId}:branch:${branchId}:floor-plan`,
   MENU_UPDATES: (tenantId: string) => `tenant:${tenantId}:menu-updates`,
   /** Tạo room name cho bàn cụ thể */
@@ -84,6 +85,7 @@ export const AUTH_REQUIRED_ROOM_PATTERNS = [
   /^tenant:[a-zA-Z0-9_-]+:branch:[a-zA-Z0-9_-]+:bar$/,
   /^tenant:[a-zA-Z0-9_-]+:branch:[a-zA-Z0-9_-]+:staff$/,
   /^tenant:[a-zA-Z0-9_-]+:branch:[a-zA-Z0-9_-]+:cashier$/,
+  /^tenant:[a-zA-Z0-9_-]+:cashier$/,
   /^tenant:[a-zA-Z0-9_-]+:branch:[a-zA-Z0-9_-]+:floor-plan$/,
 ];
 

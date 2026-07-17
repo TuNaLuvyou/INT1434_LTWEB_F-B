@@ -80,6 +80,7 @@ model TenantBranding {
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
+  phone        String?
   passwordHash String
   name         String
   role         Role // Platform role mapping (for legacy compat)
@@ -292,6 +293,7 @@ model TableSession {
   lockedAt      DateTime?
   closedAt      DateTime?
   createdViaPos Boolean       @default(false)
+  orderNo       String?
   orderItems    OrderItem[]
   payment       Payment?
 
@@ -356,6 +358,7 @@ model BranchIngredient {
   ingredientId  String
   ingredient    Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
   stock         Decimal  @default(0)
+  inUseStock    Decimal  @default(0) // Tồn kho đang dùng ở bếp (Đã xuất)
   importPrice   Decimal? @db.Decimal(12, 2) // giá nhập riêng theo chi nhánh
   lowStockThreshold Decimal? // ngưỡng cảnh báo riêng, null = dùng minStock của ingredient
   createdAt     DateTime @default(now())

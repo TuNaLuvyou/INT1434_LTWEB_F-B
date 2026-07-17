@@ -1,25 +1,31 @@
 import prisma from '../config/prisma';
 import { subDays } from 'date-fns';
 
-export const getRevenue = async (from: string, to: string, groupBy: 'day' | 'week' | 'month') => {
+export const getRevenue = async (from: string, to: string, groupBy: 'day' | 'week' | 'month', tenantId: string, branchId?: string) => {
   const fromDate = new Date(from);
   const toDate = new Date(to);
 
-  // Sử dụng PostgreSQL date_trunc để gom nhóm theo ngày/tuần/tháng.
-  // Prisma $queryRawUnsafe là lựa chọn tối ưu cho việc này vì Prisma API thông thường 
-  // không hỗ trợ hàm date_trunc.
-  const query = `
+  let query = `
     SELECT
       date_trunc('${groupBy}', "paidAt" AT TIME ZONE 'Asia/Ho_Chi_Minh') as "date",
       COUNT(id) as "orderCount",
       SUM(total) as "revenue"
     FROM "Payment"
-    WHERE "paidAt" >= $1 AND "paidAt" <= $2
+    WHERE "paidAt" >= $1 AND "paidAt" <= $2 AND "tenantId" = $3
+  `;
+  const params: any[] = [fromDate, toDate, tenantId];
+
+  if (branchId) {
+    query += ` AND "branchId" = $4`;
+    params.push(branchId);
+  }
+
+  query += `
     GROUP BY "date"
     ORDER BY "date" ASC;
   `;
 
-  const results = await prisma.$queryRawUnsafe<any[]>(query, fromDate, toDate);
+  const results = await prisma.$queryRawUnsafe<any[]>(query, ...params);
 
   return results.map(r => ({
     date: r.date,
@@ -28,23 +34,32 @@ export const getRevenue = async (from: string, to: string, groupBy: 'day' | 'wee
   }));
 };
 
-export const getPeakHours = async (from: string, to: string) => {
+export const getPeakHours = async (from: string, to: string, tenantId: string, branchId?: string) => {
   const fromDate = new Date(from);
   const toDate = new Date(to);
 
-  const query = `
+  let query = `
     SELECT
       EXTRACT(ISODOW FROM "paidAt" AT TIME ZONE 'Asia/Ho_Chi_Minh') as "dayOfWeek",
       EXTRACT(HOUR FROM "paidAt" AT TIME ZONE 'Asia/Ho_Chi_Minh') as "hourOfDay",
       COUNT(id) as "orderCount",
       SUM(total) as "revenue"
     FROM "Payment"
-    WHERE "paidAt" >= $1 AND "paidAt" <= $2
+    WHERE "paidAt" >= $1 AND "paidAt" <= $2 AND "tenantId" = $3
+  `;
+  const params: any[] = [fromDate, toDate, tenantId];
+
+  if (branchId) {
+    query += ` AND "branchId" = $4`;
+    params.push(branchId);
+  }
+
+  query += `
     GROUP BY "dayOfWeek", "hourOfDay"
     ORDER BY "dayOfWeek" ASC, "hourOfDay" ASC;
   `;
 
-  const results = await prisma.$queryRawUnsafe<any[]>(query, fromDate, toDate);
+  const results = await prisma.$queryRawUnsafe<any[]>(query, ...params);
 
   return results.map(r => ({
     dayOfWeek: Number(r.dayOfWeek), // 1 (Monday) to 7 (Sunday)
@@ -54,7 +69,7 @@ export const getPeakHours = async (from: string, to: string) => {
   }));
 };
 
-export const getTopSellingItems = async (from?: string, to?: string, limit: number = 5) => {
+export const getTopSellingItems = async (from?: string, to?: string, limit: number = 5, tenantId?: string, branchId?: string) => {
   const fromDate = from ? new Date(from) : subDays(new Date(), 30);
   const toDate = to ? new Date(to) : new Date();
 
@@ -62,19 +77,27 @@ export const getTopSellingItems = async (from?: string, to?: string, limit: numb
   // 1. Prisma Query Engine hỗ trợ gom nhóm (groupBy) rất mạnh mẽ, trả về Type-safe data trực tiếp.
   // 2. Giúp tránh viết các chuỗi raw SQL phức tạp, dễ xảy ra lỗi Syntax và SQL Injection nếu không cẩn thận.
   // 3. Logic tách biệt (groupBy lấy ID, sau đó findMany join dữ liệu MenuItem) giúp dễ bảo trì và Prisma có thể tối ưu việc query.
-  const topItems = await prisma.orderItem.groupBy({
-    by: ['menuItemId'],
-    where: {
-      status: { not: 'VOID' },
-      session: {
-        payment: {
-          paidAt: {
-            gte: fromDate,
-            lte: toDate
-          }
+  
+  const whereClause: any = {
+    status: { not: 'VOID' },
+    session: {
+      payment: {
+        paidAt: {
+          gte: fromDate,
+          lte: toDate
         }
       }
-    },
+    }
+  };
+
+  if (tenantId) whereClause.tenantId = tenantId;
+  if (branchId) {
+    whereClause.session.branchId = branchId;
+  }
+
+  const topItems = await prisma.orderItem.groupBy({
+    by: ['menuItemId'],
+    where: whereClause,
     _sum: { qty: true },
     _count: { id: true },
     orderBy: { _sum: { qty: 'desc' } },
@@ -112,7 +135,7 @@ export const getTopSellingItems = async (from?: string, to?: string, limit: numb
   return { period: { from: fromDate, to: toDate }, items };
 };
 
-export const getTodayOverview = async (rangeType: string = 'today', customDateStr?: string) => {
+export const getTodayOverview = async (rangeType: string = 'today', customDateStr?: string, tenantId?: string, branchId?: string) => {
   let start = new Date();
   let end = new Date();
   let compStart = new Date();
@@ -200,15 +223,24 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
     setEndOfDay(compEnd);
   }
 
+  // Helper for where clauses
+  const baseWhere: any = {};
+  if (tenantId) baseWhere.tenantId = tenantId;
+  if (branchId) baseWhere.branchId = branchId;
+
+  const orderItemWhere: any = {};
+  if (tenantId) orderItemWhere.tenantId = tenantId;
+  if (branchId) orderItemWhere.session = { branchId };
+
   // 1. Current Period vs Comparison Period Payments
   const currentPayments = await prisma.payment.findMany({
-    where: { paidAt: { gte: start, lte: end } }
+    where: { ...baseWhere, paidAt: { gte: start, lte: end } }
   });
   const todayRevenue = currentPayments.reduce((sum, p) => sum + Number(p.total), 0);
   const todayOrders = currentPayments.length;
 
   const comparisonPayments = await prisma.payment.findMany({
-    where: { paidAt: { gte: compStart, lte: compEnd } }
+    where: { ...baseWhere, paidAt: { gte: compStart, lte: compEnd } }
   });
   const comparisonRevenue = comparisonPayments.reduce((sum, p) => sum + Number(p.total), 0);
   const comparisonOrders = comparisonPayments.length;
@@ -223,6 +255,7 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
   // 2. Average Cooking Time
   const todayOrderItems = await prisma.orderItem.findMany({
     where: {
+      ...orderItemWhere,
       status: 'DONE',
       updatedAt: { gte: start, lte: end }
     }
@@ -240,6 +273,7 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
 
     const yesterdayOrderItems = await prisma.orderItem.findMany({
       where: {
+        ...orderItemWhere,
         status: 'DONE',
         updatedAt: { gte: compStart, lte: compEnd }
       }
@@ -260,10 +294,10 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
 
   // 3. New Customers (Sessions count)
   const todaySessions = await prisma.tableSession.count({
-    where: { openedAt: { gte: start, lte: end } }
+    where: { ...baseWhere, openedAt: { gte: start, lte: end } }
   });
   const yesterdaySessions = await prisma.tableSession.count({
-    where: { openedAt: { gte: compStart, lte: compEnd } }
+    where: { ...baseWhere, openedAt: { gte: compStart, lte: compEnd } }
   });
   const customersGrowth = yesterdaySessions > 0
     ? Number((((todaySessions - yesterdaySessions) / yesterdaySessions) * 100).toFixed(1))
@@ -359,7 +393,7 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
 
   // 6. Recent Transactions (Giao dịch thành công + Hóa đơn bị hủy)
   const recentPayments = await prisma.payment.findMany({
-    where: { paidAt: { gte: start, lte: end } },
+    where: { ...baseWhere, paidAt: { gte: start, lte: end } },
     orderBy: { paidAt: 'desc' },
     take: 15,
     include: {
@@ -376,6 +410,7 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
 
   const cancelledSessions = await prisma.tableSession.findMany({
     where: {
+      ...baseWhere,
       status: 'CANCELLED',
       OR: [
         { closedAt: { gte: start, lte: end } },
@@ -401,7 +436,7 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
     });
     const itemsCount = p.session?.orderItems?.reduce((sum, item) => sum + item.qty, 0) || 0;
     return {
-      id: `ORD-${p.id.substring(p.id.length - 4).toUpperCase()}`,
+      id: p.session?.orderNo || `ORD-${p.id.substring(p.id.length - 4).toUpperCase()}`,
       tableNo: tableLabel,
       customerName: `Khách hàng ${tableLabel}`,
       amount: Number(p.total),
@@ -424,7 +459,7 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
     const totalAmount = s.orderItems.reduce((sum, item) => sum + Number(item.qty) * Number(item.unitPrice), 0);
     const itemsCount = s.orderItems.reduce((sum, item) => sum + item.qty, 0) || 0;
     return {
-      id: `ORD-${s.id.substring(s.id.length - 4).toUpperCase()}`,
+      id: s.orderNo || `ORD-${s.id.substring(s.id.length - 4).toUpperCase()}`,
       tableNo: tableLabel,
       customerName: `Khách hàng ${tableLabel}`,
       amount: totalAmount,

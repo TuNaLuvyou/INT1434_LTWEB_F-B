@@ -85,7 +85,10 @@ export default function AdminSidebar() {
               <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-[0_0_15px_rgba(124,58,237,0.4)]">
                 <Sparkles className="h-4 w-4 text-white" />
               </div>
-              <span className="font-bold tracking-tight text-white text-sm">{user?.currentTenant?.name || 'Admin'}</span>
+            <div className="flex flex-col max-w-[150px]">
+              <span className="font-bold tracking-tight text-white text-sm truncate">{user?.currentTenant?.name || 'Admin'}</span>
+              <span className="text-[10px] text-violet-400 font-semibold uppercase tracking-wider truncate">{user?.currentBranch?.name || 'Toàn hệ thống'}</span>
+            </div>
             </div>
             <button
               onClick={() => setIsMobileOpen(false)}
@@ -156,10 +159,10 @@ export default function AdminSidebar() {
                 <Sparkles className="h-4 w-4 text-white" />
               </div>
               <div className={`flex flex-col transition-all duration-300 overflow-hidden whitespace-nowrap ${
-                isCollapsed ? "w-0 opacity-0 ml-0" : "w-auto opacity-100 ml-2"
+                isCollapsed ? "w-0 opacity-0 ml-0" : "w-auto opacity-100 ml-2 max-w-[130px]"
               }`}>
-                <span className="font-bold tracking-tight text-white text-xs">{user?.currentTenant?.name || 'Admin'}</span>
-                <span className="text-[8px] text-violet-400 font-semibold uppercase tracking-wider">Management</span>
+                <span className="font-bold tracking-tight text-white text-[11px] truncate" title={user?.currentTenant?.name || 'Admin'}>{user?.currentTenant?.name || 'Admin'}</span>
+                <span className="text-[8px] text-violet-400 font-semibold uppercase tracking-wider truncate" title={user?.currentBranch?.name || 'Toàn hệ thống'}>{user?.currentBranch?.name || 'Toàn hệ thống'}</span>
               </div>
             </div>
 

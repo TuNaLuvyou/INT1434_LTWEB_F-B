@@ -12,12 +12,14 @@ const ingredientSchema = z.object({
   unit:     z.enum(UNITS),
   stock:    z.coerce.number().min(0, 'Tồn kho không âm'),
   minStock: z.coerce.number().min(0, 'Ngưỡng cảnh báo không âm'),
+  targetWarehouse: z.enum(['main', 'branch']).optional(),
 });
 
 const stockAdjSchema = z.object({
   delta:  z.number().refine(v => v !== 0, 'delta không được = 0'),
   reason: z.enum(['MANUAL_IMPORT', 'ADJUSTMENT', 'MANUAL_EXPORT']),
   note:   z.string().optional(),
+  targetWarehouse: z.enum(['main', 'branch']).optional(),
 });
 
 const bomEntrySchema = z.object({
@@ -67,9 +69,13 @@ export const reverseStock = async (req: Request, res: Response): Promise<void> =
 
 export const getIngredients = async (req: Request, res: Response): Promise<void> => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) { res.status(403).json({ success: false, message: 'Forbidden' }); return; }
+
     const lowStock = req.query.lowStock === 'true';
-    const branchId = (req as any).user?.branchId || req.query.branchId as string | undefined;
-    const data = await svc.getAll(lowStock, branchId);
+    const branchId = authReq.user?.branchId || req.query.branchId as string | undefined;
+    const data = await svc.getAll(tenantId, lowStock, branchId);
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
@@ -83,7 +89,7 @@ export const createIngredient = async (req: Request, res: Response): Promise<voi
     const tenantId = authReq.user?.tenantId;
     const branchId = authReq.user?.branchId;
     if (!tenantId) { res.status(403).json({ success: false, message: 'Forbidden' }); return; }
-    const item = await svc.create(parsed, tenantId, branchId);
+    const item = await svc.create(parsed, tenantId, branchId, parsed.targetWarehouse);
     res.status(201).json({ success: true, data: item });
   } catch (e: any) {
     if (e instanceof z.ZodError) {
@@ -143,7 +149,7 @@ export const deleteIngredient = async (req: Request, res: Response): Promise<voi
 export const adjustStock = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const { delta, reason, note } = stockAdjSchema.parse(req.body);
+    const { delta, reason, note, targetWarehouse } = stockAdjSchema.parse(req.body);
 
     if (reason === 'MANUAL_IMPORT' && delta <= 0) {
       res.status(400).json({ success: false, message: 'MANUAL_IMPORT yêu cầu delta > 0' });
@@ -155,7 +161,7 @@ export const adjustStock = async (req: AuthenticatedRequest, res: Response): Pro
     }
 
     const result = await svc.adjustStock(
-      id, delta, reason as any, req.user!.userId, note, req.user!.tenantId, req.user!.branchId
+      id, delta, reason as any, req.user!.userId, note, req.user!.tenantId, req.user!.branchId, targetWarehouse
     );
     res.json({ success: true, data: result });
   } catch (e: any) {
@@ -173,10 +179,14 @@ export const adjustStock = async (req: AuthenticatedRequest, res: Response): Pro
 
 export const getLogs = async (req: Request, res: Response): Promise<void> => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) { res.status(403).json({ success: false, message: 'Forbidden' }); return; }
+
     const page  = Number(req.query.page)  || 1;
     const limit = Number(req.query.limit) || 20;
-    const branchId = (req as any).user?.branchId || req.query.branchId as string | undefined;
-    const data  = await svc.getLogs(page, limit, req.query.ingredientId as string, req.query.reason as string, branchId);
+    const branchId = authReq.user?.branchId || req.query.branchId as string | undefined;
+    const data  = await svc.getLogs(tenantId, page, limit, req.query.ingredientId as string, req.query.reason as string, branchId);
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
@@ -240,3 +250,70 @@ export const deleteBomEntry = async (req: Request, res: Response): Promise<void>
     res.status(500).json({ success: false, message: 'Lỗi server' });
   }
 };
+
+// ── Kho chi nhánh: Manager & Admin ──────────────────────────────────────────
+
+export const getBranchStock = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    const branchId = authReq.user?.branchId || req.query.branchId as string;
+
+    if (!tenantId) { res.status(403).json({ success: false, message: 'Forbidden' }); return; }
+    if (!branchId) { res.status(400).json({ success: false, message: 'Vui lòng chọn chi nhánh' }); return; }
+
+    const data = await svc.getBranchStock(tenantId, branchId);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+
+// ── Xuất từ Kho tổng → Kho chi nhánh (ADMIN only) ───────────────────────────
+
+export const transferToBranch = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    const adminUserId = authReq.user?.userId;
+    const role = authReq.user?.role;
+
+    if (!tenantId || !adminUserId) { res.status(403).json({ success: false, message: 'Forbidden' }); return; }
+    if (role !== 'ADMIN') { res.status(403).json({ success: false, message: 'Chỉ Admin mới có thể xuất từ kho tổng' }); return; }
+
+    const { ingredientId, branchId, quantity, note } = z.object({
+      ingredientId: z.string().min(1),
+      branchId: z.string().min(1),
+      quantity: z.coerce.number().positive('Số lượng phải > 0'),
+      note: z.string().optional(),
+    }).parse(req.body);
+
+    const result = await svc.transferToBranch(ingredientId, branchId, quantity, adminUserId, tenantId, note);
+    res.json({ success: true, data: result });
+  } catch (e: any) {
+    if (e instanceof z.ZodError) {
+      res.status(400).json({ success: false, errors: e.issues });
+    } else if (e?.code === 'INSUFFICIENT_MAIN_STOCK') {
+      res.status(400).json({ success: false, message: e.message });
+    } else {
+      res.status(500).json({ success: false, message: e.message || 'Lỗi server' });
+    }
+  }
+};
+
+// ── Tab Đã xuất: thống kê nguyên liệu đã sử dụng ────────────────────────────
+
+export const getExportedStats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    if (!tenantId) { res.status(403).json({ success: false, message: 'Forbidden' }); return; }
+
+    const branchId = authReq.user?.branchId || req.query.branchId as string | undefined;
+    const data = await svc.getExportedStats(tenantId, branchId);
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'Lỗi server' });
+  }
+};
+

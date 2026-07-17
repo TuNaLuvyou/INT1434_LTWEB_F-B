@@ -211,7 +211,7 @@ export const refreshTokens = async (token: string) => {
   }
 };
 
-export const getMe = async (userId: string, tenantId?: string) => {
+export const getMe = async (userId: string, tenantId?: string, branchId?: string) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
@@ -246,5 +246,13 @@ export const getMe = async (userId: string, tenantId?: string) => {
     currentTenant = tenants.find(t => t.id === tenantId) || null;
   }
 
-  return { ...userWithoutPassword, tenants, currentTenant };
+  let currentBranch = null;
+  if (branchId) {
+    currentBranch = await prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { id: true, name: true, address: true }
+    });
+  }
+
+  return { ...userWithoutPassword, tenants, currentTenant, currentBranch };
 };

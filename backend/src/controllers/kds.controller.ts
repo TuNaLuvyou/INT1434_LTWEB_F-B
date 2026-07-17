@@ -50,6 +50,7 @@ export async function getKdsTickets(_req: Request, res: Response): Promise<void>
 
       return {
         sessionId: session.id,
+        orderNo: (session as any).orderNo || `ORD-${session.id.substring(0, 4).toUpperCase()}`,
         tableNumber: session.table.tableNumber,
         tableLabel: session.table.label,
         items
@@ -151,7 +152,7 @@ export async function getKdsOrders(req: Request, res: Response): Promise<void> {
     if (!tenantId) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
-    const branchId = authReq.user?.branchId;
+    const branchId = req.query.branchId as string || authReq.user?.branchId;
 
     const tableWhere: any = { tenantId };
     if (branchId) tableWhere.branchId = branchId;
@@ -169,6 +170,7 @@ export async function getKdsOrders(req: Request, res: Response): Promise<void> {
       },
       select: {
         id: true,
+        orderNo: true,
         tableId: true,
         openedAt: true,
         lockedAt: true,

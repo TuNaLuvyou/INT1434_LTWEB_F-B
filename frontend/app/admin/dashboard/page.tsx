@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
 import toast from "react-hot-toast";
+import { useAuthStore } from "@/stores/auth.store";
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -40,6 +41,8 @@ const getLocalDateString = (date: Date = new Date()) => {
 };
 
 export default function DashboardPage() {
+  const { user } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<"all" | "branch">("branch");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,7 +85,7 @@ export default function DashboardPage() {
     recentTransactions: []
   });
 
-  const loadStats = async (range = rangeType, date = customDate) => {
+  const loadStats = async (range = rangeType, date = customDate, tab = activeTab) => {
     try {
       setLoading(true);
       const token = getAccessTokenFromCookie();
@@ -90,6 +93,11 @@ export default function DashboardPage() {
         rangeType: range,
         ...(range === "custom" && { customDate: date })
       });
+      if (user?.role === "MANAGER" || tab === "branch") {
+        if (user?.currentBranchId) {
+          queryParams.append("branchId", user.currentBranchId);
+        }
+      }
       const res = await fetch(`${API}/api/analytics/today-overview?${queryParams.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -135,7 +143,7 @@ export default function DashboardPage() {
     setCustomDate(targetDate);
     
     if (newRange !== "custom") {
-      loadStats(newRange, targetDate);
+      loadStats(newRange, targetDate, activeTab);
     }
   };
 
@@ -143,7 +151,7 @@ export default function DashboardPage() {
     setCustomDate(dateStr);
     setRangeType("custom");
     setIsDropdownOpen(false);
-    loadStats("custom", dateStr);
+    loadStats("custom", dateStr, activeTab);
   };
 
   const handleNativeDateChange = (ymdDate: string) => {
@@ -332,13 +340,13 @@ export default function DashboardPage() {
       <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-900/10 blur-[130px] pointer-events-none" />
 
       {/* Header */}
-      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between gap-2">
+      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 shrink-0 flex flex-col">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 pl-16 lg:pl-6 h-14 sm:h-16 flex items-center justify-between gap-2 w-full">
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <span className="font-bold tracking-tight text-sm sm:text-lg text-white whitespace-nowrap">
                 <span className="sm:hidden">Analytics</span>
-                <span className="hidden sm:inline">Admin Analytics</span>
+                <span className="hidden sm:inline">Analytics</span>
               </span>
               <span className="hidden sm:inline text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 font-semibold tracking-wider uppercase">Management Suite</span>
             </div>
@@ -545,13 +553,30 @@ export default function DashboardPage() {
             </div>
 
             <button 
-              onClick={() => loadStats(rangeType, customDate)}
+              onClick={() => loadStats(rangeType, customDate, activeTab)}
               className="h-9 w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all cursor-pointer"
             >
               <RefreshCw className="h-4 w-4" />
             </button>
           </div>
         </div>
+
+        {user?.role === 'ADMIN' && (
+          <div className="flex items-center justify-center gap-4 px-3 sm:px-6 pl-16 lg:pl-6 max-w-7xl w-full mx-auto border-t border-zinc-900/50 bg-zinc-900/20">
+            <button
+              onClick={() => { setActiveTab('branch'); loadStats(rangeType, customDate, 'branch'); }}
+              className={`py-2 px-1 border-b-2 text-[11px] sm:text-xs font-bold transition-all ${activeTab === 'branch' ? 'border-violet-500 text-violet-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Chi Nhánh Hiện Tại
+            </button>
+            <button
+              onClick={() => { setActiveTab('all'); loadStats(rangeType, customDate, 'all'); }}
+              className={`py-2 px-1 border-b-2 text-[11px] sm:text-xs font-bold transition-all ${activeTab === 'all' ? 'border-violet-500 text-violet-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
+            >
+              Tổng Toàn Hệ Thống
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Admin Content Area */}
@@ -796,7 +821,7 @@ export default function DashboardPage() {
               </thead>
               <tbody className="divide-y divide-zinc-900 text-xs">
                 {filteredTransactions.map((trans: Transaction, idx: number) => (
-                  <tr key={trans.id} className="hover:bg-zinc-900/20 transition-all">
+                  <tr key={`${trans.id}-${trans.status}-${idx}`} className="hover:bg-zinc-900/20 transition-all">
                     <td className="px-5 py-3 font-mono font-bold text-white">{trans.id}</td>
                     <td className="px-5 py-3">
                       <div className="font-semibold text-violet-400">Đơn số {filteredTransactions.length - idx}</div>

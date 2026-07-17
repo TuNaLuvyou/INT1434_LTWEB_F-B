@@ -1,6 +1,6 @@
 import { RoleGate } from '../../components/auth/RoleGate';
 import Link from 'next/link';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, Server } from 'lucide-react';
 
 export default function PlatformAdminLayout({ children }: { children: React.ReactNode }) {
   const fallbackUI = (
@@ -19,8 +19,15 @@ export default function PlatformAdminLayout({ children }: { children: React.Reac
     </div>
   );
 
+  const loadingUI = (
+    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center space-y-4">
+      <Server className="w-12 h-12 text-violet-500 animate-pulse" />
+      <div className="text-zinc-400 font-medium">Đang tải dữ liệu Platform...</div>
+    </div>
+  );
+
   return (
-    <RoleGate allowedRoles={['PLATFORM_ADMIN']} fallback={fallbackUI}>
+    <RoleGate allowedRoles={['PLATFORM_ADMIN']} fallback={fallbackUI} loadingFallback={loadingUI}>
       {children}
     </RoleGate>
   );

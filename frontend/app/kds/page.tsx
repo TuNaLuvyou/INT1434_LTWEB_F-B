@@ -21,6 +21,7 @@ import {
 import toast from "react-hot-toast";
 import { useSocket } from "@/hooks/useSocket";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
+import { useAuthStore } from "@/stores/auth.store";
 
 interface KDSItem {
   id: string;
@@ -96,6 +97,7 @@ interface MenuItem {
 
 interface KitchenRealtimePayload {
   sessionId: string;
+  orderNo?: number | null;
   tableId: string;
   tableNumber?: number;
   tableLabel?: string;
@@ -149,15 +151,15 @@ export default function KDSPage() {
     try {
       const token = getAccessTokenFromCookie();
       let tId = '';
-      let bId = '';
       if (token) {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
           tId = payload.tenantId || '';
-          bId = payload.branchId || '';
         } catch(e) {}
       }
       
+      const bId = user?.currentBranchId || '';
+
       const response = await fetch(`${API_URL}/api/menu?tenantId=${tId}&branchId=${bId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -180,7 +182,14 @@ export default function KDSPage() {
   const fetchKdsOrders = async () => {
     try {
       const accessToken = getAccessTokenFromCookie();
-      const response = await fetch(`${API_URL}/api/kds/orders`, {
+      const bId = user?.currentBranchId || '';
+      
+      const url = new URL(`${API_URL}/api/kds/orders`);
+      if (bId) {
+        url.searchParams.append('branchId', bId);
+      }
+
+      const response = await fetch(url.toString(), {
         headers: {
           'Authorization': `Bearer ${accessToken || ''}`,
         }
@@ -231,19 +240,21 @@ export default function KDSPage() {
     }
   };
 
+  const { user } = useAuthStore();
+
   const token = typeof window !== 'undefined' ? (getAccessTokenFromCookie() || undefined) : undefined;
   let tenantId = 'unknown';
-  let branchId = 'unknown';
   if (token) {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       tenantId = payload.tenantId || 'unknown';
-      branchId = payload.branchId || 'unknown';
     } catch(e) {}
   }
   
+  const branchId = user?.currentBranchId || '';
+  
   const { socket: kitchenSocket, isConnected: isKitchenConnected } = useSocket({
-    room: `tenant:${tenantId}:branch:${branchId}:kitchen`,
+    room: branchId ? `tenant:${tenantId}:branch:${branchId}:kitchen` : '',
     token,
   });
 
@@ -309,6 +320,7 @@ export default function KDSPage() {
         return [
           {
             id: payload.sessionId,
+            orderNo: payload.orderNo,
             tableId: payload.tableId,
             openedAt: payload.createdAt,
             lockedAt: payload.createdAt,
@@ -327,6 +339,7 @@ export default function KDSPage() {
         const existingIds = new Set(session.orderItems.map((item: any) => item.id));
         return {
           ...session,
+          orderNo: payload.orderNo || session.orderNo,
           table: {
             ...session.table,
             tableNumber: payload.tableNumber || session.table?.tableNumber || 0,
@@ -644,7 +657,7 @@ export default function KDSPage() {
 
       return {
         id: session.id,
-        orderNo: `ORD-${session.id.substring(0, 4).toUpperCase()}`,
+        orderNo: session.orderNo || `ORD-${session.id.substring(0, 4).toUpperCase()}`,
         tableNo: session.table?.label || `Bàn ${session.table?.tableNumber || ""}`,
         items,
         status,
@@ -773,7 +786,7 @@ export default function KDSPage() {
 
     const archiveEntry: ArchivedKdsOrder = {
       id: session.id,
-      orderNo: `ORD-${session.id.substring(0, 4).toUpperCase()}`,
+      orderNo: session.orderNo || `ORD-${session.id.substring(0, 4).toUpperCase()}`,
       tableNo: session.table?.label || `Bàn ${session.table?.tableNumber || ""}`,
       archivedAt: new Date().toISOString(),
       items: session.orderItems.map((oi: any) => ({

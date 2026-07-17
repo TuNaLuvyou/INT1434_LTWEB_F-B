@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import { useAuthStore } from "@/stores/auth.store";
-import { Loader2, LogOut } from 'lucide-react';
+import { Loader2, LogOut, Store } from 'lucide-react';
 import { logout } from '@/lib/auth/client';
 
 export default function AdminLayout({

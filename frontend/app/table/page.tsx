@@ -518,7 +518,7 @@ export default function TableSelectionInternalPage() {
 
                   <div className={`mt-2.5 sm:mt-4 relative z-10 flex gap-2 ${isLocked ? 'invisible' : 'pointer-events-auto'}`}>
                     <Link
-                      href={`/table/${table.id}?tenantId=${user?.tenantId}&branchId=${user?.branchId}`}
+                      href={`/table/${table.id}?tenantId=${user?.currentTenantId}&branchId=${user?.currentBranchId}`}
                       className="flex-1 h-8 sm:h-10 rounded-lg sm:rounded-xl bg-zinc-950/30 border border-zinc-800 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white hover:shadow-md flex items-center justify-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-bold text-gray-200 transition-all cursor-pointer"
                     >
                       <UtensilsCrossed className="h-3 w-3 sm:h-3.5 sm:w-3.5" />

@@ -1,5 +1,5 @@
 import prisma from '../config/prisma';
-import { OrderItemStatus, TableStatus } from '@prisma/client';
+import { OrderItemStatus, TableStatus, Prisma } from '@prisma/client';
 import { AppError } from '../utils/app-error';
 import { emitKitchenNewTicket, emitCartUpdated, emitTableStatusChanged } from '../socket/emit.helpers';
 
@@ -21,7 +21,7 @@ export interface CashierTableOverview {
   session: CashierSessionOverview | null;
 }
 
-type CashierDisplayStatus = 'CART' | 'PENDING' | 'PREPARING' | 'DONE' | 'VOID';
+type CashierDisplayStatus = 'CART' | 'PENDING' | 'PREPARING' | 'DONE' | 'DELIVERED' | 'VOID';
 
 export interface CashierSessionItemsResponse {
   sessionId: string;
@@ -110,7 +110,7 @@ export async function getCashierOverview(tenantId: string, branchId?: string): P
         s."lockedAt"
       FROM "OrderItem" oi
       JOIN "TableSession" s ON s.id = oi."sessionId"
-      WHERE oi."sessionId" IN (${openSessionIds})
+      WHERE oi."sessionId" IN (${Prisma.join(openSessionIds)})
         AND oi.status != 'CART'
     `;
 
@@ -240,6 +240,7 @@ export async function getCashierSessionItems(sessionId: string): Promise<Cashier
     PENDING: [],
     PREPARING: [],
     DONE: [],
+    DELIVERED: [],
     VOID: [],
   };
 
@@ -360,6 +361,7 @@ export async function approveOrder(sessionId: string, approverId?: string): Prom
   // Emit Kitchen New Ticket
   emitKitchenNewTicket(session.table.tenantId, session.table.branchId, {
     sessionId,
+    orderNo: session.orderNo || undefined,
     tableId: session.tableId,
     tableNumber: session.table.tableNumber,
     items: pendingItems.map(item => ({

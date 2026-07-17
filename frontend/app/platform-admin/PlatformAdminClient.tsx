@@ -14,7 +14,11 @@ export default function PlatformAdminClient() {
 
   // Form state
   const [isCreating, setIsCreating] = useState(false);
-  const [newTenant, setNewTenant] = useState({ name: '', domain: '', ownerEmail: '', ownerName: '' });
+  const [newTenant, setNewTenant] = useState({ name: '', domain: '', ownerEmail: '', ownerName: '', ownerPassword: '', ownerPhone: '' });
+  
+  // Edit state
+  const [editingTenant, setEditingTenant] = useState<{ id: string; name: string; domain: string; ownerEmail?: string; ownerName?: string; ownerPassword?: string; ownerPhone?: string; isActive?: boolean; subscription?: string } | null>(null);
+  const [editTab, setEditTab] = useState<'info' | 'owner' | 'settings'>('info');
 
   const loadData = async () => {
     try {
@@ -42,7 +46,30 @@ export default function PlatformAdminClient() {
       await platformAdminApi.createTenant(newTenant);
       toast.success('Tạo Tenant thành công!');
       setIsCreating(false);
-      setNewTenant({ name: '', domain: '', ownerEmail: '', ownerName: '' });
+      setNewTenant({ name: '', domain: '', ownerEmail: '', ownerName: '', ownerPassword: '', ownerPhone: '' });
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleUpdateTenant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTenant) return;
+    try {
+      await platformAdminApi.updateTenant(editingTenant.id, { 
+        name: editingTenant.name, 
+        domain: editingTenant.domain,
+        ownerEmail: editingTenant.ownerEmail,
+        ownerName: editingTenant.ownerName,
+        ownerPassword: editingTenant.ownerPassword,
+        ownerPhone: editingTenant.ownerPhone,
+        isActive: editingTenant.isActive,
+        subscription: editingTenant.subscription
+      });
+      toast.success('Cập nhật thông tin thành công!');
+      setEditingTenant(null);
+      setEditTab('info');
       loadData();
     } catch (error: any) {
       toast.error(error.message);
@@ -159,7 +186,7 @@ export default function PlatformAdminClient() {
 
             {/* Create Form */}
             {isCreating && (
-              <form onSubmit={handleCreateTenant} className="bg-zinc-900/50 border border-rose-500/30 p-6 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-5 shadow-2xl backdrop-blur-sm animate-in slide-in-from-top-4">
+              <form onSubmit={handleCreateTenant} className="bg-zinc-900/50 border border-rose-500/30 p-6 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-5 shadow-2xl backdrop-blur-sm animate-in slide-in-from-top-4">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Tên Nhà Hàng</label>
                   <input required type="text" className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50" value={newTenant.name} onChange={e => setNewTenant({...newTenant, name: e.target.value})} placeholder="VD: Phở Bát Đàn" />
@@ -176,7 +203,15 @@ export default function PlatformAdminClient() {
                   <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Tên Chủ (Owner)</label>
                   <input required type="text" className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50" value={newTenant.ownerName} onChange={e => setNewTenant({...newTenant, ownerName: e.target.value})} placeholder="Nguyễn Văn A" />
                 </div>
-                <div className="md:col-span-2 flex justify-end space-x-3 pt-2 border-t border-zinc-800/50 mt-2">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Số điện thoại</label>
+                  <input type="tel" className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50" value={newTenant.ownerPhone} onChange={e => setNewTenant({...newTenant, ownerPhone: e.target.value})} placeholder="09xxxxxxx" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Mật khẩu (Owner)</label>
+                  <input required type="password" minLength={8} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50" value={newTenant.ownerPassword} onChange={e => setNewTenant({...newTenant, ownerPassword: e.target.value})} placeholder="Ít nhất 8 ký tự" />
+                </div>
+                <div className="md:col-span-3 flex justify-end space-x-3 pt-2 border-t border-zinc-800/50 mt-2">
                   <button type="button" onClick={() => setIsCreating(false)} className="px-5 py-2.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl font-medium transition-colors">Huỷ</button>
                   <button type="submit" className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold transition-colors shadow-lg shadow-emerald-600/20">Tạo mới</button>
                 </div>
@@ -201,7 +236,26 @@ export default function PlatformAdminClient() {
                     {tenants.map(t => (
                       <tr key={t.id} className="hover:bg-zinc-800/30 transition-colors">
                         <td className="p-5">
-                          <div className="font-bold text-zinc-100 text-base">{t.name}</div>
+                          <div 
+                            className="font-bold text-zinc-100 text-base cursor-pointer hover:text-rose-400 transition-colors"
+                            onClick={() => {
+                              setEditingTenant({ 
+                                id: t.id, 
+                                name: t.name, 
+                                domain: t.domain || '', 
+                                ownerEmail: t.owner?.email, 
+                                ownerName: t.owner?.name, 
+                                ownerPhone: t.owner?.phone || '',
+                                ownerPassword: '',
+                                isActive: t.isActive,
+                                subscription: t.subscription || 'Starter'
+                              });
+                              setEditTab('info');
+                            }}
+                            title="Nhấn để sửa thông tin"
+                          >
+                            {t.name}
+                          </div>
                           <div className="text-xs text-zinc-500 font-mono mt-1">{t.domain || 'Chưa thiết lập'}</div>
                         </td>
                         <td className="p-5">
@@ -301,6 +355,67 @@ export default function PlatformAdminClient() {
           </div>
         )}
       </main>
+
+      {/* Edit Modal */}
+      {editingTenant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-zinc-800">
+              <h3 className="text-lg font-bold text-zinc-100">Cập nhật thông tin cửa hàng</h3>
+            </div>
+            
+            <div className="flex border-b border-zinc-800/80 px-5 pt-3 gap-6">
+              <button type="button" onClick={() => setEditTab('info')} className={`pb-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${editTab === 'info' ? 'border-rose-500 text-rose-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}>Cửa hàng</button>
+              <button type="button" onClick={() => setEditTab('owner')} className={`pb-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${editTab === 'owner' ? 'border-rose-500 text-rose-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}>Chủ sở hữu</button>
+            </div>
+
+            <form onSubmit={handleUpdateTenant} className="p-5">
+              
+              <div className="min-h-[220px]">
+                {editTab === 'info' && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div>
+                      <label className="block text-sm font-semibold text-zinc-300 mb-1.5">Tên Cửa Hàng</label>
+                      <input required type="text" className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50" value={editingTenant.name} onChange={e => setEditingTenant({...editingTenant, name: e.target.value})} placeholder="Tên cửa hàng" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-zinc-300 mb-1.5">Tên miền (Domain)</label>
+                      <input type="text" className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50" value={editingTenant.domain} onChange={e => setEditingTenant({...editingTenant, domain: e.target.value})} placeholder="VD: demo.hiaimenugo.com" />
+                    </div>
+                  </div>
+                )}
+
+                {editTab === 'owner' && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div>
+                      <label className="block text-sm font-semibold text-zinc-300 mb-1.5">Tên Chủ (Owner)</label>
+                      <input type="text" className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50" value={editingTenant.ownerName || ''} onChange={e => setEditingTenant({...editingTenant, ownerName: e.target.value})} placeholder="Nguyễn Văn A" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-zinc-300 mb-1.5">Email Chủ (Owner)</label>
+                      <input type="email" className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50" value={editingTenant.ownerEmail || ''} onChange={e => setEditingTenant({...editingTenant, ownerEmail: e.target.value})} placeholder="owner@example.com" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-zinc-300 mb-1.5">Số điện thoại</label>
+                      <input type="tel" className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50" value={editingTenant.ownerPhone || ''} onChange={e => setEditingTenant({...editingTenant, ownerPhone: e.target.value})} placeholder="09xxxxxxx" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-zinc-300 mb-1.5">Mật khẩu mới (Tuỳ chọn)</label>
+                      <input type="password" minLength={8} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-rose-500/50" value={editingTenant.ownerPassword || ''} onChange={e => setEditingTenant({...editingTenant, ownerPassword: e.target.value})} placeholder="Để trống nếu không muốn đổi" />
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800/50 mt-4">
+                <button type="button" onClick={() => setEditingTenant(null)} className="px-4 py-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-xl font-medium transition-colors">Huỷ</button>
+                <button type="submit" className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-semibold transition-colors shadow-lg shadow-rose-600/20">Lưu thay đổi</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

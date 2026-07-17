@@ -106,3 +106,53 @@ export const deleteSchedule = async (id: string) => {
   });
   return res.json();
 };
+
+// ── Inventory 4-tab helpers ────────────────────────────────────────────────
+
+export const fetchBranches = async () => {
+  const res = await fetch(`${API}/api/branches`, {
+    headers: getHeaders(),
+    credentials: 'include',
+  });
+  return res.json();
+};
+
+export const fetchCurrentUser = async () => {
+  const res = await fetch(`${API}/api/auth/me`, {
+    headers: getHeaders(),
+    credentials: 'include',
+  });
+  return res.json();
+};
+
+export const fetchBranchStock = async () => {
+  const res = await fetch(`${API}/api/ingredients/branch-stock`, {
+    headers: getHeaders(),
+    credentials: 'include',
+  });
+  return res.json();
+};
+
+export const fetchExportedStats = async () => {
+  const res = await fetch(`${API}/api/ingredients/exported-stats`, {
+    headers: getHeaders(),
+    credentials: 'include',
+  });
+  return res.json();
+};
+
+export const transferIngredientToBranch = async (payload: {
+  ingredientId: string;
+  branchId: string;
+  quantity: number;
+  note?: string;
+}) => {
+  const res = await fetch(`${API}/api/ingredients/transfer-to-branch`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+};
+

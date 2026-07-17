@@ -138,12 +138,14 @@ export async function deductInventory(
         const bi = await client.branchIngredient.findUnique({
           where: { branchId_ingredientId: { branchId, ingredientId: ing.id } }
         });
-        available = bi ? Number(bi.stock) : Number(ing.stock);
+        available = bi ? Number(bi.inUseStock) : 0;
       } else {
         available = Number(ing.stock);
       }
 
       if (available < required) {
+        // Cho phép trừ âm đối với kho chi nhánh (Đã xuất), không chặn order.
+        if (!branchId) {
         shortages.push({
           ingredientId: ing.id,
           ingredientName: ing.name,
@@ -152,6 +154,7 @@ export async function deductInventory(
           available,
           shortage: Number((required - available).toFixed(4)),
         });
+        }
       }
     }
 
@@ -160,6 +163,11 @@ export async function deductInventory(
     }
 
     // 3c. UPDATE stock và INSERT InventoryLog
+    //
+    // THIẾT KẾ KHO MỚI:
+    //   - Kho tổng (Ingredient.stock) = admin quản lý thủ công, KHÔNG tự động trừ khi order
+    //   - Kho chi nhánh (BranchIngredient.stock) = trừ tự động khi order
+    //   - totalExported trên BranchIngredient = thống kê đã dùng tại chi nhánh
     const now = new Date();
 
     for (const ing of lockedIngredients) {
@@ -167,37 +175,32 @@ export async function deductInventory(
       const consumed = Math.abs(delta);
 
       if (branchId) {
-        // Sử dụng BranchIngredient
+        // Chỉ trừ BranchIngredient.inUseStock (Kho bếp / Đã xuất)
         const bi = await client.branchIngredient.findUnique({
           where: { branchId_ingredientId: { branchId, ingredientId: ing.id } }
         });
         if (bi) {
-          const newBranchStock = Number(bi.stock) + delta;
+          const newInUseStock = Number(bi.inUseStock) + delta; // delta is negative
           await client.branchIngredient.update({
             where: { id: bi.id },
-            data: { stock: newBranchStock },
+            data: {
+              inUseStock: newInUseStock,
+            },
           });
         } else {
+          // Tạo BranchIngredient mới nếu chưa có (fallback)
           await client.branchIngredient.create({
             data: {
               branchId,
               ingredientId: ing.id,
-              stock: Number(ing.stock) + delta,
+              stock: 0,
+              inUseStock: delta, // delta is negative
               lowStockThreshold: Number(ing.minStock),
             },
           });
         }
       }
-
-      // Luôn cập nhật Ingredient stock tổng (rollup)
-      const newStock = Number(ing.stock) + delta;
-      await client.ingredient.update({
-        where: { id: ing.id },
-        data: {
-          stock: newStock,
-          totalExported: { increment: consumed },
-        },
-      });
+      // KHÔNG cập nhật Ingredient.stock (kho tổng) — chỉ admin mới được thao tác kho tổng
 
       await client.inventoryLog.create({
         data: {

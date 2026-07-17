@@ -53,8 +53,10 @@ export interface SessionAllDonePayload {
 
 export interface KitchenTicketPayload {
   sessionId: string;
+  orderNo?: string;
   tableId: string;
   tableNumber?: number;
+  label?: string;
   items: Array<{
     orderItemId: string;
     menuItemName: string;
@@ -117,6 +119,7 @@ export function emitCartUpdated(tenantId: string, branchId: string, tableId: str
   try {
     getIO().to(SOCKET_ROOMS.table(tableId)).emit(SOCKET_EVENTS.CART_UPDATED, payload);
     getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.CART_UPDATED, payload);
+    getIO().to(SOCKET_ROOMS.TENANT_CASHIER(tenantId)).emit(SOCKET_EVENTS.CART_UPDATED, payload);
     console.log(`[emit] cart:updated → room table:${tableId} & cashier`);
   } catch (err) {
     console.warn('[emit] emitCartUpdated failed (socket chưa init?):', err);
@@ -143,6 +146,7 @@ export function emitSessionClosed(tableId: string, payload: SessionClosedPayload
 export function emitSessionAllDone(tenantId: string, branchId: string, payload: SessionAllDonePayload): void {
   try {
     getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.SESSION_ALL_DONE, payload);
+    getIO().to(SOCKET_ROOMS.TENANT_CASHIER(tenantId)).emit(SOCKET_EVENTS.SESSION_ALL_DONE, payload);
     console.log(`[emit] session:all-done → cashier | session: ${payload.sessionId}`);
   } catch (err) {
     console.warn('[emit] emitSessionAllDone failed:', err);
@@ -159,6 +163,7 @@ export function emitTableStatusChanged(tenantId: string, branchId: string, paylo
   try {
     getIO().to(SOCKET_ROOMS.FLOOR_PLAN(tenantId, branchId)).emit(SOCKET_EVENTS.TABLE_STATUS_CHANGED, payload);
     getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.TABLE_STATUS_CHANGED, payload);
+    getIO().to(SOCKET_ROOMS.TENANT_CASHIER(tenantId)).emit(SOCKET_EVENTS.TABLE_STATUS_CHANGED, payload);
     console.log(`[emit] table:status-changed → floor-plan & cashier | bàn ${payload.tableId}: ${payload.status}`);
   } catch (err) {
     console.warn('[emit] emitTableStatusChanged failed:', err);
@@ -228,6 +233,7 @@ export function emitOrderStatusChanged(tableId: string, payload: OrderStatusChan
 export function emitCashierNewOrder(tenantId: string, branchId: string, payload: CashierNewOrderPayload): void {
   try {
     getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.CASHIER_NEW_ORDER, payload);
+    getIO().to(SOCKET_ROOMS.TENANT_CASHIER(tenantId)).emit(SOCKET_EVENTS.CASHIER_NEW_ORDER, payload);
     console.log(`[emit] cashier:new-order → cashier | session: ${payload.sessionId}`);
   } catch (err) {
     console.warn('[emit] emitCashierNewOrder failed:', err);
@@ -241,6 +247,7 @@ export function emitCashierNewOrder(tenantId: string, branchId: string, payload:
 export function emitCashierVoidConfirm(tenantId: string, branchId: string, payload: { orderItemId: string; tableId: string; menuItemName: string }): void {
   try {
     getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.CASHIER_VOID_CONFIRM, payload);
+    getIO().to(SOCKET_ROOMS.TENANT_CASHIER(tenantId)).emit(SOCKET_EVENTS.CASHIER_VOID_CONFIRM, payload);
     console.log(`[emit] cashier:void-confirm → cashier | item: ${payload.orderItemId}`);
   } catch (err) {
     console.warn('[emit] emitCashierVoidConfirm failed:', err);

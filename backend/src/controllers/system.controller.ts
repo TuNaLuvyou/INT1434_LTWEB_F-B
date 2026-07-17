@@ -139,19 +139,40 @@ export const cleanupHistory = async (req: Request, res: Response): Promise<void>
 
 export const getOverviewStats = async (req: Request, res: Response): Promise<void> => {
   try {
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
+    let branchId = req.query.branchId as string | undefined;
+
+    if (authReq.user?.role === 'MANAGER') {
+      branchId = authReq.user?.branchId;
+    }
+
+    const baseWhereSession = { tenantId, ...(branchId ? { branchId } : {}) };
+
     const pendingOrdersCount = await prisma.orderItem.count({
-      where: { status: { in: ['PENDING', 'PREPARING'] } }
+      where: { 
+        status: { in: ['PENDING', 'PREPARING'] },
+        session: baseWhereSession
+      }
     });
 
     const occupiedTablesCount = await prisma.table.count({
-      where: { status: 'OCCUPIED' }
+      where: { 
+        status: 'OCCUPIED',
+        tenantId,
+        ...(branchId ? { branchId } : {})
+      }
     });
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const revenueAgg = await prisma.payment.aggregate({
       _sum: { total: true },
-      where: { paidAt: { gte: today } }
+      where: { 
+        paidAt: { gte: today },
+        tenantId,
+        ...(branchId ? { branchId } : {})
+      }
     });
     const todayRevenue = revenueAgg._sum.total ? Number(revenueAgg._sum.total) : 0;
 

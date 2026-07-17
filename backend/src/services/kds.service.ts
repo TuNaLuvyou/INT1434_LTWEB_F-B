@@ -18,6 +18,7 @@ export async function getActiveKdsTickets(tenantId: string, branchId?: string) {
     },
     select: {
       id: true,
+      orderNo: true,
       tableId: true,
       openedAt: true,
       lockedAt: true,

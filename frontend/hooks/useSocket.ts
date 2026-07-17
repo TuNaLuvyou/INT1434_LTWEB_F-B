@@ -83,8 +83,31 @@ export function useSocket({
   const tokenRef = useRef(token);
 
   // Cập nhật refs khi props thay đổi
-  useEffect(() => { roomRef.current = room; }, [room]);
-  useEffect(() => { tokenRef.current = token; }, [token]);
+  useEffect(() => { 
+    const oldRoom = roomRef.current;
+    roomRef.current = room; 
+    
+    const socket = socketRef.current;
+    if (socket && socket.connected && oldRoom !== room) {
+      if (oldRoom && oldRoom !== 'table:' && oldRoom !== 'table:null' && oldRoom !== 'table:undefined') {
+        socket.emit('leave-room', { room: oldRoom });
+      }
+      setIsInRoom(false);
+      if (room && room !== 'table:' && room !== 'table:null' && room !== 'table:undefined') {
+        socket.emit('join-room', { room, token: tokenRef.current });
+      }
+    }
+  }, [room]);
+  
+  useEffect(() => { 
+    tokenRef.current = token; 
+    // Re-join if token changes
+    const socket = socketRef.current;
+    const currentRoom = roomRef.current;
+    if (socket && socket.connected && currentRoom && currentRoom !== 'table:' && currentRoom !== 'table:null' && currentRoom !== 'table:undefined') {
+      socket.emit('join-room', { room: currentRoom, token: tokenRef.current });
+    }
+  }, [token]);
 
   /**
    * Join room sau khi kết nối — gọi lại sau mỗi lần reconnect

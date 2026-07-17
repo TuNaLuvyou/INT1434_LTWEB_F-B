@@ -178,6 +178,14 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
   ];
 
   const result = await prisma.$transaction(async (tx) => {
+    // Xóa các giao dịch PENDING bị treo (do người dùng bấm Đóng rồi thử lại)
+    await tx.payment.deleteMany({
+      where: {
+        sessionId,
+        status: 'PENDING'
+      }
+    });
+
     // Tao ban ghi thanh toan via Provider
     const { payment, providerData } = await provider.createPayment({
       sessionId,
@@ -256,6 +264,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
       method,
       status: result.payment.status,
       providerData: result.providerData,
+      orderNo: session.orderNo,
       paidAt: null as any, // Not paid yet
     };
   }
@@ -279,6 +288,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
   if (itemsToSendToKitchen.length > 0) {
     emitKitchenNewTicket(session.tenantId, session.branchId, {
       sessionId,
+      orderNo: session.orderNo || undefined,
       tableId: session.tableId,
       tableNumber: session.table.tableNumber,
       items: itemsToSendToKitchen.map(item => ({
@@ -300,6 +310,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<{
     total: Number(result.payment.total),
     method,
     status: result.payment.status,
+    orderNo: session.orderNo,
     paidAt,
   };
 }
@@ -385,6 +396,7 @@ export async function confirmManualPayment(paymentId: string, cashierId: string,
   if (itemsToSendToKitchen.length > 0) {
     emitKitchenNewTicket(session.tenantId, session.branchId, {
       sessionId: session.id,
+      orderNo: session.orderNo || undefined,
       tableId: session.tableId,
       tableNumber: session.table.tableNumber,
       items: itemsToSendToKitchen.map(item => ({
@@ -399,5 +411,5 @@ export async function confirmManualPayment(paymentId: string, cashierId: string,
     });
   }
 
-  return { success: true, paymentId };
+  return { success: true, paymentId, orderNo: session.orderNo };
 }

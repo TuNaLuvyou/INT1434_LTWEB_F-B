@@ -151,6 +151,9 @@ export default function POSPage() {
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  
+  const [pendingPaymentData, setPendingPaymentData] = useState<any>(null);
+  const [isConfirmingPending, setIsConfirmingPending] = useState(false);
 
   // Fetch Menu, Categories and Tables on mount
   const fetchData = async () => {
@@ -216,11 +219,6 @@ export default function POSPage() {
   const handleSelectTable = async (tableId: string) => {
     if (isCancelling) return;
     const table = tables.find((t) => t.id === tableId);
-    if (!table) return;
-    if (table.status === 'OCCUPIED') {
-      alert('Bàn đang có khách, không thể chọn để gọi món mới.');
-      return;
-    }
     if (tableId === selectedTableId) {
       setActiveTab('menu');
       return;
@@ -259,12 +257,6 @@ export default function POSPage() {
 
   // Sync session select (kept for compatibility)
   const handleTableChange = async (tableId: string) => {
-    const selectedTable = tables.find((table) => table.id === tableId);
-    if (selectedTable?.status === 'OCCUPIED') {
-      alert('Bàn đang có khách, không thể chọn để gọi món mới.');
-      return;
-    }
-
     setSelectedTableId(tableId);
     if (!tableId) {
       setSessionId("");
@@ -444,13 +436,6 @@ export default function POSPage() {
           t.id === payload.tableId ? { ...t, status: payload.status } : t
         )
       );
-      if (payload.status === 'OCCUPIED' && payload.tableId === selectedTableId) {
-        setSelectedTableId("");
-        setSessionId("");
-        setCart([]);
-        setActiveTab('tables');
-        alert('Bàn vừa có khách, vui lòng chọn bàn khác để gọi món.');
-      }
     };
 
     cashierSocket.on('table:session-updated', handleSessionUpdate);
@@ -688,14 +673,23 @@ export default function POSPage() {
       const result = await res.json();
 
       if (res.ok && result.success) {
-        setCheckoutOrderNo(`ORD-${sessionId.substring(0, 4).toUpperCase()}`);
-        setShowCheckoutSuccess(true);
-        // Clean session
-        setSessionId("");
-        setSelectedTableId("");
-        setCart([]);
-        setIsPaymentModalOpen(false);
-        fetchData(); // reload tables
+        if (result.data?.status === 'PENDING' && result.data?.providerData?.qrUrl) {
+           setPendingPaymentData({
+              paymentId: result.data.paymentId || result.data.payment?.id,
+              sessionId,
+              ...result.data.providerData
+           });
+           setIsPaymentModalOpen(false); // Đóng modal chọn phương thức
+        } else {
+           setCheckoutOrderNo(result.data?.orderNo || `ORD-${sessionId.substring(0, 4).toUpperCase()}`);
+           setShowCheckoutSuccess(true);
+           // Clean session
+           setSessionId("");
+           setSelectedTableId("");
+           setCart([]);
+           setIsPaymentModalOpen(false);
+           fetchData(); // reload tables
+        }
       } else {
         alert(result.message || "Không thể thực hiện thanh toán");
       }
@@ -704,6 +698,40 @@ export default function POSPage() {
       alert("Lỗi kết nối server.");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleManualConfirm = async () => {
+    if (!pendingPaymentData) return;
+    setIsConfirmingPending(true);
+    try {
+      const accessToken = getAccessTokenFromCookie();
+      const res = await fetch(`${API_URL}/api/payment/${pendingPaymentData.paymentId}/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken || ""}`,
+        },
+        body: JSON.stringify({ keepOccupied: true })
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setCheckoutOrderNo(result.data?.orderNo || `ORD-${pendingPaymentData.sessionId.substring(0, 4).toUpperCase()}`);
+        setPendingPaymentData(null);
+        setShowCheckoutSuccess(true);
+        // Clean session
+        setSessionId("");
+        setSelectedTableId("");
+        setCart([]);
+        fetchData(); // reload tables
+      } else {
+        alert(result.message || "Không thể xác nhận thanh toán");
+      }
+    } catch (e) {
+      console.error('[POS] Lỗi xác nhận thủ công:', e);
+      alert('Lỗi kết nối server.');
+    } finally {
+      setIsConfirmingPending(false);
     }
   };
 
@@ -1179,12 +1207,12 @@ export default function POSPage() {
       {/* Payment Modal */}
       {isPaymentModalOpen && sessionId && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col max-h-[90vh]">
+          <div className="w-full max-w-xl rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col max-h-[90vh]">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-900">
               <div>
-                <div className="text-sm font-bold text-white tracking-tight">💳 Thanh Toán Hóa Đơn (POS)</div>
-                <div className="text-[11px] text-zinc-500 mt-0.5">
+                <div className="text-lg font-bold text-white tracking-tight">💳 Thanh Toán Hóa Đơn (POS)</div>
+                <div className="text-sm text-zinc-500 mt-1">
                   Bàn: {tables.find(t => t.id === selectedTableId)?.label || "Bàn Phục Vụ"}
                 </div>
               </div>
@@ -1200,10 +1228,10 @@ export default function POSPage() {
             <div className="overflow-y-auto px-6 py-5 space-y-5 flex-1">
               {/* Danh sach mon an */}
               <div>
-                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-3">Chi tiết hóa đơn</div>
-                <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                <div className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Chi tiết hóa đơn</div>
+                <div className="space-y-3 max-h-52 overflow-y-auto pr-2">
                   {cart.map((cartItem) => (
-                    <div key={cartItem.item.id} className="flex items-center justify-between text-xs">
+                    <div key={cartItem.item.id} className="flex items-center justify-between text-sm">
                       <span className="text-zinc-300 font-medium truncate flex-1 pr-3">{cartItem.item.name}</span>
                       <span className="text-zinc-500 shrink-0">x{cartItem.quantity}</span>
                       <span className="text-zinc-200 font-mono ml-4 shrink-0">
@@ -1212,7 +1240,7 @@ export default function POSPage() {
                     </div>
                   ))}
                 </div>
-                <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-zinc-900 text-xs text-zinc-400">
+                <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-zinc-900 text-sm text-zinc-400">
                   <div className="flex justify-between">
                     <span>Tạm tính</span>
                     <span className="font-mono text-zinc-300">{formatCurrency(getSubtotal())}</span>
@@ -1221,16 +1249,16 @@ export default function POSPage() {
                     <span>Thuế VAT (10%)</span>
                     <span className="font-mono text-zinc-300">{formatCurrency(getTax())}</span>
                   </div>
-                  <div className="flex justify-between font-bold text-zinc-200 mt-1">
+                  <div className="flex justify-between font-bold text-zinc-200 mt-2 text-base">
                     <span>Tổng cộng</span>
-                    <span className="font-mono text-white text-sm">{formatCurrency(getTotal())}</span>
+                    <span className="font-mono text-white text-lg">{formatCurrency(getTotal())}</span>
                   </div>
                 </div>
               </div>
 
               {/* Voucher */}
-              <div className="space-y-2 relative">
-                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Mã giảm giá</div>
+              <div className="space-y-3 relative">
+                <div className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Mã giảm giá</div>
                 <div className="flex gap-2 relative">
                   <div className="relative flex-1">
                     <input
@@ -1251,7 +1279,7 @@ export default function POSPage() {
                         }
                       }}
                       placeholder="Nhập hoặc chọn voucher..."
-                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-3 pr-8 py-2 text-xs text-zinc-100 placeholder-zinc-650 focus:outline-none focus:border-blue-500 transition-all font-mono uppercase"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-3 pr-8 py-2.5 text-sm text-zinc-100 placeholder-zinc-650 focus:outline-none focus:border-blue-500 transition-all font-mono uppercase"
                     />
                     <button
                       type="button"
@@ -1302,7 +1330,7 @@ export default function POSPage() {
                     type="button"
                     onClick={() => handleValidateVoucher()}
                     disabled={!voucherCode.trim() || isValidatingVoucher}
-                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-[11px] font-bold uppercase tracking-wider transition-all shrink-0"
+                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold uppercase tracking-wider transition-all shrink-0"
                   >
                     {isValidatingVoucher ? "..." : "Áp dụng"}
                   </button>
@@ -1330,50 +1358,50 @@ export default function POSPage() {
               </div>
 
               {/* Tong sau giam gia */}
-              <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800 px-4 py-3.5 flex items-center justify-between">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Tổng thanh toán</span>
-                <span className="text-lg font-black text-blue-400 font-mono">
+              <div className="rounded-2xl bg-zinc-900/60 border border-zinc-800 px-5 py-4 flex items-center justify-between">
+                <span className="text-sm font-bold text-zinc-400 uppercase tracking-wider">Tổng thanh toán</span>
+                <span className="text-2xl font-black text-blue-400 font-mono">
                   {formatCurrency(Math.max(0, getTotal() - (voucherData?.discountAmount ?? 0)))}
                 </span>
               </div>
 
               {/* Phuong thuc thanh toan */}
-              <div className="space-y-2">
-                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Phương thức thanh toán</div>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Phương thức thanh toán</div>
+                <div className="grid grid-cols-2 gap-4">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("CASH")}
-                    className={`rounded-2xl border py-3.5 flex flex-col items-center gap-1.5 transition-all duration-200 ${paymentMethod === "CASH"
+                    className={`rounded-2xl border py-4 flex flex-col items-center gap-2 transition-all duration-200 ${paymentMethod === "CASH"
                         ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
                         : "border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
                       }`}
                   >
-                    <span className="text-2xl">💵</span>
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Tiền mặt</span>
+                    <span className="text-3xl">💵</span>
+                    <span className="text-sm font-bold uppercase tracking-wider">Tiền mặt</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("TRANSFER")}
-                    className={`rounded-2xl border py-3.5 flex flex-col items-center gap-1.5 transition-all duration-200 ${paymentMethod === "TRANSFER"
+                    className={`rounded-2xl border py-4 flex flex-col items-center gap-2 transition-all duration-200 ${paymentMethod === "TRANSFER"
                         ? "border-blue-500/50 bg-blue-500/10 text-blue-400"
                         : "border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
                       }`}
                   >
-                    <span className="text-2xl">📲</span>
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Chuyển khoản</span>
+                    <span className="text-3xl">📲</span>
+                    <span className="text-sm font-bold uppercase tracking-wider">Chuyển khoản</span>
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Footer actions */}
-            <div className="px-6 py-4 border-t border-zinc-900 flex gap-3">
+            <div className="px-6 py-5 border-t border-zinc-900 flex gap-4">
               <button
                 type="button"
                 onClick={() => setIsPaymentModalOpen(false)}
                 disabled={actionLoading}
-                className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 py-3 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+                className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 py-4 text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-50"
               >
                 Hủy
               </button>
@@ -1381,7 +1409,7 @@ export default function POSPage() {
                 type="button"
                 onClick={handleConfirmPayment}
                 disabled={!paymentMethod || actionLoading}
-                className="flex-[2] rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-3 text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(99,102,241,0.25)] disabled:from-zinc-850 disabled:to-zinc-850 disabled:text-zinc-500 disabled:shadow-none flex items-center justify-center gap-2"
+                className="flex-[2] rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-4 text-sm font-bold uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(99,102,241,0.25)] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
               >
                 {actionLoading ? (
                   <>
@@ -1399,38 +1427,88 @@ export default function POSPage() {
         </div>
       )}
 
+      {/* Pending Payment QR Modal */}
+      {pendingPaymentData && (
+        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-3xl w-full overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200 shadow-2xl">
+            <div className="p-6 border-b border-zinc-800 text-center relative">
+               <h3 className="font-bold text-2xl text-white">Chờ Thanh Toán VietQR</h3>
+               <button 
+                 onClick={() => setPendingPaymentData(null)}
+                 className="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+               >
+                 <X className="h-6 w-6" />
+               </button>
+            </div>
+            <div className="p-8 flex flex-col md:flex-row items-center justify-center gap-8">
+              <div className="bg-white rounded-3xl shrink-0 shadow-2xl w-[300px] h-[380px] overflow-hidden relative">
+                 <img src={pendingPaymentData.qrUrl} alt="VietQR" className="w-[110%] max-w-none h-auto absolute left-1/2 -translate-x-1/2 top-0" />
+              </div>
+              <div className="text-left space-y-3 flex-1 w-full border border-zinc-800/50 bg-zinc-800/20 rounded-3xl p-6">
+                 <p className="text-zinc-400 text-sm">Ngân hàng: <br/><span className="text-white font-semibold text-lg">{pendingPaymentData.bankName}</span></p>
+                 <p className="text-zinc-400 text-sm mt-2">Số TK: <br/><span className="text-white font-bold text-2xl tracking-wider text-blue-300">{pendingPaymentData.accountNumber}</span></p>
+                 <p className="text-zinc-400 text-sm mt-2">Chủ TK: <br/><span className="text-white font-semibold text-lg">{pendingPaymentData.accountName}</span></p>
+                 <div className="mt-6 border-t border-zinc-800 pt-6">
+                   <p className="text-zinc-400 text-base mb-1">Tổng tiền thanh toán</p>
+                   <span className="text-blue-400 font-black text-4xl drop-shadow-[0_0_15px_rgba(96,165,250,0.5)]">{formatCurrency(pendingPaymentData.total || getTotal())}</span>
+                 </div>
+              </div>
+            </div>
+            <div className="p-6 bg-zinc-950 border-t border-zinc-800 flex gap-4">
+              <button
+                onClick={() => setPendingPaymentData(null)}
+                className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-900/40 text-zinc-400 hover:text-white hover:bg-zinc-800 py-4 text-base font-bold uppercase tracking-wider transition-all"
+              >
+                Đóng lại
+              </button>
+              <button
+                onClick={handleManualConfirm}
+                disabled={isConfirmingPending}
+                className="flex-[2] rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white py-4 text-base font-black uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(99,102,241,0.4)]"
+              >
+                {isConfirmingPending ? (
+                  <><Loader2 className="h-5 w-5 animate-spin" /> Đang xác nhận...</>
+                ) : (
+                  "✓ XÁC NHẬN ĐÃ NHẬN TIỀN"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Checkout Success Modal */}
       {showCheckoutSuccess && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-sm w-full p-6 text-center space-y-6 relative overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-md w-full p-8 text-center space-y-8 relative overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200">
             <div className="absolute -top-12 -left-12 h-24 w-24 rounded-full bg-blue-500/10 blur-xl pointer-events-none" />
             
             <button 
               onClick={() => setShowCheckoutSuccess(false)}
-              className="absolute right-4 top-4 text-zinc-400 hover:text-white"
+              className="absolute right-6 top-6 text-zinc-400 hover:text-white"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </button>
 
-            <div className="h-16 w-16 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
-              <CheckCircle className="h-8 w-8" />
+            <div className="h-20 w-20 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
+              <CheckCircle className="h-10 w-10" />
             </div>
 
-            <div className="space-y-2">
-              <h3 className="font-bold text-lg text-white">Thanh Toán Thành Công!</h3>
-              <p className="text-xs text-zinc-400 max-w-[240px] mx-auto leading-relaxed">
+            <div className="space-y-3">
+              <h3 className="font-bold text-2xl text-white">Thanh Toán Thành Công!</h3>
+              <p className="text-sm text-zinc-400 max-w-[300px] mx-auto leading-relaxed">
                 Hóa đơn đã được ghi nhận. Đơn hàng đã tự động đồng bộ sang màn hình hiển thị nhà bếp (KDS).
               </p>
             </div>
 
-            <div className="bg-zinc-950 rounded-xl p-3.5 border border-zinc-800/80 font-mono text-center">
-              <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-0.5">Mã đơn hàng</span>
-              <span className="text-white font-bold tracking-wider text-base">{checkoutOrderNo}</span>
+            <div className="bg-zinc-950 rounded-xl p-5 border border-zinc-800/80 font-mono text-center">
+              <span className="text-xs text-zinc-500 uppercase tracking-widest block mb-1.5">Mã đơn hàng</span>
+              <span className="text-white font-bold tracking-wider text-2xl">{checkoutOrderNo}</span>
             </div>
 
             <button 
               onClick={() => setShowCheckoutSuccess(false)}
-              className="w-full bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 text-white rounded-xl py-2.5 text-xs font-semibold uppercase tracking-wider transition-all"
+              className="w-full bg-zinc-850 hover:bg-zinc-800 border border-zinc-800 text-white rounded-2xl py-4 text-sm font-semibold uppercase tracking-wider transition-all"
             >
               Tiếp tục bán hàng
             </button>
