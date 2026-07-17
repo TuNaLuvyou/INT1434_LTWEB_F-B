@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { 
+import {
   RefreshCw, 
   ShieldAlert, 
   Mail, 
@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Search
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { getAccessTokenFromCookie } from '@/lib/auth/client';
 import { useAuthStore } from '@/stores/auth.store';
 
@@ -23,6 +24,8 @@ interface UserItem {
   name: string;
   email: string;
   role: 'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER';
+  branchId?: string | null;
+  branchName?: string | null;
 }
 
 export default function RolesPage() {
@@ -37,12 +40,17 @@ export default function RolesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
 
+  // Branch state
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [updatingBranchUserId, setUpdatingBranchUserId] = useState<string | null>(null);
+
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<'ADMIN' | 'MANAGER' | 'KITCHEN' | 'CASHIER'>('CASHIER');
+  const [newBranchId, setNewBranchId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -85,12 +93,32 @@ export default function RolesPage() {
     }
   }, [API_URL]);
 
-  // Fetch users ONLY when current authenticated user is loaded/available (solves token refresh race conditions)
+  // Fetch users + branches
   useEffect(() => {
     if (currentUser) {
       fetchUsers();
+      fetch(`${API_URL}/api/branches`, {
+        headers: getHeaders(),
+        credentials: 'include',
+      })
+        .then(res => res.json())
+        .then(data => setBranches(data.data || []))
+        .catch(() => {});
     }
   }, [fetchUsers, currentUser]);
+
+  // Fetch branches khi mở modal
+  useEffect(() => {
+    if (isModalOpen && branches.length === 0) {
+      fetch(`${API_URL}/api/branches`, {
+        headers: getHeaders(),
+        credentials: 'include',
+      })
+        .then(res => res.json())
+        .then(data => setBranches(data.data || []))
+        .catch(() => {});
+    }
+  }, [isModalOpen]);
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     setUpdatingUserId(userId);
@@ -112,6 +140,29 @@ export default function RolesPage() {
       alert('Lỗi kết nối');
     } finally {
       setUpdatingUserId(null);
+    }
+  };
+
+  const handleBranchChange = async (userId: string, branchId: string) => {
+    setUpdatingBranchUserId(userId);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ branchId: branchId || null }),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        fetchUsers();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.message || 'Lỗi cập nhật chi nhánh');
+      }
+    } catch (error) {
+      toast.error('Lỗi kết nối khi cập nhật chi nhánh');
+      console.error('handleBranchChange error:', error);
+    } finally {
+      setUpdatingBranchUserId(null);
     }
   };
 
@@ -140,17 +191,23 @@ export default function RolesPage() {
       return;
     }
 
-    setIsCreating(true);
+      setIsCreating(true);
     try {
+      const body: any = {
+        name: newName.trim(),
+        email: newEmail.trim(),
+        password: newPassword,
+        role: newRole,
+      };
+      // Gán branch cho staff
+      if ((newRole === 'MANAGER' || newRole === 'KITCHEN' || newRole === 'CASHIER') && newBranchId) {
+        body.branchId = newBranchId;
+      }
+
       const res = await fetch(`${API_URL}/api/admin/users`, {
         method: 'POST',
         headers: getHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          name: newName.trim(),
-          email: newEmail.trim(),
-          password: newPassword,
-          role: newRole,
-        }),
+        body: JSON.stringify(body),
         credentials: 'include',
       });
 
@@ -163,6 +220,7 @@ export default function RolesPage() {
         setNewEmail('');
         setNewPassword('');
         setNewRole('CASHIER');
+        setNewBranchId('');
         fetchUsers();
       } else {
         setErrorMessage(data.message || 'Lỗi khi tạo tài khoản.');
@@ -286,14 +344,15 @@ export default function RolesPage() {
                   <tr className="border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider bg-zinc-950/80">
                     <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Nhân Viên</th>
                     <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Email Đăng Ký</th>
-                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Vai Trò Hiện Tại</th>
-                    <th className="px-5 py-3 text-right sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Phân Quyền Mới</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Chi Nhánh</th>
+                    <th className="px-5 py-3 sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Vai Trò</th>
+                    <th className="px-5 py-3 text-right sticky top-0 bg-zinc-950/90 backdrop-blur z-10">Phân Quyền</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900 text-xs">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-5 py-8 text-center text-zinc-500 font-light">
+                      <td colSpan={5} className="px-5 py-8 text-center text-zinc-500 font-light">
                         Không tìm thấy tài khoản nhân viên nào khớp với bộ lọc.
                       </td>
                     </tr>
@@ -313,6 +372,23 @@ export default function RolesPage() {
                         </td>
                         <td className="px-5 py-4 text-zinc-300 font-light">{u.email}</td>
                         <td className="px-5 py-4">
+                          {(u.role === 'MANAGER' || u.role === 'KITCHEN' || u.role === 'CASHIER') ? (
+                            <select
+                              disabled={updatingBranchUserId === u.id}
+                              value={u.branchId || ''}
+                              onChange={(e) => handleBranchChange(u.id, e.target.value)}
+                              className="bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-1 text-xs text-zinc-100 focus:outline-none focus:border-violet-500 transition-all max-w-[140px] disabled:opacity-50"
+                            >
+                              <option value="">Chưa gán</option>
+                              {branches.map(b => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-zinc-600 text-xs italic">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
                           <span className={`px-2 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider ${
                             u.role === 'ADMIN' 
                               ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
@@ -324,18 +400,22 @@ export default function RolesPage() {
                           </span>
                         </td>
                         <td className="px-5 py-4 text-right">
-                          <select
-                            disabled={updatingUserId === u.id || u.id === currentUser.id}
-                            value={u.role}
-                            onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                            className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-violet-500 transition-all max-w-[150px] disabled:opacity-50"
-                          >
-                            <option value="ADMIN">ADMIN</option>
-                            <option value="MANAGER">MANAGER</option>
+                          {u.id === currentUser.id ? (
+                            <span className="text-xs font-semibold text-zinc-500">{u.role}</span>
+                          ) : (
+                            <select
+                              disabled={updatingUserId === u.id}
+                              value={u.role}
+                              onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-violet-500 transition-all max-w-[150px] disabled:opacity-50"
+                            >
+                              <option value="ADMIN">ADMIN</option>
+                              <option value="MANAGER">MANAGER</option>
 
-                            <option value="KITCHEN">KITCHEN</option>
-                            <option value="CASHIER">CASHIER</option>
-                          </select>
+                              <option value="KITCHEN">KITCHEN</option>
+                              <option value="CASHIER">CASHIER</option>
+                            </select>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -432,7 +512,7 @@ export default function RolesPage() {
                 <div className="relative">
                   <select
                     value={newRole}
-                    onChange={(e) => setNewRole(e.target.value as any)}
+                    onChange={(e) => { setNewRole(e.target.value as any); setNewBranchId(''); }}
                     className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-100 focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/10 transition-all cursor-pointer font-medium appearance-none"
                   >
 
@@ -444,6 +524,26 @@ export default function RolesPage() {
                   <ChevronDown className="absolute right-3.5 top-3 h-4 w-4 text-zinc-500 pointer-events-none" />
                 </div>
               </div>
+
+              {/* Branch Select - chỉ cho MANAGER/KITCHEN/CASHIER */}
+              {(newRole === 'MANAGER' || newRole === 'KITCHEN' || newRole === 'CASHIER') && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-zinc-400 block">Chi Nhánh</label>
+                  <div className="relative">
+                    <select
+                      value={newBranchId}
+                      onChange={(e) => setNewBranchId(e.target.value)}
+                      className="w-full bg-zinc-950/60 border border-zinc-800 rounded-xl py-2.5 pl-3.5 pr-10 text-xs text-zinc-100 focus:outline-none focus:border-violet-500/80 focus:ring-2 focus:ring-violet-500/10 transition-all cursor-pointer font-medium appearance-none"
+                    >
+                      <option value="">Chọn chi nhánh</option>
+                      {branches.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3.5 top-3 h-4 w-4 text-zinc-500 pointer-events-none" />
+                  </div>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex justify-end gap-3 pt-3 mt-4">

@@ -1,16 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, MapPin, Compass, Loader2, Save, Info, Shield, CheckCircle2, CreditCard } from 'lucide-react';
+import { RefreshCw, MapPin, Compass, Loader2, Save, Info, Shield, CheckCircle2, CreditCard, Store, Edit3, X, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getAccessTokenFromCookie } from '@/lib/auth/client';
-import BankAccountTab from './BankAccountTab';
+
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export default function SettingsClient() {
   const [restaurantName, setRestaurantName] = useState('');
-  const [activeTab, setActiveTab] = useState<'geofence' | 'sync' | 'info' | 'bank'>('geofence');
+  const [activeTab, setActiveTab] = useState<'geofence' | 'sync' | 'info' | 'branches'>('geofence');
   
   // Geofencing states
   const [isGeofenceEnabled, setIsGeofenceEnabled] = useState(false);
@@ -242,22 +242,22 @@ export default function SettingsClient() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('bank')}
+          onClick={() => setActiveTab('branches')}
           className={`flex items-center gap-2 px-4 sm:px-6 py-3.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-            activeTab === 'bank'
+            activeTab === 'branches'
               ? 'border-violet-500 text-violet-400 font-black bg-violet-500/5'
               : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/30'
           } rounded-t-xl`}
         >
-          <CreditCard className={`w-4 h-4 ${activeTab === 'bank' ? 'text-violet-400' : 'text-zinc-500'}`} />
-          Tài khoản NH
+          <Store className="h-4.5 w-4.5 shrink-0" />
+          <span>Chi nhánh</span>
         </button>
       </div>
 
       {/* Tab content area */}
       <div className="transition-all duration-300">
         {activeTab === 'geofence' && (
-          <form onSubmit={handleSaveConfig} className="space-y-6 max-w-2xl">
+            <form onSubmit={handleSaveConfig} className="space-y-6 max-w-2xl mx-auto">
             {/* Card: Cấu hình định vị (Geofencing) */}
             <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-xl backdrop-blur-sm space-y-5">
               <div className="flex items-center justify-between pb-3 border-b border-zinc-800/60 gap-4">
@@ -379,7 +379,7 @@ export default function SettingsClient() {
         )}
 
         {activeTab === 'sync' && (
-          <div className="max-w-xl">
+          <div className="max-w-xl mx-auto">
             <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-xl backdrop-blur-sm text-center space-y-6">
               <div className="w-16 h-16 mx-auto bg-violet-500/10 rounded-2xl flex items-center justify-center border border-violet-500/20">
                 <RefreshCw className={`w-7 h-7 text-violet-400 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -406,7 +406,7 @@ export default function SettingsClient() {
         )}
 
         {activeTab === 'info' && (
-          <div className="max-w-2xl">
+          <div className="max-w-2xl mx-auto">
             <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-xl backdrop-blur-sm space-y-6">
               <div className="flex items-center gap-3 pb-4 border-b border-zinc-800/60">
                 <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400">
@@ -466,9 +466,155 @@ export default function SettingsClient() {
           </div>
         )}
 
-        {activeTab === 'bank' && (
-          <BankAccountTab />
+        {activeTab === 'branches' && (
+          <BranchManagement />
         )}
+      </div>
+    </div>
+  );
+}
+
+function BranchManagement() {
+  const [branches, setBranches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const fetchBranches = async () => {
+    try {
+      const res = await fetch(`${API}/api/branches`, {
+        headers: { Authorization: `Bearer ${getAccessTokenFromCookie()}` },
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBranches(data.data || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchBranches(); }, []);
+
+  const startEdit = (b: any) => {
+    setEditId(b.id);
+    setEditName(b.name);
+    setEditAddress(b.address || '');
+  };
+
+  const cancelEdit = () => {
+    setEditId(null);
+    setEditName('');
+    setEditAddress('');
+  };
+
+  const saveEdit = async (id: string) => {
+    if (!editName.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API}/api/branches/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessTokenFromCookie()}` },
+        credentials: 'include',
+        body: JSON.stringify({ name: editName.trim(), address: editAddress.trim() || null }),
+      });
+      if (res.ok) {
+        toast.success('Cập nhật chi nhánh thành công');
+        cancelEdit();
+        fetchBranches();
+      } else {
+        toast.error('Lỗi cập nhật chi nhánh');
+      }
+    } catch {
+      toast.error('Lỗi kết nối');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-zinc-500">
+        <Loader2 className="animate-spin h-6 w-6 text-violet-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 max-w-2xl mx-auto">
+      <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-xl backdrop-blur-sm">
+        <div className="flex items-center gap-3 pb-4 border-b border-zinc-800/60">
+          <div className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400">
+            <Store className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-sm sm:text-base font-black text-white">Quản lý chi nhánh</h3>
+            <p className="text-[10px] text-zinc-500 font-semibold mt-0.5">Chỉnh sửa tên và địa chỉ chi nhánh</p>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {branches.length === 0 ? (
+            <div className="text-center py-8 text-zinc-500 text-sm">Chưa có chi nhánh nào</div>
+          ) : (
+            branches.map(b => (
+              <div key={b.id} className="bg-zinc-950/50 border border-zinc-800 rounded-2xl p-4">
+                {editId === b.id ? (
+                  <div className="space-y-3">
+                    <input
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-violet-500"
+                      placeholder="Tên chi nhánh"
+                    />
+                    <input
+                      value={editAddress}
+                      onChange={e => setEditAddress(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-violet-500"
+                      placeholder="Địa chỉ"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={cancelEdit} className="px-4 py-2 rounded-xl text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">Huỷ</button>
+                      <button
+                        onClick={() => saveEdit(b.id)}
+                        disabled={saving || !editName.trim()}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-xl text-xs font-semibold text-white transition-all"
+                      >
+                        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        Lưu
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                      <Store className="h-4 w-4 text-violet-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm text-zinc-200 truncate">{b.name}</div>
+                      {b.address ? (
+                        <div className="text-[11px] text-zinc-500 mt-0.5 truncate">{b.address}</div>
+                      ) : (
+                        <div className="text-[11px] text-zinc-600 mt-0.5 italic">Chưa có địa chỉ</div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => startEdit(b)}
+                      className="h-8 w-8 rounded-lg border border-zinc-800 hover:border-violet-500/30 text-zinc-500 hover:text-violet-400 hover:bg-violet-500/10 flex items-center justify-center transition-all shrink-0"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

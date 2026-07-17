@@ -230,8 +230,20 @@ async function main() {
       const created = await prisma.ingredient.create({ data: { ...i, tenantId: tenant.id } });
       ingredientMap[i.name] = created.id;
     }
+    // Tạo BranchIngredient cho branch mặc định
+    const ingId = ingredientMap[i.name];
+    await prisma.branchIngredient.upsert({
+      where: { branchId_ingredientId: { branchId: branch.id, ingredientId: ingId } },
+      update: {},
+      create: {
+        branchId: branch.id,
+        ingredientId: ingId,
+        stock: i.stock,
+        lowStockThreshold: i.minStock,
+      },
+    });
   }
-  console.log('✅ Ingredients created');
+  console.log('✅ Ingredients + BranchIngredients created');
 
   // BƯỚC 7: BOM
   const boms = [

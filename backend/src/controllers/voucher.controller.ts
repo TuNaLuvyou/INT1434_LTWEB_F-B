@@ -7,9 +7,10 @@ export async function getAllVouchersHandler(req: Request, res: Response): Promis
   try {
     const authReq = req as any;
     const tenantId = authReq.user?.tenantId;
+    const branchId = req.query.branchId as string | undefined;
     if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
 
-    const vouchers = await voucherService.getAllVouchers(tenantId);
+    const vouchers = await voucherService.getAllVouchers(tenantId, branchId);
     res.status(200).json({ success: true, data: vouchers });
   } catch (error: any) {
     console.error('[getAllVouchersHandler] error:', error);
@@ -46,6 +47,10 @@ export async function createVoucherHandler(req: Request, res: Response): Promise
     const tenantId = authReq.user?.tenantId;
     if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
 
+    const branchIds = req.body.branchIds
+      ? (Array.isArray(req.body.branchIds) ? req.body.branchIds : [req.body.branchIds])
+      : undefined;
+
     const voucher = await voucherService.createVoucher({
       tenantId,
       code,
@@ -53,6 +58,7 @@ export async function createVoucherHandler(req: Request, res: Response): Promise
       discountValue: valueNum,
       maxUsage: maxUsage ? parseInt(maxUsage) : undefined,
       expiredAt: expiredAt ? new Date(expiredAt) : undefined,
+      branchIds,
     });
 
     res.status(201).json({ success: true, message: 'Tạo voucher thành công!', data: voucher });
@@ -93,38 +99,42 @@ export async function deleteVoucherHandler(req: Request, res: Response): Promise
 export async function updateVoucherHandler(req: Request, res: Response): Promise<void> {
   try {
     const id = req.params.id as string;
-    const { code, discountType, discountValue, maxUsage, expiredAt } = req.body;
+    const { code, discountType, discountValue, maxUsage, expiredAt, branchIds } = req.body;
     
     const authReq = req as any;
     const tenantId = authReq.user?.tenantId;
     if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
 
-    const valueNum = parseFloat(discountValue);
-    if (isNaN(valueNum) || valueNum <= 0) {
+    const valueNum = discountValue !== undefined ? parseFloat(discountValue) : undefined;
+    if (valueNum !== undefined && (isNaN(valueNum) || valueNum <= 0)) {
       res.status(400).json({ success: false, message: 'Giá trị giảm giá không hợp lệ.' });
       return;
     }
 
-    if (discountType === 'PERCENT' && valueNum > 100) {
+    if (discountType === 'PERCENT' && valueNum !== undefined && valueNum > 100) {
       res.status(400).json({ success: false, message: 'Phần trăm giảm giá tối đa là 100%.' });
       return;
     }
 
-    const existing = await prisma.voucher.findFirst({ where: { id, tenantId } });
-    if (!existing) throw new AppError(404, 'NOT_FOUND', 'Voucher không tồn tại');
-    const updated = await prisma.voucher.update({
-      where: { id },
-      data: {
-        code: code?.toUpperCase(),
-        discountType,
-        discountValue: valueNum,
-        maxUsage: maxUsage !== undefined ? maxUsage : undefined,
-        expiredAt: expiredAt !== undefined ? (expiredAt ? new Date(expiredAt) : null) : undefined,
-      }
+    const branchIdsArr = branchIds !== undefined
+      ? (Array.isArray(branchIds) ? branchIds : [branchIds])
+      : undefined;
+
+    const updated = await voucherService.updateVoucher(id, tenantId, {
+      code,
+      discountType,
+      discountValue: valueNum,
+      maxUsage: maxUsage !== undefined ? (maxUsage ? parseInt(maxUsage) : null) : undefined,
+      expiredAt: expiredAt !== undefined ? (expiredAt ? new Date(expiredAt) : null) : undefined,
+      branchIds: branchIdsArr,
     });
     res.status(200).json({ success: true, data: updated });
   } catch (error) {
     console.error('updateVoucherHandler error:', error);
+    if (error instanceof AppError) {
+      res.status(error.statusCode).json({ success: false, code: error.code, message: error.message });
+      return;
+    }
     res.status(500).json({ success: false, message: 'Lỗi server khi cập nhật voucher.' });
   }
 }
@@ -168,6 +178,16 @@ export async function validateVoucherHandler(req: Request, res: Response): Promi
     if (voucher.maxUsage !== null && voucher.usedCount >= voucher.maxUsage) {
       res.status(400).json({ valid: false, reason: 'Mã voucher đã hết lượt sử dụng' });
       return;
+    }
+
+    // Kiểm tra branch áp dụng
+    const branchId = req.body.branchId || authReq.user?.branchId;
+    if (branchId) {
+      const applicable = await voucherService.isVoucherApplicableToBranch(voucher.id, branchId);
+      if (!applicable) {
+        res.status(400).json({ valid: false, reason: 'Mã voucher không áp dụng cho chi nhánh này' });
+        return;
+      }
     }
 
     let discountAmount = 0;

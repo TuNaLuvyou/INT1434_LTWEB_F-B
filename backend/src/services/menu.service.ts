@@ -5,6 +5,7 @@ export interface CategoryInfo {
   id: string;
   name: string;
   slug: string;
+  sortOrder?: number;
 }
 
 export interface MenuItemWithCategoryInfo extends MenuItem {
@@ -17,48 +18,23 @@ export interface MenuData {
 }
 
 export class MenuService {
-  /**
-   * Fetches the menu items based on active status, category, and soldOut status.
-   * @param tenantId Tenant ID to filter by
-   * @param branchId Optional branch ID to filter by
-   * @param categoryId Optional category ID to filter by
-   * @param soldOut Optional sold out status to filter by ('true' | 'false')
-   * @returns MenuData containing filtered categories and items, or null if category is not found
-   */
   static async getMenu(tenantId: string, branchId?: string, categoryId?: string, soldOut?: string): Promise<MenuData | null> {
-    // 1. Validate categoryId if provided
     if (categoryId) {
       const categoryExists = await prisma.category.findUnique({
         where: { id: categoryId }
       });
-      
-      if (!categoryExists) {
-        return null; // Return null to let the controller handle the 404
-      }
+      if (!categoryExists) return null;
     }
 
-    // 2. Build where clause
     const where: any = { isActive: true, tenantId };
-    
-    if (categoryId) {
-      where.categoryId = categoryId;
-    }
-    
-    if (soldOut !== undefined) {
-      where.isSoldOut = soldOut === 'true';
-    }
+    if (categoryId) where.categoryId = categoryId;
+    if (soldOut !== undefined) where.isSoldOut = soldOut === 'true';
 
-    // 3. Query items with category info included, sorted correctly
     const items = await prisma.menuItem.findMany({
       where,
       include: {
         category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            sortOrder: true
-          }
+          select: { id: true, name: true, slug: true, sortOrder: true }
         }
       },
       orderBy: [
@@ -67,23 +43,55 @@ export class MenuService {
       ]
     });
 
-    // 4. Extract unique categories that have active items
+    // BranchMenuItem overrides
+    let branchOverrides: Map<string, { price?: any; isSoldOut?: boolean }> | null = null;
+    let branchCategoryMap: Map<string, { isEnabled: boolean; sortOrder: number }> | null = null;
+
+    if (branchId) {
+      const overrides = await prisma.branchMenuItem.findMany({
+        where: { branchId, menuItemId: { in: items.map(i => i.id) } }
+      });
+      branchOverrides = new Map(overrides.map(o => [o.menuItemId, { price: o.price, isSoldOut: o.isSoldOut ?? undefined }]));
+
+      const catOverrides = await prisma.branchCategory.findMany({
+        where: { branchId, categoryId: { in: [...new Set(items.map(i => i.categoryId))] } }
+      });
+      branchCategoryMap = new Map(catOverrides.map(c => [c.categoryId, { isEnabled: c.isEnabled, sortOrder: c.sortOrder }]));
+    }
+
+    const filteredItems = items.filter(item => {
+      if (!branchCategoryMap) return true;
+      const bc = branchCategoryMap.get(item.categoryId);
+      if (bc && !bc.isEnabled) return false;
+      return true;
+    });
+
     const categoryMap = new Map<string, CategoryInfo>();
-    items.forEach(item => {
+    filteredItems.forEach(item => {
       if (!categoryMap.has(item.categoryId)) {
+        let sortOrder = item.category.sortOrder;
+        if (branchCategoryMap) {
+          const bc = branchCategoryMap.get(item.categoryId);
+          if (bc) sortOrder = bc.sortOrder;
+        }
         categoryMap.set(item.categoryId, {
           id: item.category.id,
           name: item.category.name,
-          slug: item.category.slug
+          slug: item.category.slug,
+          sortOrder
         });
       }
     });
 
-    // 5. Format items to match the exact CategoryInfo structure in the response
-    const formattedItems = items.map((item): MenuItemWithCategoryInfo => {
+    const formattedItems = filteredItems.map((item): MenuItemWithCategoryInfo => {
       const { category, ...rest } = item;
+      const override = branchOverrides?.get(item.id);
+      const finalPrice = override?.price ?? item.price;
+      const finalIsSoldOut = override?.isSoldOut ?? item.isSoldOut;
       return {
         ...rest,
+        price: finalPrice,
+        isSoldOut: finalIsSoldOut,
         category: {
           id: category.id,
           name: category.name,
@@ -92,8 +100,10 @@ export class MenuService {
       };
     });
 
+    const sortedCategories = Array.from(categoryMap.values()).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
     return {
-      categories: Array.from(categoryMap.values()),
+      categories: sortedCategories,
       items: formattedItems
     };
   }

@@ -3,6 +3,7 @@ import { PaymentMethod } from '@prisma/client';
 import { AppError } from '../utils/app-error';
 import { emitTableStatusChanged, emitSessionClosed, emitKitchenNewTicket } from '../socket/emit.helpers';
 import { deductInventory } from './inventory.service';
+import { isVoucherApplicableToBranch } from './voucher.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,7 +67,8 @@ export async function getOrCreateShift(cashierId: string, tenantId: string, bran
  */
 export async function validateVoucher(
   code: string,
-  subtotal: number
+  subtotal: number,
+  branchId?: string
 ): Promise<VoucherValidationResult> {
   const voucher = await prisma.voucher.findUnique({ where: { code: code.trim().toUpperCase() } });
 
@@ -84,6 +86,14 @@ export async function validateVoucher(
 
   if (voucher.maxUsage !== null && voucher.usedCount >= voucher.maxUsage) {
     throw new AppError(400, 'VOUCHER_EXHAUSTED', 'Ma voucher nay da het luot su dung.');
+  }
+
+  // Check branch applicability
+  if (branchId) {
+    const applicable = await isVoucherApplicableToBranch(voucher.id, branchId);
+    if (!applicable) {
+      throw new AppError(400, 'VOUCHER_BRANCH_MISMATCH', 'Ma voucher khong ap dung cho chi nhanh nay.');
+    }
   }
 
   const discountValue = Number(voucher.discountValue);

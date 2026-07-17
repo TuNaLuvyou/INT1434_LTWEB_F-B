@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Store, 
   ChefHat, 
@@ -19,6 +20,7 @@ import { useAuthStore } from "../stores/auth.store";
 import { logout, getAccessTokenFromCookie } from "../lib/auth/client";
 
 export default function Home() {
+  const router = useRouter();
   const { user, isLoading, fetchCurrentUser } = useAuthStore();
   const [isMounted, setIsMounted] = useState(false);
   const [stats, setStats] = useState({
@@ -31,6 +33,16 @@ export default function Home() {
     setIsMounted(true);
     fetchCurrentUser();
   }, [fetchCurrentUser]);
+
+  // ADMIN chưa chọn branch → redirect
+  useEffect(() => {
+    if (!isLoading && user && user.role === 'ADMIN' && !user.currentBranchId) {
+      router.replace('/branch-select');
+    }
+  }, [isLoading, user, router]);
+
+  // MANAGER/KITCHEN/CASHIER chưa có branch → chặn
+  const noBranchBlocked = user && (user.role === 'MANAGER' || user.role === 'KITCHEN' || user.role === 'CASHIER') && !user.currentBranchId;
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -114,6 +126,30 @@ export default function Home() {
 
   const visibleApps = apps.filter((app) => app.visible !== false);
 
+  // Màn hình chặn khi chưa có chi nhánh
+  if (noBranchBlocked) {
+    return (
+      <div className="h-screen w-screen bg-zinc-950 flex flex-col items-center justify-center font-sans text-center px-6">
+        <div className="p-6 rounded-3xl bg-zinc-900/40 border border-zinc-800 shadow-xl max-w-md">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-zinc-800/50 flex items-center justify-center">
+            <Store className="h-8 w-8 text-zinc-500" />
+          </div>
+          <h2 className="text-lg font-black text-zinc-300 mb-2">Chưa có chi nhánh</h2>
+          <p className="text-sm text-zinc-500 leading-relaxed mb-6">
+            Bạn chưa được tham gia vào công ty nào. Vui lòng liên hệ quản trị viên để được gán chi nhánh.
+          </p>
+          <button
+            onClick={() => logout()}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-800 hover:bg-red-950/30 border border-zinc-700 hover:border-red-900/50 text-xs font-bold text-zinc-300 hover:text-red-300 transition-all cursor-pointer"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Đăng xuất
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 flex flex-col selection:bg-indigo-500 selection:text-white overflow-hidden relative">
       {/* Background Glow effects */}
@@ -143,8 +179,17 @@ export default function Home() {
                 <div className="flex items-center gap-3 animate-fade-in">
                   <div className="text-right hidden sm:block">
                     <p className="text-xs font-bold text-zinc-200 leading-none">{user.name}</p>
-                    <p className="text-[9px] text-indigo-400 font-semibold tracking-wider uppercase mt-1">{user.role}</p>
+                    <p className="text-[9px] text-indigo-400 font-semibold tracking-wider uppercase mt-1">{user.role}{user.currentTenant?.name ? <span className="text-zinc-500 font-normal ml-1">· {user.currentTenant.name}</span> : ''}</p>
                   </div>
+                  {user.currentBranchId && user.role === 'ADMIN' && (
+                    <Link
+                      href="/branch-select"
+                      className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 border border-violet-500 text-white text-xs font-bold transition-all"
+                    >
+                      <Store className="h-3.5 w-3.5" />
+                      Đổi chi nhánh
+                    </Link>
+                  )}
                   <button
                     onClick={() => logout()}
                     className="h-9 px-3.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-red-950/30 hover:border-red-900/50 hover:text-red-300 text-xs font-bold text-zinc-300 transition-all cursor-pointer flex items-center gap-1.5"

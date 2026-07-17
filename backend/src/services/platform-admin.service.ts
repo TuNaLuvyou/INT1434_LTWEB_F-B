@@ -77,8 +77,15 @@ export const createTenant = async (data: { name: string; domain?: string; ownerE
         email: ownerEmail,
         name: ownerName,
         passwordHash: defaultPassword,
-        role: 'ADMIN' // Role gốc ở Platform level cho tương thích ngược
+        role: 'ADMIN',
+        domain: domain || null // Gán domain cho admin
       }
+    });
+  } else if (domain) {
+    // Nếu user đã tồn tại, cập nhật domain
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { domain }
     });
   }
 
@@ -163,6 +170,49 @@ export const getAuditLogs = async (tenantId?: string) => {
   });
   return logs;
 };
+async function enforceBranchLimits(tenantId: string) {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    include: {
+      subscription: { include: { plan: { include: { limits: true } } } }
+    }
+  });
+  if (!tenant) { console.log('[enforceBranchLimits] Tenant not found'); return; }
+
+  const limits = tenant.subscription?.plan?.limits || [];
+  console.log('[enforceBranchLimits] plan:', tenant.subscription?.plan?.name, 'limits:', JSON.stringify(limits));
+  const branchLimit = limits.find(l => l.resourceCode === 'BRANCH');
+  let maxBranches = branchLimit ? branchLimit.maxLimit : 1;
+  if (maxBranches === 0) maxBranches = 1;
+  console.log('[enforceBranchLimits] maxBranches:', maxBranches);
+
+  const branches = await prisma.branch.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true }
+  });
+  console.log('[enforceBranchLimits] branches:', JSON.stringify(branches));
+
+  const toLock = branches.slice(maxBranches).map(b => b.id);
+  const toUnlock = branches.slice(0, maxBranches).map(b => b.id);
+  console.log('[enforceBranchLimits] toLock:', toLock, 'toUnlock:', toUnlock);
+
+  if (toLock.length > 0) {
+    await prisma.branch.updateMany({
+      where: { id: { in: toLock } },
+      data: { isLocked: true }
+    });
+    console.log('[enforceBranchLimits] locked:', toLock);
+  }
+  if (toUnlock.length > 0) {
+    await prisma.branch.updateMany({
+      where: { id: { in: toUnlock } },
+      data: { isLocked: false }
+    });
+    console.log('[enforceBranchLimits] unlocked:', toUnlock);
+  }
+}
+
 export const updateTenantSubscriptionPlan = async (tenantId: string, planName: string) => {
   const plan = await prisma.subscriptionPlan.findUnique({
     where: { name: planName }
@@ -172,13 +222,14 @@ export const updateTenantSubscriptionPlan = async (tenantId: string, planName: s
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { subscription: true } });
   if (!tenant) throw new Error('Tenant not found');
   
+  let result;
   if (tenant.subscription) {
-    return prisma.tenantSubscription.update({
+    result = await prisma.tenantSubscription.update({
       where: { tenantId },
       data: { planId: plan.id }
     });
   } else {
-    return prisma.tenantSubscription.create({
+    result = await prisma.tenantSubscription.create({
       data: {
         tenantId,
         planId: plan.id,
@@ -188,4 +239,9 @@ export const updateTenantSubscriptionPlan = async (tenantId: string, planName: s
       }
     });
   }
+
+  // Enforce branch limits after plan change
+  await enforceBranchLimits(tenantId);
+
+  return result;
 };

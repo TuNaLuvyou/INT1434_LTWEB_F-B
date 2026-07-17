@@ -55,7 +55,15 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
 
       const { accessToken, user } = result.data;
       setAccessToken(accessToken);
-      await fetchCurrentUser(); // load user state
+      await fetchCurrentUser(); // load user state (includes auto-select tenant/branch)
+
+      // Kiểm tra nếu auto-select tenant thất bại (vd: branch bị khoá)
+      const currentUser = useAuthStore.getState().user;
+      if (!currentUser) {
+        const errorMsg = useAuthStore.getState().error || 'Tài khoản không thể truy cập tenant nào';
+        setError('root', { message: errorMsg });
+        return;
+      }
 
       if (redirectUrl) {
         router.replace(redirectUrl);

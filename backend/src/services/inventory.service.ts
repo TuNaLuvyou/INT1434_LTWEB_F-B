@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -112,7 +112,6 @@ export async function deductInventory(
     client: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
   ) => {
     // 3a. SELECT FOR UPDATE — đọc stock hiện tại với row-level lock
-    //     Ngăn 2 request đồng thời cùng trừ stock (race condition / double-deduction).
     const ingredientIds = Array.from(ingredientDemand.keys());
 
     const lockedIngredients = await client.$queryRawUnsafe<
@@ -126,11 +125,23 @@ export async function deductInventory(
     );
 
     // 3b. Kiểm tra đủ tồn kho — thu thập TẤT CẢ thiếu hụt
+    //
+    //     Nếu có branchId, ưu tiên kiểm tra BranchIngredient.stock,
+    //     fallback về Ingredient.stock nếu chưa có BranchIngredient.
     const shortages: StockShortage[] = [];
 
     for (const ing of lockedIngredients) {
-      const required  = ingredientDemand.get(ing.id) ?? 0;
-      const available = Number(ing.stock);
+      const required = ingredientDemand.get(ing.id) ?? 0;
+
+      let available: number;
+      if (branchId) {
+        const bi = await client.branchIngredient.findUnique({
+          where: { branchId_ingredientId: { branchId, ingredientId: ing.id } }
+        });
+        available = bi ? Number(bi.stock) : Number(ing.stock);
+      } else {
+        available = Number(ing.stock);
+      }
 
       if (available < required) {
         shortages.push({
@@ -144,29 +155,50 @@ export async function deductInventory(
       }
     }
 
-    // Nếu có bất kỳ thiếu hụt nào → throw để rollback toàn bộ transaction
     if (shortages.length > 0) {
       throw new InsufficientStockError(shortages);
     }
 
-    // 3c. UPDATE stock và INSERT InventoryLog (cùng trong transaction)
+    // 3c. UPDATE stock và INSERT InventoryLog
     const now = new Date();
 
     for (const ing of lockedIngredients) {
-      const delta    = -(ingredientDemand.get(ing.id) ?? 0); // giá trị âm = trừ kho
-      const newStock = Number(ing.stock) + delta;            // delta < 0
-
-      // UPDATE stock + totalExported
+      const delta = -(ingredientDemand.get(ing.id) ?? 0);
       const consumed = Math.abs(delta);
+
+      if (branchId) {
+        // Sử dụng BranchIngredient
+        const bi = await client.branchIngredient.findUnique({
+          where: { branchId_ingredientId: { branchId, ingredientId: ing.id } }
+        });
+        if (bi) {
+          const newBranchStock = Number(bi.stock) + delta;
+          await client.branchIngredient.update({
+            where: { id: bi.id },
+            data: { stock: newBranchStock },
+          });
+        } else {
+          await client.branchIngredient.create({
+            data: {
+              branchId,
+              ingredientId: ing.id,
+              stock: Number(ing.stock) + delta,
+              lowStockThreshold: Number(ing.minStock),
+            },
+          });
+        }
+      }
+
+      // Luôn cập nhật Ingredient stock tổng (rollup)
+      const newStock = Number(ing.stock) + delta;
       await client.ingredient.update({
         where: { id: ing.id },
-        data:  {
+        data: {
           stock: newStock,
           totalExported: { increment: consumed },
         },
       });
 
-      // INSERT InventoryLog
       await client.inventoryLog.create({
         data: {
           tenantId: tenantId || ing.tenantId,

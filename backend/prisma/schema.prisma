@@ -46,15 +46,21 @@ model Branch {
   name      String
   address   String?
   isActive  Boolean  @default(true)
+  isLocked  Boolean  @default(false) // Bị khoá do gói cước không đủ
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tables        Table[]
-  tableSessions TableSession[]
-  payments      Payment[]
-  shifts        Shift[]
-  inventoryLogs InventoryLog[]
-  bankAccounts  TenantBankAccount[]
+  tables            Table[]
+  tableSessions     TableSession[]
+  payments          Payment[]
+  shifts            Shift[]
+  inventoryLogs     InventoryLog[]
+  bankAccounts      TenantBankAccount[]
+  tenantUsers       TenantUser[]
+  categoryOverrides BranchCategory[]
+  menuOverrides     BranchMenuItem[]
+  ingredientStocks  BranchIngredient[]
+  voucherBranches   VoucherBranch[]
 
   @@index([tenantId])
 }
@@ -77,6 +83,7 @@ model User {
   passwordHash String
   name         String
   role         Role // Platform role mapping (for legacy compat)
+  domain       String? // Domain của tenant, dùng để phân biệt user giữa các quán
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -94,10 +101,13 @@ model TenantUser {
   roleId     String?
   customRole CustomRole? @relation(fields: [roleId], references: [id])
   isOwner    Boolean     @default(false)
+  branchId   String?
+  branch     Branch?     @relation(fields: [branchId], references: [id])
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
   @@unique([tenantId, userId])
+  @@index([branchId])
 }
 
 // Thay thế enum Role cũ bằng CustomRole + Permission cho chuẩn RBAC
@@ -179,8 +189,22 @@ model Category {
   slug      String
   sortOrder Int        @default(0)
   menuItems MenuItem[]
+  branches  BranchCategory[]
 
   @@unique([tenantId, slug])
+}
+
+model BranchCategory {
+  id        String   @id @default(uuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  categoryId String
+  category  Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  isEnabled Boolean  @default(true)
+  sortOrder Int      @default(0)
+
+  @@unique([branchId, categoryId])
+  @@index([branchId])
 }
 
 model MenuItem {
@@ -199,9 +223,26 @@ model MenuItem {
   updatedAt   DateTime    @updatedAt
   orderItems  OrderItem[]
   bom         BOM[]
+  branchOverrides BranchMenuItem[]
 
   @@index([categoryId])
   @@index([tenantId])
+}
+
+model BranchMenuItem {
+  id         String   @id @default(uuid())
+  branchId   String
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  price      Decimal? @db.Decimal(10, 2) // null = dùng giá tenant
+  isSoldOut  Boolean? // null = dùng isSoldOut tenant
+  isActive   Boolean? // null = dùng isActive tenant
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([branchId, menuItemId])
+  @@index([branchId])
 }
 
 enum TableStatus {
@@ -303,8 +344,25 @@ model Ingredient {
   updatedAt      DateTime       @updatedAt
   bom            BOM[]
   logs           InventoryLog[]
+  branchStocks   BranchIngredient[]
 
   @@index([tenantId])
+}
+
+model BranchIngredient {
+  id            String   @id @default(cuid())
+  branchId      String
+  branch        Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  ingredientId  String
+  ingredient    Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  stock         Decimal  @default(0)
+  importPrice   Decimal? @db.Decimal(12, 2) // giá nhập riêng theo chi nhánh
+  lowStockThreshold Decimal? // ngưỡng cảnh báo riêng, null = dùng minStock của ingredient
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([branchId, ingredientId])
+  @@index([branchId])
 }
 
 model BOM {
@@ -445,8 +503,20 @@ model Voucher {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   payments      Payment[]
+  branches      VoucherBranch[]
 
   @@unique([tenantId, code])
+}
+
+model VoucherBranch {
+  id        String  @id @default(uuid())
+  voucherId String
+  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  branchId  String
+  branch    Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([voucherId, branchId])
+  @@index([branchId])
 }
 
 

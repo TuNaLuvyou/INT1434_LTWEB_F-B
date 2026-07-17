@@ -68,7 +68,8 @@ export const reverseStock = async (req: Request, res: Response): Promise<void> =
 export const getIngredients = async (req: Request, res: Response): Promise<void> => {
   try {
     const lowStock = req.query.lowStock === 'true';
-    const data = await svc.getAll(lowStock);
+    const branchId = (req as any).user?.branchId || req.query.branchId as string | undefined;
+    const data = await svc.getAll(lowStock, branchId);
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Lỗi server' });
@@ -78,7 +79,11 @@ export const getIngredients = async (req: Request, res: Response): Promise<void>
 export const createIngredient = async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = ingredientSchema.parse(req.body);
-    const item = await svc.create(parsed);
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
+    const branchId = authReq.user?.branchId;
+    if (!tenantId) { res.status(403).json({ success: false, message: 'Forbidden' }); return; }
+    const item = await svc.create(parsed, tenantId, branchId);
     res.status(201).json({ success: true, data: item });
   } catch (e: any) {
     if (e instanceof z.ZodError) {
@@ -170,7 +175,8 @@ export const getLogs = async (req: Request, res: Response): Promise<void> => {
   try {
     const page  = Number(req.query.page)  || 1;
     const limit = Number(req.query.limit) || 20;
-    const data  = await svc.getLogs(page, limit, req.query.ingredientId as string, req.query.reason as string);
+    const branchId = (req as any).user?.branchId || req.query.branchId as string | undefined;
+    const data  = await svc.getLogs(page, limit, req.query.ingredientId as string, req.query.reason as string, branchId);
     res.json({ success: true, data });
   } catch (e) {
     res.status(500).json({ success: false, message: 'Lỗi server' });

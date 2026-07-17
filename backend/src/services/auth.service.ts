@@ -44,6 +44,7 @@ export const loginUser = async (email: string, plainText: string) => {
       tenantUsers: {
         include: {
           tenant: true,
+          branch: true,
           customRole: true
         }
       }
@@ -70,12 +71,25 @@ export const loginUser = async (email: string, plainText: string) => {
 
   const { passwordHash, tenantUsers, ...userWithoutPassword } = user;
 
-  const activeTenants = tenantUsers.filter(tu => tu.tenant.isActive);
-  if (activeTenants.length === 0) {
+  // PLATFORM_ADMIN không thuộc tenant nào, bỏ qua check tenant / branch bị khoá
+  const tenantList = user.role !== 'PLATFORM_ADMIN'
+    ? tenantUsers.filter(tu => {
+        if (!tu.tenant.isActive) return false;
+        // Nếu user được phân vào chi nhánh cụ thể và chi nhánh đó bị khoá
+        if (tu.branchId && tu.branch?.isLocked) return false;
+        return true;
+      })
+    : tenantUsers;
+  if (user.role !== 'PLATFORM_ADMIN' && tenantList.length === 0) {
+    // Kiểm tra xem có tenant nào bị khoá do branch lock không để hiển thị lỗi phù hợp
+    const hasBranchLockedIssue = tenantUsers.some(tu => tu.tenant.isActive && tu.branchId && tu.branch?.isLocked);
+    if (hasBranchLockedIssue) {
+      throw new Error('BRANCH_LOCKED');
+    }
     throw new Error('TENANT_LOCKED');
   }
 
-  const tenants = activeTenants.map(tu => ({
+  const tenants = tenantList.map(tu => ({
     id: tu.tenant.id,
     name: tu.tenant.name,
     domain: tu.tenant.domain,
@@ -92,6 +106,7 @@ export const selectTenant = async (userId: string, tenantId: string, branchId?: 
     where: { tenantId_userId: { tenantId, userId } },
     include: {
       tenant: true,
+      branch: true,
       customRole: {
         include: { permissions: { include: { permission: true } } }
       }
@@ -102,26 +117,26 @@ export const selectTenant = async (userId: string, tenantId: string, branchId?: 
     throw new Error('TENANT_ACCESS_DENIED');
   }
 
-  // Check branch if provided
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error('USER_NOT_FOUND');
+
+  // Xác định branch
   let activeBranchId = branchId;
   if (activeBranchId) {
     const branch = await prisma.branch.findUnique({ where: { id: activeBranchId } });
     if (!branch || branch.tenantId !== tenantId || !branch.isActive) {
       throw new Error('BRANCH_NOT_FOUND');
     }
-  } else {
-    // Tự động lấy branch đầu tiên của tenant nếu không truyền
-    const firstBranch = await prisma.branch.findFirst({
-      where: { tenantId, isActive: true },
-      orderBy: { createdAt: 'asc' }
-    });
-    if (firstBranch) {
-      activeBranchId = firstBranch.id;
+    if (branch.isLocked) {
+      throw new Error(`BRANCH_LOCKED:${branch.name}:${tu.tenant.name}`);
+    }
+  } else if (tu.branchId) {
+    activeBranchId = tu.branchId;
+    // Check if the assigned branch is locked (all roles)
+    if (tu.branch?.isLocked) {
+      throw new Error(`BRANCH_LOCKED:${tu.branch.name}:${tu.tenant.name}`);
     }
   }
-
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) throw new Error('USER_NOT_FOUND');
 
   const permissions = tu.customRole?.permissions.map(p => p.permission.code) || [];
   

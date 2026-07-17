@@ -19,6 +19,7 @@ type UserData = {
 type AuthStore = {
   user: UserData | null;
   isLoading: boolean;
+  error: string | null;
   setUser: (user: AuthStore['user']) => void;
   clearUser: () => void;
   fetchCurrentUser: () => Promise<void>;
@@ -28,10 +29,11 @@ type AuthStore = {
 export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
   isLoading: true,
+  error: null,
   setUser: (user) => set({ user, isLoading: false }),
-  clearUser: () => set({ user: null, isLoading: false }),
+  clearUser: () => set({ user: null, isLoading: false, error: null }),
   fetchCurrentUser: async () => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const token = getAccessTokenFromCookie();
       if (!token) {
@@ -53,7 +55,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         // Tự động select tenant đầu tiên nếu chưa có (để có context tenantId trong token)
         if (!userData.currentTenantId && userData.tenants?.length > 0 && userData.role !== 'PLATFORM_ADMIN') {
           // selectTenant tự động gọi lại fetchCurrentUser sau khi lấy token mới
-          await get().selectTenant(userData.tenants[0].id);
+          const ok = await get().selectTenant(userData.tenants[0].id);
+          if (!ok) {
+            set({ user: null, isLoading: false });
+          }
           return; // Dừng luồng hiện tại để luồng đệ quy fetchCurrentUser xử lý
         }
         
@@ -64,7 +69,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     } catch (error) {
       set({ user: null });
     } finally {
-      set({ isLoading: false });
+      set(state => { if (state.isLoading) return { isLoading: false }; return {}; });
     }
   },
   selectTenant: async (tenantId: string, branchId?: string) => {
@@ -83,19 +88,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         body: JSON.stringify({ tenantId, branchId })
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.data.accessToken) {
-          setAccessToken(data.data.accessToken);
-        }
-        // Sau khi select tenant, server trả JWT mới vào refresh token cookie + trả access token mới trong response
-        // Client cần refresh lại getMe
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.data?.accessToken) {
+        setAccessToken(data.data.accessToken);
         await get().fetchCurrentUser();
         return true;
       }
+      set({ error: data.message || 'Không thể chọn tenant', isLoading: false });
       return false;
     } catch (e) {
-      console.error('Select tenant failed', e);
+      set({ error: 'Lỗi kết nối', isLoading: false });
       return false;
     }
   }

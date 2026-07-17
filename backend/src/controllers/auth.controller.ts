@@ -87,6 +87,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không chính xác' });
     } else if (error.message === 'ACCOUNT_INACTIVE') {
       res.status(401).json({ success: false, message: 'Tài khoản đã bị vô hiệu hóa' });
+    } else if (error.message === 'BRANCH_LOCKED') {
+      res.status(403).json({ success: false, message: 'Chi nhánh được phân công đã bị khoá. Vui lòng liên hệ quản trị viên.' });
     } else if (error.message === 'TENANT_LOCKED') {
       res.status(403).json({ success: false, message: 'Tài khoản đã bị khoá' });
     } else {
@@ -125,6 +127,9 @@ export const selectTenant = async (req: Request, res: Response): Promise<void> =
       res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập tenant này' });
     } else if (error.message === 'BRANCH_NOT_FOUND') {
       res.status(404).json({ success: false, message: 'Không tìm thấy chi nhánh' });
+    } else if (error.message?.startsWith?.('BRANCH_LOCKED:')) {
+      const [, branchName, tenantName] = error.message.split(':');
+      res.status(403).json({ success: false, message: `Chi nhánh ${branchName} của ${tenantName} bị khoá` });
     } else {
       console.error('Select Tenant error:', error);
       res.status(500).json({ success: false, message: 'Lỗi server nội bộ' });

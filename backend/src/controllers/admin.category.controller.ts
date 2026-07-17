@@ -21,6 +21,7 @@ const generateSlug = (text: string) => {
 export const getCategories = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const tenantId = req.user?.tenantId;
+    const branchId = req.query.branchId as string | undefined;
     if (!tenantId) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
@@ -32,14 +33,28 @@ export const getCategories = async (req: AuthenticatedRequest, res: Response) =>
       },
       include: {
         _count: {
-          select: { menuItems: true } // Đếm số món ăn trong mỗi danh mục
+          select: { menuItems: true }
         }
       }
     });
 
+    // Nếu có branchId, gắn thêm thông tin BranchCategory
+    let branchCategoryMap: Map<string, { isEnabled: boolean; sortOrder: number }> | null = null;
+    if (branchId) {
+      const bcList = await prisma.branchCategory.findMany({
+        where: { branchId, categoryId: { in: categories.map(c => c.id) } }
+      });
+      branchCategoryMap = new Map(bcList.map(bc => [bc.categoryId, { isEnabled: bc.isEnabled, sortOrder: bc.sortOrder }]));
+    }
+
+    const data = categories.map(cat => ({
+      ...cat,
+      branchOverride: branchCategoryMap ? (branchCategoryMap.get(cat.id) ?? null) : null
+    }));
+
     return res.json({
       success: true,
-      data: categories,
+      data,
     });
   } catch (error) {
     console.error('[Admin Category] Lỗi lấy danh sách:', error);

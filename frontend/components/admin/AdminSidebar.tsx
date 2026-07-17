@@ -25,6 +25,7 @@ import {
   ArrowLeft,
   Settings,
   Utensils,
+  CreditCard,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -37,12 +38,13 @@ const NAV_ITEMS = [
   { name: "Khuyến mãi", href: "/admin/vouchers", icon: Ticket, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
   { name: "Z-Report", href: "/admin/z-report", icon: FileText, allowedRoles: ["ADMIN", "MANAGER"] as Role[] },
   { name: "Phân Quyền", href: "/admin/roles", icon: ShieldAlert, allowedRoles: ["ADMIN"] as Role[] },
+  { name: "Tài khoản NH", href: "/admin/bank-account", icon: CreditCard, allowedRoles: ["ADMIN"] as Role[] },
   { name: "Cài đặt hệ thống", href: "/admin/settings", icon: Settings, allowedRoles: ["ADMIN"] as Role[] },
 ];
 
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const { clearUser } = useAuthStore();
+  const { clearUser, user } = useAuthStore();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -83,7 +85,7 @@ export default function AdminSidebar() {
               <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-[0_0_15px_rgba(124,58,237,0.4)]">
                 <Sparkles className="h-4 w-4 text-white" />
               </div>
-              <span className="font-bold tracking-tight text-white text-sm">HiAI-MenuGo Admin</span>
+              <span className="font-bold tracking-tight text-white text-sm">{user?.currentTenant?.name || 'Admin'}</span>
             </div>
             <button
               onClick={() => setIsMobileOpen(false)}
@@ -156,7 +158,7 @@ export default function AdminSidebar() {
               <div className={`flex flex-col transition-all duration-300 overflow-hidden whitespace-nowrap ${
                 isCollapsed ? "w-0 opacity-0 ml-0" : "w-auto opacity-100 ml-2"
               }`}>
-                <span className="font-bold tracking-tight text-white text-xs">HiAI-MenuGo Admin</span>
+                <span className="font-bold tracking-tight text-white text-xs">{user?.currentTenant?.name || 'Admin'}</span>
                 <span className="text-[8px] text-violet-400 font-semibold uppercase tracking-wider">Management</span>
               </div>
             </div>

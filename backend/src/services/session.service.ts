@@ -380,7 +380,19 @@ export async function addToCart(
     if (!menuItem || !menuItem.isActive) {
       throw new AppError(404, 'ITEM_NOT_FOUND', 'Món không còn phục vụ');
     }
-    if (menuItem.isSoldOut) {
+
+    // Check BranchMenuItem override
+    const branchOverride = session.branchId ? await tx.branchMenuItem.findUnique({
+      where: { branchId_menuItemId: { branchId: session.branchId, menuItemId } }
+    }) : null;
+
+    const effectiveIsActive = branchOverride?.isActive ?? menuItem.isActive;
+    const effectiveIsSoldOut = branchOverride?.isSoldOut ?? menuItem.isSoldOut;
+
+    if (!effectiveIsActive) {
+      throw new AppError(404, 'ITEM_NOT_FOUND', 'Món không còn phục vụ');
+    }
+    if (effectiveIsSoldOut) {
       throw new AppError(409, 'ITEM_SOLD_OUT', `Món "${menuItem.name}" đã hết`);
     }
 

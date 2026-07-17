@@ -29,6 +29,7 @@ import { globalErrorHandler } from './middlewares/error.middleware';
 import { startAutomaticCleanupJob } from './services/cleanup.service';
 
 import bankRoutes from './routes/bank.routes';
+import branchRoutes from './routes/branch.routes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -89,6 +90,7 @@ app.use('/api/admin/users', adminUserRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/platform-admin', platformAdminRoutes);
 app.use('/api/banks', bankRoutes);
+app.use('/api/branches', branchRoutes);
 
 // SaaS Feature protected stubs
 app.use('/api/integration', integrationRoutes);

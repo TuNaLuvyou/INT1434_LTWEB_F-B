@@ -1,26 +1,11 @@
 import prisma from '../config/prisma';
 
-// ── Inventory Reverse (Void) ──────────────────────────────────────
-
-/**
- * Hoàn trả tồn kho nguyên liệu khi một OrderItem bị void.
- *
- * Luồng:
- *  1. Tìm OrderItem + menuItem.bom (danh sách nguyên liệu + định mức)
- *  2. Tính lượng hoàn trả: bom.quantity × orderItem.qty
- *  3. Cộng ngược tồn kho cho từng nguyên liệu trong BOM
- *  4. Ghi InventoryLog với reason='VOID_REVERSE' và orderId=orderItemId
- *  5. Thực hiện trong transaction để đảm bảo atomicity
- *
- * @returns danh sách { ingredientId, name, delta, newStock } đã hoàn trả
- */
 export const reverseInventory = async (
   orderItemId: string,
   reversedBy?: string,
   tenantId?: string,
   branchId?: string
 ): Promise<Array<{ ingredientId: string; name: string; delta: number; newStock: number }>> => {
-  // 1. Kiểm tra OrderItem có tồn tại và đã ở trạng thái VOID chưa
   const orderItem = await prisma.orderItem.findUnique({
     where: { id: orderItemId },
   });
@@ -32,7 +17,6 @@ export const reverseInventory = async (
     throw Object.assign(new Error('Chỉ có thể hoàn kho cho item đã VOID'), { code: 'INVALID_STATUS' });
   }
 
-  // 2. Tìm các InventoryLog đã trừ kho cho orderItemId này (delta < 0)
   const deductLogs = await prisma.inventoryLog.findMany({
     where: {
       orderId: orderItemId,
@@ -42,14 +26,12 @@ export const reverseInventory = async (
   });
 
   if (deductLogs.length === 0) {
-    return []; // Không có log trừ kho → không có gì để hoàn
+    return [];
   }
 
   const results: Array<{ ingredientId: string; name: string; delta: number; newStock: number }> = [];
 
-  // 3. Thực hiện hoàn kho trong transaction
   await prisma.$transaction(async (tx) => {
-    // Kiểm tra xem đã hoàn kho cho orderItemId này chưa để tránh hoàn trùng lặp
     const existingReverse = await tx.inventoryLog.findFirst({
       where: {
         orderId: orderItemId,
@@ -61,7 +43,6 @@ export const reverseInventory = async (
       throw Object.assign(new Error('Item này đã được hoàn kho trước đó'), { code: 'ALREADY_REVERSED' });
     }
 
-    // Gộp delta nếu có nhiều log cho cùng 1 nguyên liệu
     const refundMap = new Map<string, { delta: number; ingredient: any }>();
     for (const log of deductLogs) {
       const current = refundMap.get(log.ingredientId);
@@ -74,23 +55,36 @@ export const reverseInventory = async (
     }
 
     for (const [ingredientId, { delta, ingredient }] of refundMap.entries()) {
-      // Lấy tồn kho mới nhất
-      const currentIng = await tx.ingredient.findUnique({ where: { id: ingredientId } });
-      if (!currentIng) continue;
+      const branchIng = branchId ? await tx.branchIngredient.findUnique({
+        where: { branchId_ingredientId: { branchId, ingredientId } }
+      }) : null;
 
-      const newStock = Number(currentIng.stock) + delta;
+      if (branchIng) {
+        const newStock = Number(branchIng.stock) + delta;
+        await tx.branchIngredient.update({
+          where: { id: branchIng.id },
+          data: { stock: newStock },
+        });
+        await tx.ingredient.update({
+          where: { id: ingredientId },
+          data: { stock: { increment: delta } },
+        });
+        results.push({ ingredientId, name: ingredient.name, delta, newStock });
+      } else {
+        const currentIng = await tx.ingredient.findUnique({ where: { id: ingredientId } });
+        if (!currentIng) continue;
+        const newStock = Number(currentIng.stock) + delta;
+        await tx.ingredient.update({
+          where: { id: ingredientId },
+          data: { stock: newStock },
+        });
+        results.push({ ingredientId, name: ingredient.name, delta, newStock });
+      }
 
-      // Cộng ngược tồn kho
-      await tx.ingredient.update({
-        where: { id: ingredientId },
-        data: { stock: newStock },
-      });
-
-      // Ghi log hoàn kho
       await tx.inventoryLog.create({
         data: {
-          tenantId: tenantId || currentIng.tenantId,
-          branchId: branchId || tenantId || currentIng.tenantId,
+          tenantId: tenantId || ingredient.tenantId,
+          branchId: branchId || tenantId || ingredient.tenantId,
           ingredientId,
           delta,
           reason: `VOID_REVERSE: OrderItem ${orderItemId}`,
@@ -98,35 +92,61 @@ export const reverseInventory = async (
           createdBy: reversedBy ?? null,
         },
       });
-
-      results.push({
-        ingredientId,
-        name: ingredient.name,
-        delta,
-        newStock,
-      });
     }
   });
 
   return results;
 };
 
-// ── Ingredient CRUD ──────────────────────────────────────────────
+// ── Ingredient CRUD ──
 
-export const getAll = async (lowStock?: boolean) => {
-  const all = await prisma.ingredient.findMany({
+export const getAll = async (lowStock?: boolean, branchId?: string) => {
+  const ingredients = await prisma.ingredient.findMany({
     orderBy: { name: 'asc' },
-    include: { _count: { select: { bom: true } } },
+    include: {
+      _count: { select: { bom: true } },
+      branchStocks: branchId ? {
+        where: { branchId }
+      } : false,
+    },
+  });
+
+  const data = ingredients.map(ing => {
+    const branchStock = branchId ? ing.branchStocks?.[0] : null;
+    return {
+      ...ing,
+      stock: branchStock ? branchStock.stock : ing.stock,
+      minStock: branchStock?.lowStockThreshold ?? ing.minStock,
+      importPrice: branchStock?.importPrice ?? null,
+      branchStockId: branchStock?.id ?? null,
+    };
   });
 
   if (lowStock) {
-    return all.filter(i => Number(i.stock) <= Number(i.minStock));
+    return data.filter(i => Number(i.stock) <= Number(i.minStock));
   }
-  return all;
+  return data;
 };
 
-export const getById = async (id: string) => {
-  return await prisma.ingredient.findUnique({ where: { id } });
+export const getById = async (id: string, branchId?: string) => {
+  const ingredient = await prisma.ingredient.findUnique({
+    where: { id },
+    include: {
+      branchStocks: branchId ? {
+        where: { branchId }
+      } : false,
+    },
+  });
+  if (!ingredient) return null;
+
+  const branchStock = branchId ? ingredient.branchStocks?.[0] : null;
+  return {
+    ...ingredient,
+    stock: branchStock ? branchStock.stock : ingredient.stock,
+    minStock: branchStock?.lowStockThreshold ?? ingredient.minStock,
+    importPrice: branchStock?.importPrice ?? null,
+    branchStockId: branchStock?.id ?? null,
+  };
 };
 
 export const create = async (data: {
@@ -134,8 +154,30 @@ export const create = async (data: {
   unit: string;
   stock: number;
   minStock: number;
-}) => {
-  return await prisma.ingredient.create({ data });
+}, tenantId: string, branchId?: string) => {
+  const ingredient = await prisma.ingredient.create({
+    data: {
+      name: data.name,
+      unit: data.unit,
+      stock: data.stock,
+      minStock: data.minStock,
+      tenantId,
+    },
+  });
+
+  // Auto-create BranchIngredient for the given branch
+  if (branchId) {
+    await prisma.branchIngredient.create({
+      data: {
+        branchId,
+        ingredientId: ingredient.id,
+        stock: data.stock,
+        lowStockThreshold: data.minStock,
+      },
+    });
+  }
+
+  return ingredient;
 };
 
 export const update = async (id: string, data: {
@@ -152,7 +194,7 @@ export const remove = async (id: string) => {
   if (bomCount > 0) {
     throw { code: 'BOM_CONFLICT', count: bomCount };
   }
-  // Xóa log trước rồi mới xóa ingredient
+  await prisma.branchIngredient.deleteMany({ where: { ingredientId: id } });
   await prisma.inventoryLog.deleteMany({ where: { ingredientId: id } });
   return await prisma.ingredient.delete({ where: { id } });
 };
@@ -171,47 +213,96 @@ export const adjustStock = async (
 
   const tid = tenantId || ingredient.tenantId;
 
-  const newStock = Number(ingredient.stock) + delta;
+  if (branchId) {
+    // Upsert BranchIngredient
+    let branchIng = await prisma.branchIngredient.findUnique({
+      where: { branchId_ingredientId: { branchId, ingredientId: id } }
+    });
+    if (!branchIng) {
+      branchIng = await prisma.branchIngredient.create({
+        data: {
+          branchId,
+          ingredientId: id,
+          stock: Number(ingredient.stock) + delta,
+          lowStockThreshold: ingredient.minStock,
+        },
+      });
+    } else {
+      const newStock = Number(branchIng.stock) + delta;
+      branchIng = await prisma.branchIngredient.update({
+        where: { id: branchIng.id },
+        data: { stock: newStock },
+      });
+    }
 
-  const updateData: any = { stock: newStock };
-  if (delta < 0) {
-    updateData.totalExported = { increment: Math.abs(delta) };
-  }
-
-  const [updated] = await prisma.$transaction([
-    prisma.ingredient.update({
+    // Update tenant-level stock as well (for rollup)
+    await prisma.ingredient.update({
       where: { id },
-      data: updateData,
-    }),
-    prisma.inventoryLog.create({
+      data: {
+        stock: { increment: delta },
+        ...(delta < 0 ? { totalExported: { increment: Math.abs(delta) } } : {}),
+      },
+    });
+
+    const lowStockAlert = Number(branchIng.stock) <= Number(branchIng.lowStockThreshold ?? ingredient.minStock);
+
+    await prisma.inventoryLog.create({
       data: {
         tenantId: tid,
-        branchId: branchId || tid,
+        branchId,
         ingredientId: id,
         delta,
-        reason,
+        reason: note ? `${reason}: ${note}` : reason,
         createdBy,
         orderId: null,
-        ...(note && { reason: `${reason}: ${note}` }),
       },
-    }),
-  ]);
+    });
 
-  const lowStockAlert = Number(updated.stock) <= Number(updated.minStock);
-  return { ...updated, lowStockAlert };
+    return { ...ingredient, stock: branchIng.stock, lowStockAlert };
+  } else {
+    // Fallback: update base ingredient directly (backward compat)
+    const newStock = Number(ingredient.stock) + delta;
+    const updateData: any = { stock: newStock };
+    if (delta < 0) {
+      updateData.totalExported = { increment: Math.abs(delta) };
+    }
+
+    const [updated] = await prisma.$transaction([
+      prisma.ingredient.update({
+        where: { id },
+        data: updateData,
+      }),
+      prisma.inventoryLog.create({
+        data: {
+          tenantId: tid,
+          branchId: branchId || tid,
+          ingredientId: id,
+          delta,
+          reason: note ? `${reason}: ${note}` : reason,
+          createdBy,
+          orderId: null,
+        },
+      }),
+    ]);
+
+    const lowStockAlert = Number(updated.stock) <= Number(updated.minStock);
+    return { ...updated, lowStockAlert };
+  }
 };
 
-// ── Inventory Logs ───────────────────────────────────────────────
+// ── Inventory Logs ──
 
 export const getLogs = async (
   page: number,
   limit: number,
   ingredientId?: string,
-  reason?: string
+  reason?: string,
+  branchId?: string
 ) => {
   const where: any = {};
   if (ingredientId) where.ingredientId = ingredientId;
   if (reason) where.reason = { contains: reason };
+  if (branchId) where.branchId = branchId;
 
   const [total, logs] = await prisma.$transaction([
     prisma.inventoryLog.count({ where }),
@@ -227,7 +318,7 @@ export const getLogs = async (
   return { logs, total, page, limit, totalPages: Math.ceil(total / limit) };
 };
 
-// ── BOM ──────────────────────────────────────────────────────────
+// ── BOM ──
 
 export const getBom = async (menuItemId: string) => {
   return await prisma.bOM.findMany({
@@ -242,7 +333,6 @@ export const addBomEntry = async (
   ingredientId: string,
   quantity: number
 ) => {
-  // Verify ingredient exists
   const ing = await prisma.ingredient.findUnique({ where: { id: ingredientId } });
   if (!ing) throw { code: 'NOT_FOUND', entity: 'Ingredient' };
 
