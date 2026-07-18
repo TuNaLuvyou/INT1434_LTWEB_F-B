@@ -489,7 +489,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                     {item.status === 'VOID'
                       ? 'Đã huỷ do hết món'
                       : item.status === 'DONE'
-                      ? 'Đã phục vụ'
+                      ? 'Đã làm xong'
                       : item.status === 'PREPARING'
                       ? 'Đang nấu'
                       : 'Chờ duyệt'}
@@ -611,7 +611,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             const statusLabels: Record<string, { text: string, style: string }> = {
               PENDING: { text: 'Chờ duyệt', style: 'bg-orange-50 text-orange-600 border-orange-100' },
               PREPARING: { text: 'Đang nấu', style: 'bg-amber-50 text-amber-600 border-amber-100 animate-pulse' },
-              DONE: { text: 'Đã phục vụ', style: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+              DONE: { text: 'Đã làm xong', style: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
               VOID: { text: 'Đã huỷ do hết món', style: 'bg-red-50 text-red-600 border-red-100' }
             };
             const label = statusLabels[oi.status] || { text: oi.status, style: 'bg-gray-50 text-gray-600' };

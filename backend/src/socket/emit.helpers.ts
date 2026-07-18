@@ -69,6 +69,7 @@ export interface KitchenTicketPayload {
 
 export interface KitchenItemUpdatedPayload {
   orderItemId: string;
+  sessionId: string;
   tableId: string;
   menuItemName?: string;
   qty?: number;
@@ -205,7 +206,9 @@ export function emitKitchenNewTicket(tenantId: string, branchId: string, payload
 export function emitKitchenItemUpdated(tenantId: string, branchId: string, payload: KitchenItemUpdatedPayload): void {
   try {
     getIO().to(SOCKET_ROOMS.KITCHEN(tenantId, branchId)).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
-    console.log(`[emit] kitchen:item-updated → kitchen | item: ${payload.orderItemId} → ${payload.status}`);
+    getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
+    getIO().to(SOCKET_ROOMS.TENANT_CASHIER(tenantId)).emit(SOCKET_EVENTS.KITCHEN_ITEM_UPDATED, payload);
+    console.log(`[emit] kitchen:item-updated → kitchen & cashier | item: ${payload.orderItemId} → ${payload.status}`);
   } catch (err) {
     console.warn('[emit] emitKitchenItemUpdated failed:', err);
   }

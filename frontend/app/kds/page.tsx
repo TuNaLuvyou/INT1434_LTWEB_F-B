@@ -16,7 +16,9 @@ import {
   Search,
   Loader2,
   Calendar,
-  ChevronDown
+  ChevronDown,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSocket } from "@/hooks/useSocket";
@@ -144,6 +146,7 @@ export default function KDSPage() {
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [featureLocked, setFeatureLocked] = useState(false);
+  const [disableSound, setDisableSound] = useState(false);
 
   const fetchMenuItems = async () => {
     setMenuLoading(true);
@@ -276,24 +279,42 @@ export default function KDSPage() {
         ctx.resume();
       }
       
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
+      const playChime = (freq: number, startTime: number) => {
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(freq, startTime);
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(1.0, startTime + 0.02);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6);
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.start(startTime);
+        oscillator.stop(startTime + 0.7);
+      };
       
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-      
-      gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.2);
+      const now = ctx.currentTime;
+      playChime(880, now);
+      playChime(1108.73, now);
+      playChime(880, now + 0.15);
+      playChime(1108.73, now + 0.15);
     } catch (e) {
       console.error('Audio api error', e);
     }
   };
+
+  const totalPending = useMemo(() => {
+    return orders.filter(o => o.status === "pending").length;
+  }, [orders]);
+
+  useEffect(() => {
+    if (disableSound || totalPending === 0) return;
+    
+    const interval = setInterval(() => {
+      playBeep();
+    }, 1000); // Ring every 1 second to match POS
+    return () => clearInterval(interval);
+  }, [totalPending, disableSound]);
 
 
   const appendOrCreateKitchenSession = (payload: KitchenRealtimePayload) => {
@@ -600,7 +621,6 @@ export default function KDSPage() {
 
     const handleUpdate = () => {
       console.log('[KDS Socket] Nhận được thay đổi đơn hàng từ socket, cập nhật...');
-      playBeep();
       fetchKdsOrders();
     };
 
@@ -652,8 +672,8 @@ export default function KDSPage() {
         status = "pending";
       }
 
-      const openedTime = new Date(session.openedAt).getTime();
-      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - openedTime) / 1000));
+      const timerStartTime = session.lockedAt ? new Date(session.lockedAt).getTime() : new Date(session.openedAt).getTime();
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timerStartTime) / 1000));
 
       return {
         id: session.id,
@@ -661,7 +681,7 @@ export default function KDSPage() {
         tableNo: session.table?.label || `Bàn ${session.table?.tableNumber || ""}`,
         items,
         status,
-        createdAt: new Date(session.openedAt),
+        createdAt: session.lockedAt ? new Date(session.lockedAt) : new Date(session.openedAt),
         elapsedSeconds
       };
     }).filter(Boolean) as KDSOther[];
@@ -887,6 +907,17 @@ export default function KDSPage() {
             >
               <Archive className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Lịch sử</span>
+            </button>
+            <button
+              onClick={() => setDisableSound(!disableSound)}
+              className={`text-xs border px-2 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold transition-all shadow-md active:scale-95 cursor-pointer ${
+                disableSound 
+                  ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' 
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+              }`}
+            >
+              {disableSound ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{disableSound ? 'Bật âm báo' : 'Tắt âm báo'}</span>
             </button>
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse hidden sm:block" />
             <span className="text-xs text-zinc-400 font-mono hidden sm:inline">ĐẦU BẾP</span>

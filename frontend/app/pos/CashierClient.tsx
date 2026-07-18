@@ -1176,12 +1176,14 @@ export default function CashierClient({
     socket.on("session:all-done", handleAllDone);
     socket.on("menu:soldout-notify", handleSoldOut);
     socket.on("cart:updated", handleCartUpdated);
+    socket.on("kitchen:item-updated", handleKitchenItemUpdated);
 
     return () => {
       socket.off("cashier:new-order", handleNewOrder);
       socket.off("session:all-done", handleAllDone);
       socket.off("menu:soldout-notify", handleSoldOut);
       socket.off("cart:updated", handleCartUpdated);
+      socket.off("kitchen:item-updated", handleKitchenItemUpdated);
     };
   }, [
     socket,
@@ -1729,7 +1731,7 @@ export default function CashierClient({
                 const isSelected = table.tableId === selectedTableId;
 
                 let statusDot = "bg-zinc-600";
-                let statusLabel = "Trống";
+                let statusLabel = table.session ? "Sẵn sàng" : "Trống";
                 let statusClass = "text-zinc-500";
 
                 if (isPending) {
@@ -1744,6 +1746,10 @@ export default function CashierClient({
                   statusDot = "bg-emerald-400";
                   statusLabel = "Đang PV";
                   statusClass = "text-emerald-400 font-bold";
+                } else if (table.session) {
+                  statusDot = "bg-blue-400";
+                  statusLabel = "Đang ăn";
+                  statusClass = "text-blue-400 font-bold";
                 }
 
                 const isExcess = table.isExcess;

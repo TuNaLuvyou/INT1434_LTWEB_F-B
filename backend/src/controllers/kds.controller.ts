@@ -106,6 +106,7 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
     // Emit socket to kitchen
     emitKitchenItemUpdated(updatedItem.session.table.tenantId, updatedItem.session.table.branchId, {
       orderItemId: updatedItem.id,
+      sessionId: updatedItem.sessionId,
       removedOrderItemId: statusUpdate.removedOrderItemId,
       tableId: updatedItem.session.tableId,
       menuItemName: updatedItem.menuItem.name,
@@ -325,6 +326,7 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
     for (const item of changedItems) {
       emitKitchenItemUpdated(session.tenantId, session.branchId, {
         orderItemId: item.orderItemId,
+        sessionId,
         removedOrderItemId: item.removedOrderItemId,
         tableId: session.tableId,
         menuItemName: item.menuItemName,
@@ -446,6 +448,7 @@ export async function voidKdsOrderItem(req: Request, res: Response): Promise<voi
 
     emitKitchenItemUpdated(voidedItem.session.table.tenantId, voidedItem.session.table.branchId, {
       orderItemId,
+      sessionId,
       tableId,
       menuItemName: voidedItem.menuItem.name,
       qty: voidedItem.qty,
@@ -505,10 +508,29 @@ export async function deliverKdsOrder(req: Request, res: Response): Promise<void
       return;
     }
 
+    const session = await prisma.tableSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        tenantId: true,
+        branchId: true,
+        tableId: true,
+      },
+    });
+
+    if (!session) {
+      res.status(404).json({ success: false, message: 'Không tìm thấy phiên làm việc' });
+      return;
+    }
+
     const itemsToDeliver = await prisma.orderItem.findMany({
       where: {
         sessionId,
         status: 'DONE'
+      },
+      include: {
+        menuItem: {
+          select: { name: true }
+        }
       }
     });
 
@@ -517,7 +539,8 @@ export async function deliverKdsOrder(req: Request, res: Response): Promise<void
       return;
     }
 
-    await prisma.$transaction(async (tx) => {
+    const changedItems = await prisma.$transaction(async (tx) => {
+      const changes: any[] = [];
       for (const item of itemsToDeliver) {
         const existingDelivered = await tx.orderItem.findUnique({
           where: {
@@ -530,7 +553,7 @@ export async function deliverKdsOrder(req: Request, res: Response): Promise<void
         });
 
         if (existingDelivered) {
-          await tx.orderItem.update({
+          const updated = await tx.orderItem.update({
             where: { id: existingDelivered.id },
             data: {
               qty: existingDelivered.qty + item.qty,
@@ -540,14 +563,60 @@ export async function deliverKdsOrder(req: Request, res: Response): Promise<void
           await tx.orderItem.delete({
             where: { id: item.id }
           });
+          
+          changes.push({
+            orderItemId: updated.id,
+            removedOrderItemId: item.id,
+            menuItemId: item.menuItemId,
+            menuItemName: item.menuItem.name,
+            qty: updated.qty,
+            deltaQty: item.qty,
+            status: 'DELIVERED',
+            updatedAt: updated.updatedAt
+          });
         } else {
-          await tx.orderItem.update({
+          const updated = await tx.orderItem.update({
             where: { id: item.id },
             data: { status: 'DELIVERED' }
           });
+          
+          changes.push({
+            orderItemId: updated.id,
+            menuItemId: item.menuItemId,
+            menuItemName: item.menuItem.name,
+            qty: updated.qty,
+            deltaQty: item.qty,
+            status: 'DELIVERED',
+            updatedAt: updated.updatedAt
+          });
         }
       }
+      return changes;
     });
+
+    const nowStr = new Date().toISOString();
+    for (const item of changedItems) {
+      emitKitchenItemUpdated(session.tenantId, session.branchId, {
+        orderItemId: item.orderItemId,
+        sessionId,
+        removedOrderItemId: item.removedOrderItemId,
+        tableId: session.tableId,
+        menuItemName: item.menuItemName,
+        qty: item.qty,
+        deltaQty: item.deltaQty,
+        status: 'DELIVERED',
+        updatedAt: item.updatedAt.toISOString()
+      });
+
+      emitOrderStatusChanged(session.tableId, {
+        orderItemId: item.orderItemId,
+        sessionId,
+        tableId: session.tableId,
+        status: 'DELIVERED',
+        menuItemName: item.menuItemName,
+        updatedAt: item.updatedAt.toISOString()
+      });
+    }
 
     res.status(200).json({ success: true, message: 'Giao món thành công' });
   } catch (error: any) {
