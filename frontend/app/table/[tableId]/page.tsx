@@ -100,53 +100,14 @@ export default async function MenuPage({ params, searchParams }: PageProps) {
        * Chuyển từ sticky thành relative (tĩnh) để khi khách cuộn trang xuống,
        * CategoryFilter sẽ sticky bám đỉnh (top-0) gọn gàng, tăng không gian đọc menu.
        */}
-      <header
-        className="
-          relative h-16
-          bg-white border-b border-gray-100/80 shadow-sm
-        "
-      >
-        <div className="max-w-2xl mx-auto px-4 h-full flex items-center justify-between gap-4">
-          {/* Logo + tên nhà hàng */}
-          <div className="flex items-center gap-3 min-w-0">
-            {/* Logo placeholder: gradient circle đẹp mắt */}
-            <div
-              className="
-                h-9 w-9 rounded-xl shrink-0
-                bg-gradient-to-br from-orange-500 to-amber-400
-                flex items-center justify-center
-                shadow-md shadow-orange-200/50
-              "
-              aria-hidden="true"
-            >
-              <span className="text-white text-lg font-black leading-none">R</span>
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm font-extrabold text-gray-900 leading-tight truncate">
-                {SystemConfig.restaurantName}
-              </h1>
-              <p className="text-[10px] text-gray-400 font-semibold leading-tight">
-                Thực đơn điện tử
-              </p>
-            </div>
-          </div>
-
-          {/* Số bàn badge */}
-          <div
-            className="
-              shrink-0 flex items-center gap-1.5
-              bg-orange-50 border border-orange-200/60
-              text-orange-700 text-[11px] font-extrabold
-              px-3 py-1.5 rounded-full
-            "
-          >
-            {/* Hạt tròn nhấp nháy báo trạng thái đang kết nối */}
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" aria-hidden="true" />
-            Bàn&nbsp;
-            <span className="font-mono tracking-wider">
-              {tableId.length > 8 ? tableId.substring(0, 8).toUpperCase() : tableId}
-            </span>
-          </div>
+      <header className="bg-white border-b border-gray-100">
+        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+          <h1 className="text-sm font-bold text-gray-800 truncate">
+            {SystemConfig.restaurantName}
+          </h1>
+          <span className="shrink-0 text-xs font-bold text-gray-500 bg-gray-50 border border-gray-100 px-2.5 py-1 rounded-lg">
+            Bàn {tableId.length > 8 ? tableId.substring(0, 8).toUpperCase() : tableId}
+          </span>
         </div>
       </header>
 

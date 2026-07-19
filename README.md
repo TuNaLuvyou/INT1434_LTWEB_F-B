@@ -1,143 +1,157 @@
-# 🍽️ HiAI-MenuGo POS — Hệ thống Quản lý Nhà hàng Thông minh Real-time
+# 🍽️ HiAI-MenuGo POS — Hệ thống Quản lý Nhà hàng Thông minh
 
-**HiAI-MenuGo POS** là hệ thống phần mềm dưới dạng dịch vụ (SaaS) quản lý nhà hàng toàn diện, kết hợp đặt món tại bàn qua mã QR và hệ thống quản trị tại quầy (POS/Cashier). Hệ thống hoạt động theo mô hình **Real-time** đồng bộ trạng thái tức thời giữa khách hàng, nhà bếp (KDS) và thu ngân.
-
----
-
-## 🌟 Những gì đã làm được (Hoàn thiện)
-
-Hệ thống **HiAI-MenuGo POS** đã hoàn thiện một hệ sinh thái mạnh mẽ, đáp ứng vòng đời quản lý nhà hàng từ đặt món đến thanh toán và báo cáo:
-
-1. **Kiến trúc Hệ thống (Core & Database):**
-   - Hoàn thiện toàn bộ Database Schema (PostgreSQL/Supabase) cho các module: Auth, Bàn, Đơn hàng, Kho NVL, Thanh toán, Voucher, Audit Log, System Config.
-   - Xây dựng thành công kiến trúc Multi-tenant (SaaS) và Multi-branch (chuỗi chi nhánh).
-2. **Khách hàng (Public QR Menu):**
-   - Gọi món tại bàn qua QR code không cần đăng nhập.
-   - Giỏ hàng (Cart) đồng bộ thời gian thực (Real-time).
-   - Tích hợp **Giới hạn định vị địa lý (Geofencing)** ngăn chặn đặt hàng từ xa bằng Thuật toán Haversine.
-3. **Nhà bếp (KDS - Kitchen Display System):**
-   - Màn hình tiếp nhận đơn hàng, chuyển trạng thái (Preparing ➔ Done ➔ Delivered) và Void món ăn tức thời thông qua Socket.IO.
-4. **Thu ngân & POS:**
-   - Quản lý sơ đồ bàn, mở/đóng phiên, duyệt đơn hàng.
-   - Thanh toán tiền mặt (CASH) và chuyển khoản (VietQR).
-5. **Quản trị (Admin Dashboard):**
-   - Quản lý danh mục, món ăn (Upload ảnh Cloudinary).
-   - Cấu hình Voucher/Khuyến mãi.
-   - Kho hàng (Inventory/BOM): Tự động trừ nguyên vật liệu khi bán, cảnh báo sắp hết hàng.
-   - Z-Report (Báo cáo cuối ca): Thống kê doanh thu, gửi email tự động qua Nodemailer.
-   - Phân quyền động (RBAC).
+**HiAI-MenuGo POS** là hệ thống SaaS quản lý nhà hàng toàn diện, hỗ trợ đặt món tại bàn qua QR code, quản trị POS tại quầy, hiển thị bếp (KDS), và quản lý vận hành theo thời gian thực.
 
 ---
 
-## 🚧 Những tính năng chưa làm (Cần phát triển thêm)
+## 🧱 Kiến trúc
 
-Để hệ thống hoàn thiện như một sản phẩm thương mại, dưới đây là các tính năng dự kiến sẽ phát triển:
-
-- **Màn hình/App cho Nhân viên phục vụ (Staff App):** Nhận thông báo mang món, xử lý yêu cầu "Gọi nhân viên" từ bàn.
-- **Thành viên & Tích điểm (Loyalty/Membership):** Tích điểm tự động sau khi thanh toán, phân hạng thành viên.
-- **Cổng thanh toán mở rộng:** Tích hợp trực tiếp MOMO, ZALOPAY, VNPAY (đã có thiết kế Factory Pattern chờ sẵn).
-- **Chia hóa đơn (Split Bill):** Tách hóa đơn theo món hoặc theo số lượng người thanh toán.
-- **Tùy chỉnh giao diện quán (Branding):** Cho phép các quán tải logo và đổi màu chủ đạo (Hiện tại mới có database schema, chưa có API thực).
-- **API Tích hợp (Integration):** Cung cấp API/Webhook cho các bên thứ ba (ERP, Kế toán).
-- **AI Features:** Gợi ý món ăn, dự báo nguyên vật liệu, tự động dịch thực đơn.
-
----
-
-## 🛠️ Công nghệ sử dụng
-
-- **Backend:** Node.js, Express.js, TypeScript, Prisma ORM, PostgreSQL (Supabase), Socket.IO, JWT, Nodemailer.
-- **Frontend:** Next.js 15 (App Router), React 19, Tailwind CSS, Zustand, Recharts, Lucide React.
-
----
-
-## 🚀 Hướng dẫn cài đặt & chạy dự án
-
-### Yêu cầu hệ thống
-
-- **Node.js** ≥ 18.x
-- **PostgreSQL** ≥ 14 (hoặc dịch vụ Cloud PostgreSQL như Supabase)
-
-### 1. Clone repository và chuẩn bị
-
-```bash
-git clone https://github.com/TuNaLuvyou/INT1434_LTWEB_F-B.git
-cd INT1434_LTWEB_F-B
+```
+INT1434_LTWEB_F-B/
+├── backend/          # Express + TypeScript + Prisma + PostgreSQL + Socket.IO
+│   ├── src/
+│   │   ├── controllers/   # Xử lý request
+│   │   ├── services/      # Business logic
+│   │   ├── middlewares/    # Auth, upload, feature guard
+│   │   ├── routes/        # Định tuyến API
+│   │   ├── socket/        # Socket.IO events & rooms
+│   │   ├── config/        # Cấu hình (env, cloudinary, cors,...)
+│   │   ├── types/         # Type definitions
+│   │   └── utils/         # Helpers
+│   └── prisma/
+│       └── schema.prisma  # Schema DB chính thức (627 dòng)
+└── frontend/         # Next.js 16 + React 19 + Tailwind CSS 4
+    ├── app/              # App Router pages
+    │   ├── table/         # QR Menu (public)
+    │   ├── pos/           # Cashier / POS
+    │   ├── kds/           # Kitchen Display System
+    │   ├── admin/         # Dashboard, menu, inventory, vouchers, reports
+    │   ├── login/         # Đăng nhập
+    │   ├── branch-select/ # Chọn chi nhánh
+    │   └── platform-admin/ # Quản trị SaaS
+    ├── components/       # UI components
+    ├── hooks/            # useSocket, useCartSync, useAutoRefresh
+    └── stores/           # Zustand (auth, cart)
 ```
 
-### 2. Cấu hình & Chạy Backend
+---
+
+## ✨ Tính năng chính
+
+### 👤 Khách hàng (Public QR Menu)
+- Gọi món tại bàn qua QR code — không cần đăng nhập
+- Giỏ hàng realtime (Socket.IO)
+- Chống đặt hàng từ xa bằng **Geofencing** (thuật toán Haversine)
+
+### 👨‍🍳 Nhà bếp (KDS)
+- Tiếp nhận & cập nhật trạng thái món (Preparing → Done → Delivered → Void)
+- Cập nhật tức thời qua Socket.IO
+
+### 💵 Thu ngân (POS)
+- Sơ đồ bàn trực quan, mở/đóng phiên
+- Duyệt đơn, thanh toán tiền mặt (CASH) & chuyển khoản (VietQR)
+- Void món + hoàn kho tự động
+
+### 📊 Quản trị (Admin)
+- Quản lý danh mục, món ăn (upload ảnh Cloudinary)
+- Voucher / khuyến mãi (theo chi nhánh)
+- Kho hàng & BOM: tự động trừ NVL khi bán, cảnh báo tồn thấp
+- Z-Report: báo cáo cuối ca, gửi email tự động
+- Phân quyền động (RBAC)
+- Dashboard doanh thu, biểu đồ, top selling
+
+### ☁️ Nền tảng (SaaS Core)
+- Multi-tenant & Multi-branch
+- Quản lý gói dịch vụ (Starter/Professional/Enterprise)
+- Giới hạn tài nguyên theo gói (bàn, user, chi nhánh, món ăn)
+
+---
+
+## 🛠️ Công nghệ
+
+| Layer          | Công nghệ                                                                 |
+|----------------|---------------------------------------------------------------------------|
+| **Frontend**   | Next.js 16, React 19, Tailwind CSS 4, Zustand, Recharts, Socket.IO Client |
+| **Backend**    | Node.js, Express 5, TypeScript, Prisma ORM, Socket.IO, JWT, Nodemailer    |
+| **Database**   | PostgreSQL (Supabase), pg                                                  |
+| **Storage**    | Cloudinary (ảnh món ăn)                                                   |
+| **Realtime**   | Socket.IO (rooms theo tenant:branch)                                      |
+
+---
+
+## 🚀 Cài đặt & chạy
+
+### Yêu cầu
+- Node.js ≥ 18
+- PostgreSQL ≥ 14 (khuyến nghị Supabase)
+
+### Backend
 
 ```bash
 cd backend
 npm install
-```
-
-Tạo file `.env` bằng cách sao chép file `.env.example` và điền các thông số. Mặc định Backend chạy tại cổng **`5000`**.
-
-```bash
-# Đẩy schema lên Database và tạo Client Prisma
+cp .env.example .env   # điền thông số kết nối
 npx prisma db push
 npx prisma generate
-
-# Nạp dữ liệu mặc định (Admin, Món ăn, Bàn ăn mẫu...)
 npm run db:seed
-
-# Khởi động server
-npm run dev
+npm run dev            # mặc định cổng 5000
 ```
 
-### 3. Cấu hình & Chạy Frontend
-
-Mở tab terminal mới:
+### Frontend
 
 ```bash
 cd frontend
 npm install
-```
-
-Tạo file `.env` từ `.env.example`. Chú ý cấu hình `NEXT_PUBLIC_API_URL` trỏ về backend `http://127.0.0.1:5000`.
-
-```bash
-# Sinh mã Prisma Client cho Frontend
+cp .env.example .env   # NEXT_PUBLIC_API_URL -> http://127.0.0.1:5000
 npx prisma generate
-
-# Khởi động Next.js
-npm run dev
+npm run dev            # mặc định cổng 3000
 ```
 
 ---
 
-## 🔑 Tài khoản mặc định (sau khi seed)
+## 🔑 Tài khoản mặc định
 
-Mật khẩu đăng nhập mặc định: **`Demo@1234`**
+Mật khẩu chung: **`Demo@1234`**
 
-| Vai trò (Role) | Email đăng nhập          | Quyền hạn                                                     |
-| -------------- | ------------------------ | ------------------------------------------------------------- |
-| **ADMIN**      | `admin@hiaimenugo.demo`   | Toàn quyền, cấu hình hệ thống, quản lý tài khoản & doanh thu  |
-| **MANAGER**    | `manager@hiaimenugo.demo` | Quản lý món ăn, tồn kho nguyên vật liệu, cấu hình mã giảm giá |
-| **CASHIER**    | `cashier@hiaimenugo.demo` | Mở ca POS, duyệt hóa đơn tại bàn, thanh toán cho khách        |
-| **KITCHEN**    | `kitchen@hiaimenugo.demo` | Tiếp nhận và chế biến món ăn thông qua màn hình KDS           |
-
----
-
-## ⚙️ Thiết lập Geofencing (Định vị) để thử nghiệm local
-
-1. Đăng nhập admin.
-2. Truy cập **Cài đặt hệ thống** ➔ tab **Định vị (Geofencing)**.
-3. Bật **Giới hạn định vị**, nhập toạ độ, chỉnh bán kính ➔ **Lưu**.
-4. Truy cập `http://localhost:3000/table/1`.
-5. Dùng DevTools của Chrome (Sensors) để giả lập vị trí GPS khớp với toạ độ quán và đặt món.
+| Vai trò   | Email                        | Quyền hạn                          |
+|-----------|------------------------------|-------------------------------------|
+| ADMIN     | admin@hiaimenugo.demo        | Toàn quyền                          |
+| MANAGER   | manager@hiaimenugo.demo      | Món ăn, kho, voucher                |
+| CASHIER   | cashier@hiaimenugo.demo      | POS, duyệt đơn, thanh toán          |
+| KITCHEN   | kitchen@hiaimenugo.demo      | KDS (màn hình bếp)                  |
 
 ---
 
-## 📝 Git Workflow & Commit Convention
+## 📡 Realtime Events (Socket.IO)
 
-- **Nhánh chính:** `main` (Production).
-- **Phát triển tính năng:** Tạo nhánh `feature/*` hoặc `hotfix/*` từ `main`.
-- **Cấu trúc Commit:** `feat: ...`, `fix: ...`, `docs: ...`, `refactor: ...`
+Hệ thống sử dụng Socket.IO với 14 event types, phân luồng theo `tenantId:branchId`:
+
+- `order:new` / `order:updated` / `order:voided`
+- `cart:updated`
+- `table:updated` / `session:updated`
+- `payment:completed`
+- `inventory:updated`
+- `sold-out:toggled`
 
 ---
 
-<div align="center">
-  <strong>HiAI-MenuGo POS</strong> — Được phát triển với ❤️ bởi<br/>
-  Trần Hoàng Đạt · Phạm Văn Đoàn
-</div>
+## 🧪 Thử nghiệm Geofencing
+
+1. Đăng nhập ADMIN → **Cài đặt hệ thống** → tab **Định vị**
+2. Bật giới hạn, nhập tọa độ & bán kính
+3. Vào `http://localhost:3000/table/1`
+4. Dùng DevTools (Sensors) giả lập GPS
+
+---
+
+## 📝 Git Workflow
+
+- **`main`**: Production
+- **`feature/*`**, **`hotfix/*`**: Phát triển & sửa lỗi
+- Commit convention: `feat:`, `fix:`, `docs:`, `refactor:`, ...
+
+---
+
+## 👨‍💻 Thông tin
+
+Phát triển bởi **Trần Hoàng Đạt** & **Phạm Văn Đoàn** — Học Viện Công Nghệ Bưu Chính Viễn Thông - HCM (PTITHCM).

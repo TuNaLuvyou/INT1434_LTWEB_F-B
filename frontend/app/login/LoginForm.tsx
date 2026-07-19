@@ -55,9 +55,8 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
 
       const { accessToken, user } = result.data;
       setAccessToken(accessToken);
-      await fetchCurrentUser(); // load user state (includes auto-select tenant/branch)
+      await fetchCurrentUser();
 
-      // Kiểm tra nếu auto-select tenant thất bại (vd: branch bị khoá)
       const currentUser = useAuthStore.getState().user;
       if (!currentUser) {
         const errorMsg = useAuthStore.getState().error || 'Tài khoản không thể truy cập tenant nào';
@@ -78,63 +77,57 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
   return (
     <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {errors.root && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl flex items-center gap-2 text-sm animate-in fade-in">
+        <div className="bg-red-900/30 border border-red-800 text-red-300 px-4 py-3 rounded-xl flex items-center gap-2 text-sm animate-in fade-in">
           <AlertTriangle className="h-5 w-5 flex-shrink-0" />
           <p className="font-medium">{errors.root.message}</p>
         </div>
       )}
 
       <div>
-        <label htmlFor="email" className="block text-sm font-bold text-gray-700">
-          Email
-        </label>
-        <div className="mt-1.5">
           <input
             id="email"
             type="email"
             autoFocus
             autoComplete="email"
-            placeholder="admin@hiaimenugo.demo"
+            placeholder="Email"
             {...register('email')}
             aria-describedby={errors.email ? "email-error" : undefined}
-            className={`appearance-none block w-full px-4 py-3.5 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-sm transition-all bg-gray-50/50 text-gray-900 ${
-              errors.email ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 hover:border-gray-300'
+            className={`appearance-none block w-full px-4 py-3.5 border rounded-xl shadow-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 sm:text-sm transition-all bg-zinc-800/50 text-white ${
+              errors.email ? 'border-red-700 focus:ring-red-500' : 'border-zinc-700 hover:border-zinc-600'
             }`}
           />
-        </div>
+
         {errors.email && (
-          <p className="mt-2 text-sm text-red-600 font-medium" id="email-error">
+          <p className="mt-2 text-sm text-red-400 font-medium" id="email-error">
             {errors.email.message}
           </p>
         )}
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-bold text-gray-700">
-          Mật khẩu
-        </label>
-        <div className="mt-1.5 relative">
+        <div className="relative">
           <input
             id="password"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
-            placeholder="••••••••"
+            placeholder="Password"
             {...register('password')}
             aria-describedby={errors.password ? "password-error" : undefined}
-            className={`appearance-none block w-full px-4 py-3.5 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent sm:text-sm transition-all bg-gray-50/50 text-gray-900 ${
-              errors.password ? 'border-red-500 focus:ring-red-500' : 'border-gray-200 hover:border-gray-300'
+            className={`appearance-none block w-full px-4 py-3.5 border rounded-xl shadow-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 sm:text-sm transition-all bg-zinc-800/50 text-white ${
+              errors.password ? 'border-red-700 focus:ring-red-500' : 'border-zinc-700 hover:border-zinc-600'
             }`}
           />
           <button
             type="button"
-            className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-amber-600 transition-colors"
+            className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-400 hover:text-violet-400 transition-colors"
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
           </button>
         </div>
+
         {errors.password && (
-          <p className="mt-2 text-sm text-red-600 font-medium" id="password-error">
+          <p className="mt-2 text-sm text-red-400 font-medium" id="password-error">
             {errors.password.message}
           </p>
         )}
@@ -144,7 +137,7 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-amber-600/30 text-sm font-extrabold text-white bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-700 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform hover:scale-[1.01] active:scale-95"
+          className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-violet-600/30 text-sm font-extrabold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform hover:scale-[1.01] active:scale-95"
         >
           {isSubmitting ? (
             <div className="flex items-center gap-2">
@@ -155,7 +148,7 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
               <span>Đang đăng nhập...</span>
             </div>
           ) : (
-            'Đăng nhập ngay'
+            'Đăng nhập'
           )}
         </button>
       </div>
