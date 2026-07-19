@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import * as svc from '../services/analytics.service';
+import { ExcelService } from '../services/excel.service';
 
 const revenueQuerySchema = z.object({
   from: z.string().datetime({ message: 'from phải là chuỗi ngày hợp lệ (ISO 8601)' }),
@@ -99,8 +100,6 @@ export const getTopSelling = async (req: Request, res: Response): Promise<void> 
 /**
  * GET /api/analytics/export?from=...&to=...&type=full|summary
  */
-import { ExcelService } from '../services/excel.service';
-
 export const exportExcel = async (req: Request, res: Response): Promise<void> => {
   try {
     const { from, to, type } = req.query;

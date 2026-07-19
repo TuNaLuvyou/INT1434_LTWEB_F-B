@@ -886,7 +886,6 @@ export default function KDSPage() {
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="font-bold tracking-tight text-sm sm:text-lg text-white">KDS</span>
               <span className="hidden sm:inline font-bold tracking-tight text-sm sm:text-lg text-white">Kitchen Display</span>
-              <span className="text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 font-semibold tracking-wider uppercase">Live</span>
             </div>
           </div>
 
@@ -912,8 +911,8 @@ export default function KDSPage() {
               onClick={() => setDisableSound(!disableSound)}
               className={`text-xs border px-2 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold transition-all shadow-md active:scale-95 cursor-pointer ${
                 disableSound 
-                  ? 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20' 
-                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20'
+                  ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20' 
+                  : 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20'
               }`}
             >
               {disableSound ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
@@ -936,9 +935,6 @@ export default function KDSPage() {
                 .reduce((sum, o) => sum + o.items.filter(i => i.status === 'PENDING' || i.status === 'PREPARING').reduce((s, i) => s + i.quantity, 0), 0)}
             </span>
           </div>
-        </div>
-        <div className="text-[10px] sm:text-xs text-zinc-500 font-light italic hidden sm:block">
-          * Đơn hàng hiển thị cảnh báo đỏ khi chờ vượt quá 10 phút.
         </div>
       </div>
 

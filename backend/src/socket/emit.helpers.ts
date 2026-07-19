@@ -175,7 +175,7 @@ export function emitTableStatusChanged(tenantId: string, branchId: string, paylo
  * Emit khi session của bàn được cập nhật (thêm order, thay đổi tổng).
  * Target: room floor-plan
  */
-export function emitTableSessionUpdated(tenantId: string, branchId: string, payload: { tableId: string; sessionId: string; total?: number }): void {
+function emitTableSessionUpdated(tenantId: string, branchId: string, payload: { tableId: string; sessionId: string; total?: number }): void {
   try {
     getIO().to(SOCKET_ROOMS.FLOOR_PLAN(tenantId, branchId)).emit(SOCKET_EVENTS.TABLE_SESSION_UPDATED, payload);
     console.log(`[emit] table:session-updated → floor-plan | bàn ${payload.tableId}`);
@@ -247,7 +247,7 @@ export function emitCashierNewOrder(tenantId: string, branchId: string, payload:
  * Emit khi cashier cần confirm void một item.
  * Target: room cashier
  */
-export function emitCashierVoidConfirm(tenantId: string, branchId: string, payload: { orderItemId: string; tableId: string; menuItemName: string }): void {
+function emitCashierVoidConfirm(tenantId: string, branchId: string, payload: { orderItemId: string; tableId: string; menuItemName: string }): void {
   try {
     getIO().to(SOCKET_ROOMS.CASHIER(tenantId, branchId)).emit(SOCKET_EVENTS.CASHIER_VOID_CONFIRM, payload);
     getIO().to(SOCKET_ROOMS.TENANT_CASHIER(tenantId)).emit(SOCKET_EVENTS.CASHIER_VOID_CONFIRM, payload);
@@ -263,7 +263,7 @@ export function emitCashierVoidConfirm(tenantId: string, branchId: string, paylo
  * Emit khi admin/bếp toggle sold-out một menu item.
  * Target: room menu-updates → tất cả trang /menu cập nhật realtime
  */
-export function emitMenuSoldOut(tenantId: string, payload: MenuSoldOutPayload): void {
+function emitMenuSoldOut(tenantId: string, payload: MenuSoldOutPayload): void {
   try {
     getIO().to(SOCKET_ROOMS.MENU_UPDATES(tenantId)).emit(SOCKET_EVENTS.MENU_SOLD_OUT, payload);
     console.log(`[emit] menu:soldout → menu-updates | item: ${payload.menuItemId} → isSoldOut: ${payload.isSoldOut}`);

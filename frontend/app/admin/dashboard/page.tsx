@@ -16,7 +16,7 @@ import {
   Wallet,
   Loader2
 } from "lucide-react";
-import { getAccessTokenFromCookie } from "@/lib/auth/client";
+import { getAccessTokenFromCookie, setAccessToken } from "@/lib/auth/client";
 import toast from "react-hot-toast";
 import { useAuthStore } from "@/stores/auth.store";
 
@@ -85,10 +85,35 @@ export default function DashboardPage() {
     recentTransactions: []
   });
 
+  const refreshAccessToken = async (): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API}/api/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAccessToken(data.data.accessToken);
+        return data.data.accessToken;
+      }
+    } catch (e) {
+      console.warn('[Dashboard] Token refresh failed:', e);
+    }
+    return null;
+  };
+
   const loadStats = async (range = rangeType, date = customDate, tab = activeTab) => {
     try {
       setLoading(true);
-      const token = getAccessTokenFromCookie();
+      let token = getAccessTokenFromCookie();
+      if (!token) {
+        token = await refreshAccessToken();
+      }
+      if (!token) {
+        setStats(getFallbackStats());
+        return;
+      }
+
       const queryParams = new URLSearchParams({
         rangeType: range,
         ...(range === "custom" && { customDate: date })
@@ -103,6 +128,22 @@ export default function DashboardPage() {
           'Authorization': `Bearer ${token}`
         }
       });
+      
+      if (res.status === 401) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          const retryRes = await fetch(`${API}/api/analytics/today-overview?${queryParams.toString()}`, {
+            headers: { 'Authorization': `Bearer ${newToken}` }
+          });
+          if (retryRes.ok) {
+            const retryJson = await retryRes.json();
+            if (retryJson.success) {
+              setStats(retryJson.data);
+              return;
+            }
+          }
+        }
+      }
       
       if (!res.ok) {
         console.error('[Dashboard] loadStats HTTP error:', res.status, res.statusText);

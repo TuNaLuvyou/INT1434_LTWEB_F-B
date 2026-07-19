@@ -11,48 +11,51 @@ datasource db {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Tenant {
-  id             String           @id @default(uuid())
-  name           String
-  domain         String?          @unique
-  isActive       Boolean          @default(true)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id        String   @id @default(uuid())
+  name      String
+  domain    String?  @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  branches       Branch[]
-  tenantUsers    TenantUser[]
-  customRoles    CustomRole[]     @relation("TenantRoles")
-  
-  categories     Category[]
-  menuItems      MenuItem[]
-  ingredients    Ingredient[]
-  tables         Table[]
-  tableSessions  TableSession[]
-  orderItems     OrderItem[]
-  payments       Payment[]
-  vouchers       Voucher[]
-  inventoryLogs  InventoryLog[]
-  shifts         Shift[]
-  systemConfig   SystemConfig?
-  auditLogs      AuditLog[]
-  branding       TenantBranding?
+  branches    Branch[]
+  tenantUsers TenantUser[]
+  customRoles CustomRole[] @relation("TenantRoles")
+
+  categories    Category[]
+  menuItems     MenuItem[]
+  tables        Table[]
+  tableSessions TableSession[]
+  orderItems    OrderItem[]
+  payments      Payment[]
+  vouchers      Voucher[]
+  ingredients   Ingredient[]
+  inventoryLogs InventoryLog[]
+  shifts        Shift[]
+  systemConfig  SystemConfig?
+  auditLogs     AuditLog[]
+  branding      TenantBranding?
+  bankAccounts  TenantBankAccount[]
+  subscription  TenantSubscription?
 }
 
 model Branch {
-  id        String          @id @default(uuid())
+  id        String   @id @default(uuid())
   tenantId  String
-  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   address   String?
-  isActive  Boolean         @default(true)
-  isLocked  Boolean         @default(false)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  isActive  Boolean  @default(true)
+  isLocked  Boolean  @default(false) // Bị khoá do gói cước không đủ
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   tables            Table[]
   tableSessions     TableSession[]
   payments          Payment[]
   shifts            Shift[]
   inventoryLogs     InventoryLog[]
+  bankAccounts      TenantBankAccount[]
   tenantUsers       TenantUser[]
   categoryOverrides BranchCategory[]
   menuOverrides     BranchMenuItem[]
@@ -75,33 +78,34 @@ model TenantBranding {
 
 // Platform-level user
 model User {
-  id           String          @id @default(uuid())
-  email        String          @unique
+  id           String   @id @default(uuid())
+  email        String   @unique
+  phone        String?
   passwordHash String
   name         String
-  role         Role            // Platform role mapping (for legacy compat)
-  domain       String?         // Domain của tenant, dùng để phân biệt user giữa các quán
-  isActive     Boolean         @default(true)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  
-  tenantUsers  TenantUser[]
-  shifts       Shift[]         // legacy mapping, ideally via TenantUser
+  role         Role // Platform role mapping (for legacy compat)
+  domain       String? // Domain của tenant, dùng để phân biệt user giữa các quán
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenantUsers TenantUser[]
+  shifts      Shift[] // legacy mapping, ideally via TenantUser
 }
 
 model TenantUser {
-  id           String     @id @default(uuid())
-  tenantId     String
-  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  roleId       String?
-  customRole   CustomRole? @relation(fields: [roleId], references: [id])
-  isOwner      Boolean    @default(false)
-  branchId     String?
-  branch       Branch?    @relation(fields: [branchId], references: [id])
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id         String      @id @default(uuid())
+  tenantId   String
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId     String?
+  customRole CustomRole? @relation(fields: [roleId], references: [id])
+  isOwner    Boolean     @default(false)
+  branchId   String?
+  branch     Branch?     @relation(fields: [branchId], references: [id])
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
   @@unique([tenantId, userId])
   @@index([branchId])
@@ -109,46 +113,46 @@ model TenantUser {
 
 // Thay thế enum Role cũ bằng CustomRole + Permission cho chuẩn RBAC
 model CustomRole {
-  id             String           @id @default(uuid())
-  tenantId       String
-  tenant         Tenant           @relation("TenantRoles", fields: [tenantId], references: [id], onDelete: Cascade)
-  name           String
-  description    String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  
-  permissions    RolePermission[]
-  tenantUsers    TenantUser[]
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation("TenantRoles", fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions RolePermission[]
+  tenantUsers TenantUser[]
 
   @@unique([tenantId, name])
 }
 
 model Permission {
-  id             String           @id @default(uuid())
-  code           String           @unique // e.g., 'MENU_CREATE', 'ORDER_VIEW'
-  description    String?
-  roles          RolePermission[]
+  id          String           @id @default(uuid())
+  code        String           @unique // e.g., 'MENU_CREATE', 'ORDER_VIEW'
+  description String?
+  roles       RolePermission[]
 }
 
 model RolePermission {
-  roleId         String
-  permissionId   String
-  role           CustomRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission     Permission       @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  roleId       String
+  permissionId String
+  role         CustomRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
 }
 
 model AuditLog {
-  id           String   @id @default(uuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId       String?
-  action       String
-  entity       String
-  entityId     String?
-  details      Json?
-  createdAt    DateTime @default(now())
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  createdAt DateTime @default(now())
 
   @@index([tenantId])
 }
@@ -177,6 +181,7 @@ model SystemConfig {
   updatedAt         DateTime @updatedAt
 }
 
+
 model Category {
   id        String     @id @default(uuid())
   tenantId  String
@@ -191,13 +196,13 @@ model Category {
 }
 
 model BranchCategory {
-  id         String   @id @default(uuid())
-  branchId   String
-  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   categoryId String
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  isEnabled  Boolean  @default(true)
-  sortOrder  Int      @default(0)
+  category  Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  isEnabled Boolean  @default(true)
+  sortOrder Int      @default(0)
 
   @@unique([branchId, categoryId])
   @@index([branchId])
@@ -231,9 +236,9 @@ model BranchMenuItem {
   branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   menuItemId String
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  price      Decimal? @db.Decimal(10, 2)
-  isSoldOut  Boolean?
-  isActive   Boolean?
+  price      Decimal? @db.Decimal(10, 2) // null = dùng giá tenant
+  isSoldOut  Boolean? // null = dùng isSoldOut tenant
+  isActive   Boolean? // null = dùng isActive tenant
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -244,7 +249,11 @@ model BranchMenuItem {
 enum TableStatus {
   AVAILABLE
   OCCUPIED
-  RESERVED
+  ORDERING
+  FOOD_READY
+  WAITING_PAYMENT
+  COMPLETED
+  DISABLED
 }
 
 model Table {
@@ -284,6 +293,7 @@ model TableSession {
   lockedAt      DateTime?
   closedAt      DateTime?
   createdViaPos Boolean       @default(false)
+  orderNo       String?
   orderItems    OrderItem[]
   payment       Payment?
 
@@ -297,6 +307,7 @@ enum OrderItemStatus {
   PENDING
   PREPARING
   DONE
+  DELIVERED
   VOID
 }
 
@@ -317,39 +328,41 @@ model OrderItem {
 
   @@unique([sessionId, menuItemId, status])
   @@index([sessionId])
+  @@index([sessionId, status])
   @@index([menuItemId])
   @@index([tenantId])
 }
 
 model Ingredient {
-  id           String         @id @default(cuid())
-  tenantId     String
-  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name         String
-  unit         String
-  stock        Decimal
-  minStock     Decimal
-  totalExported Decimal        @default(0)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  bom          BOM[]
-  logs         InventoryLog[]
-  branchStocks BranchIngredient[]
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name           String
+  unit           String
+  stock          Decimal
+  minStock       Decimal
+  totalExported  Decimal        @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  bom            BOM[]
+  logs           InventoryLog[]
+  branchStocks   BranchIngredient[]
 
   @@index([tenantId])
 }
 
 model BranchIngredient {
-  id                String   @id @default(cuid())
-  branchId          String
-  branch            Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  ingredientId      String
-  ingredient        Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
-  stock             Decimal  @default(0)
-  importPrice       Decimal? @db.Decimal(12, 2)
-  lowStockThreshold Decimal?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id            String   @id @default(cuid())
+  branchId      String
+  branch        Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  ingredientId  String
+  ingredient    Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  stock         Decimal  @default(0)
+  inUseStock    Decimal  @default(0) // Tồn kho đang dùng ở bếp (Đã xuất)
+  importPrice   Decimal? @db.Decimal(12, 2) // giá nhập riêng theo chi nhánh
+  lowStockThreshold Decimal? // ngưỡng cảnh báo riêng, null = dùng minStock của ingredient
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([branchId, ingredientId])
   @@index([branchId])
@@ -422,6 +435,12 @@ enum PaymentMethod {
   TRANSFER
 }
 
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 model Payment {
   id             String        @id @default(cuid())
   tenantId       String
@@ -436,6 +455,10 @@ model Payment {
   discountAmount Decimal       @default(0)
   total          Decimal
   method         PaymentMethod
+  status         PaymentStatus @default(SUCCESS)
+  paymentCode    String?       @unique
+  provider       String?       // "CASH", "VIETQR", "MOMO"
+  transactionId  String?
   voucherId      String?
   voucher        Voucher?      @relation(fields: [voucherId], references: [id])
   paidAt         DateTime      @default(now())
@@ -444,6 +467,24 @@ model Payment {
   @@index([paidAt])
   @@index([tenantId])
   @@index([branchId])
+}
+
+model TenantBankAccount {
+  id            String   @id @default(uuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId      String?
+  branch        Branch?  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  bankId        String
+  bankName      String
+  accountNumber String
+  accountName   String
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 enum DiscountType {
@@ -479,4 +520,108 @@ model VoucherBranch {
 
   @@unique([voucherId, branchId])
   @@index([branchId])
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SAAS BILLING MODELS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+model SubscriptionPlan {
+  id            String   @id @default(uuid())
+  name          String   @unique // 'Starter', 'Professional', 'Enterprise'
+  description   String?
+  price         Decimal  @db.Decimal(10, 2)
+  currency      String   @default("VND")
+  billingCycle  BillingCycle @default(MONTHLY)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  features      PlanFeature[]
+  limits        UsageLimit[]
+  subscriptions TenantSubscription[]
+}
+
+model PlanFeature {
+  id       String @id @default(uuid())
+  planId   String
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  code     String // e.g., 'KDS_ACCESS', 'PROMOTION_ENGINE', 'WHITE_LABEL', 'API_ACCESS'
+  isActive Boolean @default(true)
+
+  @@unique([planId, code])
+}
+
+model UsageLimit {
+  id           String @id @default(uuid())
+  planId       String
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  resourceCode String // e.g., 'BRANCH', 'TABLE', 'USER', 'MENU_ITEM'
+  maxLimit     Int    // e.g. 1 for Starter, 5 for Professional, 9999 for Enterprise
+
+  @@unique([planId, resourceCode])
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+model TenantSubscription {
+  id              String   @id @default(uuid())
+  tenantId        String   @unique
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  planId          String
+  plan            SubscriptionPlan @relation(fields: [planId], references: [id])
+  status          SubscriptionStatus @default(ACTIVE)
+  startDate       DateTime
+  endDate         DateTime
+  trialEndsAt     DateTime?
+  cancelAtPeriodEnd Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  invoices        SubscriptionInvoice[]
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+model SubscriptionInvoice {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  subscription   TenantSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount         Decimal  @db.Decimal(10, 2)
+  status         InvoiceStatus @default(DRAFT)
+  dueDate        DateTime
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  payments       SubscriptionPayment[]
+}
+
+model SubscriptionPayment {
+  id            String   @id @default(uuid())
+  invoiceId     String
+  invoice       SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount        Decimal  @db.Decimal(10, 2)
+  provider      String   // e.g., 'STRIPE', 'VN_PAY', 'BANK_TRANSFER'
+  transactionId String?
+  status        String   // e.g., 'SUCCESS', 'FAILED'
+  createdAt     DateTime @default(now())
 }

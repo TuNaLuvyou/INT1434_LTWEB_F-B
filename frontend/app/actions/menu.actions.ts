@@ -38,11 +38,7 @@ export async function setSoldOutAction(
     console.log('[Menu] Revalidating /table/[tableId]');
     revalidatePath('/table/[tableId]', 'page');
 
-    console.log('[Menu] Revalidating /menu/[tableId]');
-    revalidatePath('/menu/[tableId]', 'page');
-
     revalidatePath('/pos', 'page');
-    revalidatePath('/cashier', 'page');
 
     return { success: true };
   } catch (error: any) {

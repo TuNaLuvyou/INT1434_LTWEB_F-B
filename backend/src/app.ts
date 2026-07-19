@@ -21,12 +21,12 @@ import paymentRoutes from './routes/payment.routes';
 import voucherRoutes from './routes/voucher.routes';
 import zReportRoutes from './routes/z-report.routes';
 import platformAdminRoutes from './routes/platform-admin.routes';
-import integrationRoutes from './routes/integration.routes';
-import membershipRoutes from './routes/membership.routes';
-import brandingRoutes from './routes/branding.routes';
 import { initSocket } from './socket';
 import { globalErrorHandler } from './middlewares/error.middleware';
 import { startAutomaticCleanupJob } from './services/cleanup.service';
+import { authMiddleware, requireRole } from './middlewares/auth.middleware';
+import { syncMenu } from './controllers/system.controller';
+import { ApiResponse } from './utils/response';
 
 import bankRoutes from './routes/bank.routes';
 import branchRoutes from './routes/branch.routes';
@@ -46,20 +46,7 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// Request logger middleware to inspect API calls in detail
-app.use((req, res, next) => {
-  console.log(`[Express API Call] ${req.method} ${req.originalUrl}`);
-  console.log(`  > Query:`, JSON.stringify(req.query));
-  console.log(`  > Auth Header:`, req.headers.authorization ? 'Bearer [HIDDEN]' : 'NONE');
 
-  const originalJson = res.json;
-  res.json = function (body) {
-    console.log(`  < Response Status: ${res.statusCode}`);
-    console.log(`  < Response Body Preview:`, JSON.stringify(body).slice(0, 300) + '...');
-    return originalJson.call(this, body);
-  };
-  next();
-});
 
 // Đăng ký routes
 app.use('/api/auth', authRoutes);
@@ -92,17 +79,8 @@ app.use('/api/platform-admin', platformAdminRoutes);
 app.use('/api/banks', bankRoutes);
 app.use('/api/branches', branchRoutes);
 
-// SaaS Feature protected stubs
-app.use('/api/integration', integrationRoutes);
-app.use('/api/membership', membershipRoutes);
-app.use('/api/system', brandingRoutes); // Hoac '/api/branding'
-
 // Admin sync menu
-import { syncMenu } from './controllers/system.controller';
-import { authMiddleware, requireRole } from './middlewares/auth.middleware';
 app.post('/api/admin/menu/sync', authMiddleware, requireRole(['ADMIN', 'MANAGER']), syncMenu as any);
-
-import { ApiResponse } from './utils/response';
 
 // Route kiểm tra server (Health Check)
 app.get('/api/health', (req, res) => {
@@ -131,4 +109,3 @@ httpServer.listen(PORT, () => {
 });
 
 export default app;
-// trigger restart

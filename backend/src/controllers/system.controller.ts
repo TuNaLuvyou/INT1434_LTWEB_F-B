@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
+import { cleanupOldSessions } from '../services/cleanup.service';
 
 export const getConfig = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -104,8 +105,6 @@ export const syncMenu = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ success: false, message: 'Lỗi đồng bộ menu' });
   }
 };
-
-import { cleanupOldSessions } from '../services/cleanup.service';
 
 export const cleanupHistory = async (req: Request, res: Response): Promise<void> => {
   try {

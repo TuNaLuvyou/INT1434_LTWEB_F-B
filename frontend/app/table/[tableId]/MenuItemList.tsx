@@ -90,6 +90,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
   // ── UI state ──
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [cartTab, setCartTab] = useState<'current' | 'history'>('current');
   type CartItemEntry = CartItem & { status?: string };
   const [lastOrder, setLastOrder] = useState<CartItemEntry[] | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -726,22 +727,22 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
       {/* ══════════════════════════════════════════════════
           GIỎ HÀNG NỔI (Floating Cart Button)
           ══════════════════════════════════════════════════ */}
-      {cartItems.length > 0 && (
-        <button
-          onClick={() => setMobileCartOpen(true)}
-          type="button"
-          aria-label="Xem chi tiết giỏ hàng"
-          className="
-            fixed bottom-6 right-6 z-40
-            bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600
-            text-white shadow-2xl rounded-full px-5 py-3.5
-            flex items-center gap-3 hover:scale-105 active:scale-95
-            transition-all duration-200 ease-out cursor-pointer
-            border border-orange-400/20
-          "
-        >
-          <div className="relative">
-            <ShoppingBag className="w-5 h-5 text-white" />
+      <button
+        onClick={() => setMobileCartOpen(true)}
+        type="button"
+        aria-label="Xem chi tiết giỏ hàng"
+        className="
+          fixed bottom-6 right-6 z-40
+          bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600
+          text-white shadow-2xl rounded-full px-5 py-3.5
+          flex items-center gap-3 hover:scale-105 active:scale-95
+          transition-all duration-200 ease-out cursor-pointer
+          border border-orange-400/20
+        "
+      >
+        <div className="relative">
+          <ShoppingBag className="w-5 h-5 text-white" />
+          {totalItems > 0 && (
             <span
               className="
                 absolute -top-2.5 -right-2.5
@@ -752,48 +753,16 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             >
               {totalItems}
             </span>
-          </div>
+          )}
+        </div>
+        {totalItems > 0 && (
           <span className="font-extrabold text-sm tracking-wide tabular-nums">
             {fmt(subtotal)}
           </span>
-        </button>
-      )}
+        )}
+      </button>
 
-      {/* Lịch sử nút gọi món phụ khi không có giỏ hàng hoạt động nhưng đã gọi món trước đó */}
-      {!isLocked && cartItems.length === 0 && lastOrder && lastOrder.length > 0 && (
-        <button
-          onClick={() => setMobileCartOpen(true)}
-          type="button"
-          aria-label="Xem đơn đã gửi tới bếp"
-          className="
-            fixed bottom-6 right-6 z-40
-            bg-white text-gray-700 shadow-2xl rounded-full px-4 py-3
-            flex items-center gap-2 hover:scale-105 active:scale-95
-            border border-gray-200/80 transition-all duration-200 cursor-pointer
-          "
-        >
-          <Receipt className="w-4.5 h-4.5 text-orange-500 animate-pulse" />
-          <span className="font-bold text-xs">Đơn đã gửi ({lastOrder.reduce((sum, i) => sum + i.qty, 0)})</span>
-        </button>
-      )}
 
-      {/* Nút tiến độ chế biến nổi khi đơn hàng bị khóa */}
-      {isLocked && dbOrderItems.length > 0 && (
-        <button
-          onClick={() => setMobileCartOpen(true)}
-          type="button"
-          aria-label="Xem tiến độ món ăn"
-          className="
-            fixed bottom-6 right-6 z-40
-            bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-2xl rounded-full px-5 py-3.5
-            flex items-center gap-2.5 hover:scale-105 active:scale-95
-            transition-all duration-200 cursor-pointer border border-orange-400/20
-          "
-        >
-          <Receipt className="w-4.5 h-4.5 text-white animate-pulse" />
-          <span className="font-extrabold text-sm tracking-wide">Tiến độ món ({dbOrderItems.reduce((sum, i) => sum + i.qty, 0)})</span>
-        </button>
-      )}
 
       {/* ══════════════════════════════════════════════════
           BOTTOM SHEET DRAWER (Giỏ hàng kéo từ đáy)
@@ -820,18 +789,41 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
             {/* Thanh dẫn kéo tay mô phỏng ở đỉnh */}
             <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
 
-            {/* Tiêu đề Drawer */}
+            {/* Tiêu đề + Tab chuyển */}
             <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base sm:text-lg font-black text-gray-900">
-                  {cartItems.length > 0 ? 'Chi tiết đơn gọi món' : 'Món đã gửi nhà bếp'}
-                </h3>
-                <p className="text-[10px] sm:text-xs text-gray-400 font-medium mt-0.5">
-                  {cartItems.length > 0
-                    ? `Bạn có ${totalItems} món ăn đang chờ gọi`
-                    : `Đang được chuẩn bị và phục vụ`
-                  }
-                </p>
+              <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-0.5">
+                <button
+                  onClick={() => setCartTab('current')}
+                  type="button"
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all cursor-pointer ${
+                    cartTab === 'current'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Đang gọi
+                  {cartItems.length > 0 && (
+                    <span className="ml-1.5 text-[10px] bg-amber-500 text-white rounded-full h-4 min-w-[16px] px-1 inline-flex items-center justify-center">
+                      {totalItems}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setCartTab('history')}
+                  type="button"
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all cursor-pointer ${
+                    cartTab === 'history'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Đã gọi
+                  {lastOrder && lastOrder.length > 0 && (
+                    <span className="ml-1.5 text-[10px] bg-emerald-500 text-white rounded-full h-4 min-w-[16px] px-1 inline-flex items-center justify-center">
+                      {lastOrder.reduce((s, i) => s + i.qty, 0)}
+                    </span>
+                  )}
+                </button>
               </div>
 
               <div className="flex items-center gap-2">
@@ -859,11 +851,11 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
               </div>
             </div>
 
-            {/* Nội dung danh sách món */}
+            {/* Nội dung danh sách món theo tab */}
             <div className="flex-1 overflow-y-auto min-h-0 mb-5 scrollbar-hide space-y-6">
               {isLocked ? (
                 renderProgressTracker()
-              ) : (
+              ) : cartTab === 'current' ? (
                 <>
                   {cartItems.length > 0 && (
                     <div className="space-y-2.5">
@@ -874,6 +866,16 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                     </div>
                   )}
 
+                  {cartItems.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
+                      <ShoppingBag size={48} strokeWidth={1} className="text-gray-200" />
+                      <p className="text-sm font-medium text-gray-400">Chưa có món nào</p>
+                      <p className="text-xs text-gray-300">Chọn món từ thực đơn để thêm vào giỏ hàng</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
                   {lastOrder && lastOrder.length > 0 && (
                     <div className="space-y-3 pt-1">
                       <div className="text-[11px] font-black text-gray-400 tracking-wider uppercase flex items-center gap-1.5">
@@ -890,19 +892,20 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
                       {renderCartItems(lastOrder, false)}
                     </div>
                   )}
-                </>
-              )}
 
-              {cartItems.length === 0 && (!lastOrder || lastOrder.length === 0) && (
-                <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
-                  <ShoppingBag size={48} strokeWidth={1} className="text-gray-200" />
-                  <p className="text-sm font-medium text-gray-400">Giỏ hàng trống</p>
-                </div>
+                  {(!lastOrder || lastOrder.length === 0) && (
+                    <div className="flex flex-col items-center justify-center py-16 text-gray-300 gap-3">
+                      <Receipt size={48} strokeWidth={1} className="text-gray-200" />
+                      <p className="text-sm font-medium text-gray-400">Chưa có đơn nào</p>
+                      <p className="text-xs text-gray-300">Món đã gửi nhà bếp sẽ hiển thị ở đây</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
             {/* Tóm tắt tổng tiền & Hành động gửi món */}
-            {cartItems.length > 0 && (
+            {cartTab === 'current' && cartItems.length > 0 && (
               <div className="border-t border-gray-100 pt-4 space-y-4">
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs text-gray-500 font-medium">
@@ -956,7 +959,7 @@ export default function MenuItemList({ initialItems, categories }: MenuItemListP
               </div>
             )}
 
-            {cartItems.length === 0 && lastOrder && lastOrder.length > 0 && (
+            {cartTab === 'history' && lastOrder && lastOrder.length > 0 && (
               <button
                 onClick={() => setMobileCartOpen(false)}
                 type="button"

@@ -954,7 +954,22 @@ export default function CashierClient({
             const nextSessionItems = itemsResult.data as SessionItemsResponse;
             setSessionItems(nextSessionItems);
 
+            // Cập nhật pendingCount cho bàn sau khi huỷ
             const allItems = Object.values(nextSessionItems.groups || {}).flat();
+            const newPending = allItems.filter((item) => item.status === "PENDING" || item.status === "PREPARING").length;
+            setTables((prev) =>
+              prev.map((table) => {
+                if (table.session?.sessionId !== selectedSessionId) return table;
+                return {
+                  ...table,
+                  session: {
+                    ...table.session!,
+                    pendingCount: newPending,
+                  },
+                };
+              })
+            );
+
             const allVoided = allItems.length > 0 && allItems.every((item) => item.status === "VOID");
 
             if (allVoided && !archivedSessions.find((session) => session.id === selectedSessionId)) {

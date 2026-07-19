@@ -68,14 +68,20 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
   try {
     const orderItemId = req.params.orderItemId as string;
     const { status } = req.body as { status: 'PREPARING' | 'DONE' };
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
 
     if (!orderItemId || !status) {
       res.status(400).json({ success: false, message: 'Thiếu dữ liệu bắt buộc' });
       return;
     }
+    if (!tenantId) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
 
-    const orderItem = await prisma.orderItem.findUnique({
-      where: { id: orderItemId },
+    const orderItem = await prisma.orderItem.findFirst({
+      where: { id: orderItemId, tenantId },
       include: {
         session: { include: { table: true } },
         menuItem: true
@@ -100,7 +106,7 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
     }
 
     // Update item
-    const statusUpdate = await kdsService.updateOrderItemStatus(orderItemId, status as OrderItemStatus);
+    const statusUpdate = await kdsService.updateOrderItemStatus(orderItemId, status as OrderItemStatus, tenantId);
     const updatedItem = statusUpdate.item;
 
     // Emit socket to kitchen
@@ -128,7 +134,7 @@ export async function updateKdsItemStatus(req: Request, res: Response): Promise<
 
     if (status === 'DONE') {
       // Check if all items in session are DONE
-      const allDone = await kdsService.checkAllItemsDone(updatedItem.sessionId);
+      const allDone = await kdsService.checkAllItemsDone(updatedItem.sessionId, tenantId);
       if (allDone) {
         emitSessionAllDone(updatedItem.session.table.tenantId, updatedItem.session.table.branchId, {
           sessionId: updatedItem.sessionId,
@@ -223,16 +229,22 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
   try {
     const sessionId = req.params.sessionId as string;
     const { newStatus } = req.body as { newStatus: 'PREPARING' | 'DONE' };
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
 
     if (!sessionId || !newStatus) {
       res.status(400).json({ success: false, message: 'Thiếu dữ liệu bắt buộc' });
       return;
     }
+    if (!tenantId) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
 
     const targetStatus = newStatus === 'PREPARING' ? 'PENDING' : 'PREPARING';
 
-    const session = await prisma.tableSession.findUnique({
-      where: { id: sessionId },
+    const session = await prisma.tableSession.findFirst({
+      where: { id: sessionId, tenantId },
       select: {
         tenantId: true,
         branchId: true,
@@ -349,7 +361,7 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
     }
 
     if (newStatus === 'DONE') {
-      const allDone = await kdsService.checkAllItemsDone(sessionId);
+      const allDone = await kdsService.checkAllItemsDone(sessionId, tenantId);
       if (allDone && changedItems.length > 0) {
         emitSessionAllDone(session.tenantId, session.branchId, {
           sessionId,
@@ -370,15 +382,21 @@ export async function updateKdsOrderStatus(req: Request, res: Response): Promise
 export async function voidKdsOrderItem(req: Request, res: Response): Promise<void> {
   try {
     const { sessionId, orderItemId } = req.params as { sessionId: string; orderItemId: string };
-    const voidedBy = (req as any).user?.userId;
+    const authReq = req as any;
+    const voidedBy = authReq.user?.userId;
+    const tenantId = authReq.user?.tenantId;
 
     if (!sessionId || !orderItemId) {
       res.status(400).json({ success: false, message: 'Thiếu sessionId hoặc orderItemId' });
       return;
     }
+    if (!tenantId) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
 
-    const orderItem = await prisma.orderItem.findUnique({
-      where: { id: orderItemId },
+    const orderItem = await prisma.orderItem.findFirst({
+      where: { id: orderItemId, tenantId },
       include: {
         session: { include: { table: true } },
         menuItem: true,
@@ -502,14 +520,20 @@ export async function voidKdsOrderItem(req: Request, res: Response): Promise<voi
 export async function deliverKdsOrder(req: Request, res: Response): Promise<void> {
   try {
     const sessionId = req.params.sessionId as string;
+    const authReq = req as any;
+    const tenantId = authReq.user?.tenantId;
 
     if (!sessionId) {
       res.status(400).json({ success: false, message: 'Thiếu dữ liệu bắt buộc' });
       return;
     }
+    if (!tenantId) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
 
-    const session = await prisma.tableSession.findUnique({
-      where: { id: sessionId },
+    const session = await prisma.tableSession.findFirst({
+      where: { id: sessionId, tenantId },
       select: {
         tenantId: true,
         branchId: true,

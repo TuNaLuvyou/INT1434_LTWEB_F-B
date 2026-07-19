@@ -2,6 +2,7 @@ import prisma from '../config/prisma';
 import { OrderItemStatus, TableStatus, Prisma } from '@prisma/client';
 import { AppError } from '../utils/app-error';
 import { emitKitchenNewTicket, emitCartUpdated, emitTableStatusChanged } from '../socket/emit.helpers';
+import { getTenantMaxLimit } from './usage-limit.service';
 
 export interface CashierSessionOverview {
   sessionId: string;
@@ -71,7 +72,8 @@ export async function getCashierOverview(tenantId: string, branchId?: string): P
     },
   });
 
-  const maxTables = 5; // FOR TESTING ONLY: Hardcode maxTables to 5
+  let maxTables = await getTenantMaxLimit(tenantId, 'TABLE');
+  if (maxTables <= 0) maxTables = 9999; // Không giới hạn nếu chưa cấu hình
   const allTenantTables = [...tables].sort((a, b) => (a.createdAt as any) - (b.createdAt as any));
   const validTableIds = new Set<string>();
   allTenantTables.slice(0, maxTables).forEach(t => validTableIds.add(t.id));
@@ -191,9 +193,9 @@ export async function getCashierOverview(tenantId: string, branchId?: string): P
   });
 }
 
-export async function getCashierSessionItems(sessionId: string): Promise<CashierSessionItemsResponse> {
-  const session = await prisma.tableSession.findUnique({
-    where: { id: sessionId },
+export async function getCashierSessionItems(sessionId: string, tenantId: string): Promise<CashierSessionItemsResponse> {
+  const session = await prisma.tableSession.findFirst({
+    where: { id: sessionId, tenantId },
     select: {
       id: true,
       openedAt: true,
@@ -284,10 +286,10 @@ export async function getCashierSessionItems(sessionId: string): Promise<Cashier
   };
 }
 
-export async function approveOrder(sessionId: string, approverId?: string): Promise<any> {
+export async function approveOrder(sessionId: string, tenantId: string, approverId?: string): Promise<any> {
   // 1. Tìm và validate TableSession
-  const session = await prisma.tableSession.findUnique({
-    where: { id: sessionId },
+  const session = await prisma.tableSession.findFirst({
+    where: { id: sessionId, tenantId },
     include: {
       table: true,
       orderItems: {

@@ -208,8 +208,6 @@ export function initSocket(httpServer: HttpServer): SocketIOServer {
       console.log(`[Socket.io] 👋 Socket ${socket.id} đã rời room "${data.room}"`);
     });
 
-    // ── Legacy handlers đã bị xoá ─────────────────────
-
     // ─────────────────────────────────────────────────────────────────────────
     // EVENT: disconnect
     // ─────────────────────────────────────────────────────────────────────────

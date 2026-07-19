@@ -17,9 +17,8 @@ export default function AdminLayout({
   const { fetchCurrentUser, isLoading, user } = useAuthStore();
 
   useEffect(() => {
-    if (user) return;
     fetchCurrentUser();
-  }, [fetchCurrentUser, user]);
+  }, [fetchCurrentUser]);
 
   useEffect(() => {
     if (!isLoading && !user) {

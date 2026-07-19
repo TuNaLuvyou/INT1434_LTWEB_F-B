@@ -17,6 +17,8 @@ import {
   Loader2,
   LayoutGrid,
   ChefHat,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
 import { getAccessTokenFromCookie } from "@/lib/auth/client";
@@ -91,6 +93,7 @@ export default function POSPage() {
   const [activeTab, setActiveTab] = useState<'tables' | 'menu' | 'cashier'>('tables');
 
   const [pendingOrderCount, setPendingOrderCount] = useState(0);
+  const [disableSound, setDisableSound] = useState(false);
 
   function playPOSBeep() {
     try {
@@ -747,21 +750,12 @@ export default function POSPage() {
 
       {/* Navigation Header */}
       <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-4 flex-1">
             <Link href="/" className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Link>
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <span className="font-bold tracking-tight text-sm sm:text-lg text-white">POS Cashier</span>
-              <span className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold tracking-wider uppercase border ${
-                isCashierConnected 
-                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
-                  : 'bg-zinc-950 text-zinc-500 border-zinc-800 animate-pulse'
-              }`}>
-                {isCashierConnected ? 'Live' : 'Offline'}
-              </span>
-            </div>
+            <span className="font-bold tracking-tight text-sm sm:text-lg text-white">POS Cashier</span>
           </div>
 
           {/* Tab Navigation */}
@@ -803,6 +797,20 @@ export default function POSPage() {
                   {pendingOrderCount > 99 ? '99+' : pendingOrderCount}
                 </span>
               )}
+            </button>
+          </div>
+
+          <div className="flex-1 flex justify-end">
+            <button
+              onClick={() => setDisableSound(!disableSound)}
+              className={`text-xs border px-2 sm:px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-bold transition-all shadow-md active:scale-95 cursor-pointer shrink-0 ${
+                disableSound
+                  ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20'
+                  : 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20'
+              }`}
+            >
+              {disableSound ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{disableSound ? 'Bật âm báo' : 'Tắt âm báo'}</span>
             </button>
           </div>
         </div>
@@ -1194,6 +1202,7 @@ export default function POSPage() {
               initialSessionItems={null} 
               initialSelectedSessionId={null} 
               errorMsg={null}
+              disableSound={disableSound}
               onPendingCountChange={setPendingOrderCount}
             />
           ) : (

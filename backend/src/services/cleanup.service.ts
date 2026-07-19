@@ -107,13 +107,4 @@ export function startAutomaticCleanupJob() {
   }, 24 * 60 * 60 * 1000);
 }
 
-/**
- * Dừng tác vụ chạy nền (dùng khi tắt hoặc reload server)
- */
-export function stopAutomaticCleanupJob() {
-  if (cleanupInterval) {
-    clearInterval(cleanupInterval);
-    cleanupInterval = null;
-    console.log('[Cleanup Job] 🛑 Đã dừng tác vụ tự động dọn dẹp.');
-  }
-}
+// stopAutomaticCleanupJob was removed — unused export

@@ -3,7 +3,7 @@ export function setAccessToken(token: string): void {
   document.cookie = `access_token=${token}; path=/; max-age=900; SameSite=Strict`;
 }
 
-export function clearAccessToken(): void {
+function clearAccessToken(): void {
   document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict';
 }
 

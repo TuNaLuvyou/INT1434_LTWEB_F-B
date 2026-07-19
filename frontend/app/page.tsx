@@ -34,6 +34,13 @@ export default function Home() {
     fetchCurrentUser();
   }, [fetchCurrentUser]);
 
+  // Chưa đăng nhập → redirect login
+  useEffect(() => {
+    if (isMounted && !isLoading && !user) {
+      router.replace('/login');
+    }
+  }, [isMounted, isLoading, user, router]);
+
   // ADMIN chưa chọn branch → redirect
   useEffect(() => {
     if (!isLoading && user && user.role === 'ADMIN' && !user.currentBranchId) {

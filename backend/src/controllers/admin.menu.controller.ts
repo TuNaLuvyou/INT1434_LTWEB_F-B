@@ -9,7 +9,7 @@ import { checkUsageLimit } from '../services/usage-limit.service';
  * Trích xuất public_id từ URL Cloudinary để xóa ảnh
  * Ví dụ: https://res.cloudinary.com/cloud_name/image/upload/v12345678/hiaimenugo/menu-items/abc.jpg -> hiaimenugo/menu-items/abc
  */
-export const getPublicIdFromUrl = (url: string): string | null => {
+const getPublicIdFromUrl = (url: string): string | null => {
   try {
     const parts = url.split('/image/upload/');
     if (parts.length < 2) return null;

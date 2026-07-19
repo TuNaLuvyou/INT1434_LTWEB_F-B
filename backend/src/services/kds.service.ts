@@ -61,8 +61,10 @@ export async function getActiveKdsTickets(tenantId: string, branchId?: string) {
   });
 }
 
-export async function updateOrderItemStatus(orderItemId: string, newStatus: OrderItemStatus) {
-  const item = await prisma.orderItem.findUnique({ where: { id: orderItemId } });
+export async function updateOrderItemStatus(orderItemId: string, newStatus: OrderItemStatus, tenantId?: string) {
+  const where: any = { id: orderItemId };
+  if (tenantId) where.tenantId = tenantId;
+  const item = await prisma.orderItem.findFirst({ where });
   if (!item) throw new Error("Order item not found");
 
   const existing = await prisma.orderItem.findUnique({
@@ -112,14 +114,9 @@ export async function updateOrderItemStatus(orderItemId: string, newStatus: Orde
   };
 }
 
-export async function checkAllItemsDone(sessionId: string): Promise<boolean> {
-  const pendingItems = await prisma.orderItem.count({
-    where: {
-      sessionId,
-      status: {
-        in: [OrderItemStatus.PENDING, OrderItemStatus.PREPARING]
-      }
-    }
-  });
+export async function checkAllItemsDone(sessionId: string, tenantId?: string): Promise<boolean> {
+  const where: any = { sessionId, status: { in: [OrderItemStatus.PENDING, OrderItemStatus.PREPARING] } };
+  if (tenantId) where.tenantId = tenantId;
+  const pendingItems = await prisma.orderItem.count({ where });
   return pendingItems === 0;
 }

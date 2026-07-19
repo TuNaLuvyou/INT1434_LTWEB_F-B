@@ -29,12 +29,18 @@ export async function getCashierOverview(req: Request, res: Response): Promise<v
 export async function getCashierSessionItems(req: Request, res: Response): Promise<void> {
   try {
     const sessionId = req.params.sessionId as string;
+    const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
     if (!sessionId) {
       res.status(400).json({ success: false, message: 'Thiếu sessionId' });
       return;
     }
+    if (!tenantId) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
 
-    const data = await cashierService.getCashierSessionItems(sessionId);
+    const data = await cashierService.getCashierSessionItems(sessionId, tenantId);
     res.status(200).json({ success: true, data });
   } catch (error: any) {
     console.error('getCashierSessionItems error:', error);
@@ -54,9 +60,14 @@ export async function approveCashierSessionItems(req: Request, res: Response): P
     }
 
     const authReq = req as AuthenticatedRequest;
+    const tenantId = authReq.user?.tenantId;
     const approverId = authReq.user?.userId;
+    if (!tenantId) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
 
-    const data = await cashierService.approveOrder(sessionId, approverId);
+    const data = await cashierService.approveOrder(sessionId, tenantId, approverId);
 
     res.status(200).json({
       success: true,
@@ -78,15 +89,20 @@ export async function voidOrderItem(req: Request, res: Response): Promise<void> 
     const { sessionId, orderItemId } = req.params as { sessionId: string; orderItemId: string };
     const authReq = req as AuthenticatedRequest;
     const voidedBy = authReq.user?.userId;
+    const tenantId = authReq.user?.tenantId;
 
     if (!sessionId || !orderItemId) {
       res.status(400).json({ success: false, message: 'Thiếu sessionId hoặc orderItemId' });
       return;
     }
+    if (!tenantId) {
+      res.status(403).json({ success: false, message: 'Forbidden' });
+      return;
+    }
 
-    // 1. Lấy OrderItem hiện tại + session + menuItem
-    const orderItem = await prisma.orderItem.findUnique({
-      where: { id: orderItemId },
+    // 1. Lấy OrderItem hiện tại + session + menuItem (kiểm tra tenantId)
+    const orderItem = await prisma.orderItem.findFirst({
+      where: { id: orderItemId, tenantId },
       include: {
         session: { include: { table: true } },
         menuItem: true,

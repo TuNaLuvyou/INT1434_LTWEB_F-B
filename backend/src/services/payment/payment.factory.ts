@@ -11,7 +11,6 @@ export class PaymentFactory {
       case 'VIETQR':
         return new VietQrProvider();
       // Prepare for MOMO, ZALOPAY, VNPAY
-      // case 'MOMO': return new MomoProvider();
       default:
         throw new AppError(400, 'INVALID_PAYMENT_PROVIDER', `Provider ${providerName} is not supported.`);
     }

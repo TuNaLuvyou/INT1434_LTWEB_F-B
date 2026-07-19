@@ -14,7 +14,7 @@ const router = Router();
 router.get(
   '/', 
   authMiddleware as any, 
-  requireRole(['ADMIN', 'MANAGER']) as any, 
+  requireRole(['ADMIN', 'MANAGER', 'CASHIER']) as any, 
   handleGetAllTables as any
 );
 

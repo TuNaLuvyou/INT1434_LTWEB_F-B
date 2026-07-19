@@ -12,7 +12,7 @@ export function useAutoRefresh() {
   // Xác định xem trang hiện tại có phải là trang yêu cầu đăng nhập không
   const isProtected = pathname ? (
     pathname.startsWith('/admin') || 
-    pathname.startsWith('/cashier') || 
+    pathname.startsWith('/pos') || 
     pathname.startsWith('/kds') ||
     pathname.startsWith('/platform-admin')
   ) : false;
@@ -62,11 +62,11 @@ export function useAutoRefresh() {
           console.warn('[Auth] Auto-refresh failed');
           const currentToken = getAccessTokenFromCookie();
           if (currentToken && !useAuthStore.getState().user) {
-            // Still have access token, try to fetch user
             useAuthStore.getState().fetchCurrentUser();
           } else {
             useAuthStore.setState({ isLoading: false });
             if (isProtected && !currentToken) {
+              useAuthStore.getState().clearUser();
               router.replace('/login?reason=expired');
             }
           }
@@ -78,6 +78,10 @@ export function useAutoRefresh() {
           useAuthStore.getState().fetchCurrentUser();
         } else {
           useAuthStore.setState({ isLoading: false });
+          if (isProtected && !currentToken) {
+            useAuthStore.getState().clearUser();
+            router.replace('/login?reason=expired');
+          }
         }
       }
     };

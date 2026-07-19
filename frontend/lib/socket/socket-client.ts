@@ -66,7 +66,7 @@ export function getSocket(): Socket {
 /**
  * Reset singleton — dùng trong testing hoặc khi cần tạo lại connection.
  */
-export function resetSocket(): void {
+function resetSocket(): void {
   if (socket) {
     socket.disconnect();
     socket.removeAllListeners();

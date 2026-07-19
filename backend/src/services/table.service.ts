@@ -2,6 +2,7 @@ import prisma from '../config/prisma';
 import { TableStatus } from '@prisma/client';
 import { AppError } from '../utils/app-error';
 import { getTenantMaxLimit } from './usage-limit.service';
+import { generateQrToken } from '../utils/jwt.utils';
 
 export interface TableWithSession {
   id: string;
@@ -98,7 +99,7 @@ export class TableService {
         createdAt: t.createdAt,
         updatedAt: t.updatedAt,
         sessionId: activeSession ? activeSession.id : null,
-        qrToken: t.tenantId && t.branchId ? require('../utils/jwt.utils').generateQrToken({ tenantId: t.tenantId, branchId: t.branchId, tableId: t.id }) : undefined,
+        qrToken: t.tenantId && t.branchId ? generateQrToken({ tenantId: t.tenantId, branchId: t.branchId, tableId: t.id }) : undefined,
         activeSession: activeSession
           ? {
               openedAt: activeSession.openedAt,

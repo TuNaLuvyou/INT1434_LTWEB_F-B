@@ -6,6 +6,7 @@ import { emitCartUpdated } from '../socket/emit.helpers';
 import { InsufficientStockError } from '../services/inventory.service';
 
 import prisma from '../config/prisma';
+import { verifyQrToken } from '../utils/jwt.utils';
 
 // ─── POST /api/sessions/join ──────────────────────────────────────────────────
 /**
@@ -20,7 +21,7 @@ export async function joinSession(req: Request, res: Response): Promise<void> {
 
     if (qrToken) {
       try {
-        const payload = require('../utils/jwt.utils').verifyQrToken(qrToken);
+        const payload = verifyQrToken(qrToken);
         tableId = payload.tableId;
       } catch (err) {
         return res.status(400).json({ success: false, message: 'Mã QR không hợp lệ hoặc đã hỏng' });

@@ -63,38 +63,4 @@ export const requireRole = (roles: Role[]) => {
   };
 };
 
-export const requirePermission = (requiredPermissions: string[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-    if (!req.user || !req.user.permissions) {
-      ApiResponse.error(res, 'UNAUTHORIZED', 'Vui lòng chọn chi nhánh/cửa hàng trước', 401);
-      return;
-    }
-
-    if (req.user.permissions.includes('ALL')) {
-      return next();
-    }
-
-    const hasPermission = requiredPermissions.every(p => req.user!.permissions!.includes(p));
-    
-    if (!hasPermission) {
-      console.warn(`[RBAC] Forbidden: Missing permissions. Req: ${requiredPermissions}, User: ${req.user.permissions}`);
-      ApiResponse.error(res, 'FORBIDDEN', 'Bạn không có quyền thực hiện thao tác này', 403);
-      return;
-    }
-
-    next();
-  };
-};
-
-export const requireTenant = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-  if (!req.user || !req.user.tenantId) {
-    ApiResponse.error(res, 'FORBIDDEN', 'Yêu cầu Tenant Context. Vui lòng chọn cửa hàng trước.', 403);
-    return;
-  }
-  
-  // Guard ngăn chặn truy cập chéo tenant, thông thường tenantId được set trong req.user từ JWT 
-  // do người dùng lấy được từ selectTenant (nếu verify ok).
-  // Mọi query DB sau middleware này sẽ dùng req.user.tenantId để query, tự động ngăn user A truy cập tenant B.
-
-  next();
-};
+// requirePermission and requireTenant were removed — unused exports
