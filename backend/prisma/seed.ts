@@ -1,0 +1,300 @@
+import { PrismaClient, Role, TableStatus, DiscountType } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
+import * as bcrypt from 'bcrypt';
+import 'dotenv/config';
+
+const pool = new pg.Pool({ connectionString: process.env.DIRECT_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
+async function main() {
+  console.log('🚀 Bắt đầu quá trình seed dữ liệu (Multi-Tenant)...');
+
+  // BƯỚC 0: Tạo Tenant & Branch mẫu
+  const tenant = await prisma.tenant.upsert({
+    where: { domain: 'demo.hiaimenugo.com' },
+    update: {},
+    create: {
+      name: 'HiAI-MenuGo Demo Tenant',
+      domain: 'demo.hiaimenugo.com',
+    },
+  });
+  console.log('✅ Tenant mẫu created:', tenant.id);
+
+  const branch = await prisma.branch.findFirst({ where: { tenantId: tenant.id } }) 
+    || await prisma.branch.create({
+    data: {
+      tenantId: tenant.id,
+      name: 'Chi nhánh Trung tâm',
+      address: '123 Đường Demo, Quận 1',
+    },
+  });
+  console.log('✅ Branch mẫu created:', branch.id);
+
+  // BƯỚC 1: SystemConfig
+  await prisma.systemConfig.upsert({
+    where: { tenantId: tenant.id },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      restaurantName: 'HiAI-MenuGo Demo',
+    },
+  });
+  console.log('✅ SystemConfig created');
+
+  // BƯỚC 1.5: Permissions & Roles
+  const perms = [
+    'MENU_VIEW', 'MENU_CREATE', 'MENU_EDIT', 'MENU_DELETE',
+    'ORDER_VIEW', 'ORDER_CREATE', 'ORDER_EDIT', 'ORDER_DELETE',
+    'TABLE_VIEW', 'TABLE_MANAGE',
+    'KITCHEN_VIEW', 'KITCHEN_MANAGE',
+    'INVENTORY_VIEW', 'INVENTORY_MANAGE',
+    'REPORT_VIEW'
+  ];
+
+  for (const p of perms) {
+    await prisma.permission.upsert({
+      where: { code: p },
+      update: {},
+      create: { code: p, description: `Quyền ${p}` }
+    });
+  }
+  
+  const customRoles = [
+    { name: 'OWNER', perms: ['ALL'] },
+    { name: 'MANAGER', perms: ['MENU_VIEW', 'MENU_CREATE', 'MENU_EDIT', 'ORDER_VIEW', 'ORDER_CREATE', 'ORDER_EDIT', 'TABLE_VIEW', 'TABLE_MANAGE', 'KITCHEN_VIEW', 'INVENTORY_VIEW', 'INVENTORY_MANAGE', 'REPORT_VIEW'] },
+    { name: 'CASHIER', perms: ['ORDER_VIEW', 'ORDER_CREATE', 'ORDER_EDIT', 'TABLE_VIEW', 'TABLE_MANAGE'] },
+    { name: 'WAITER', perms: ['ORDER_VIEW', 'ORDER_CREATE', 'TABLE_VIEW'] },
+    { name: 'KITCHEN_STAFF', perms: ['KITCHEN_VIEW', 'KITCHEN_MANAGE'] },
+    { name: 'BAR_STAFF', perms: ['KITCHEN_VIEW', 'KITCHEN_MANAGE'] } // Assuming bar uses KDS too
+  ];
+
+  for (const cr of customRoles) {
+    const createdRole = await prisma.customRole.upsert({
+      where: { tenantId_name: { tenantId: tenant.id, name: cr.name } },
+      update: {},
+      create: { tenantId: tenant.id, name: cr.name }
+    });
+
+    if (cr.perms[0] !== 'ALL') {
+      for (const p of cr.perms) {
+        const permRecord = await prisma.permission.findUnique({ where: { code: p } });
+        if (permRecord) {
+          await prisma.rolePermission.upsert({
+            where: { roleId_permissionId: { roleId: createdRole.id, permissionId: permRecord.id } },
+            update: {},
+            create: { roleId: createdRole.id, permissionId: permRecord.id }
+          });
+        }
+      }
+    }
+  }
+  console.log('✅ Permissions & Roles created');
+
+  // BƯỚC 2: Platform Admin & Users
+  const saltRounds = 10;
+  const passwordHash = await bcrypt.hash('Demo@1234', saltRounds);
+
+  // Platform admin
+  await prisma.user.upsert({
+    where: { email: 'platform@hiaimenugo.demo' },
+    update: {},
+    create: {
+      email: 'platform@hiaimenugo.demo',
+      name: 'System Admin',
+      passwordHash,
+      role: Role.PLATFORM_ADMIN,
+    }
+  });
+
+  const users = [
+    { email: 'admin@hiaimenugo.demo', role: Role.ADMIN, name: 'Admin HiAI-MenuGo' },
+    { email: 'manager@hiaimenugo.demo', role: Role.MANAGER, name: 'Nguyễn Văn Manager' },
+    { email: 'kitchen@hiaimenugo.demo', role: Role.KITCHEN, name: 'Bếp Trưởng' },
+    { email: 'cashier@hiaimenugo.demo', role: Role.CASHIER, name: 'Thu Ngân HiAI-MenuGo' },
+  ];
+
+  for (const u of users) {
+    const user = await prisma.user.upsert({
+      where: { email: u.email },
+      update: {
+        role: u.role,
+        name: u.name,
+      },
+      create: {
+        email: u.email,
+        name: u.name,
+        passwordHash,
+        role: u.role,
+      },
+    });
+
+    // Link user to tenant
+    const roleMapping: Record<string, string> = {
+      [Role.ADMIN]: 'OWNER',
+      [Role.MANAGER]: 'MANAGER',
+      [Role.CASHIER]: 'CASHIER',
+      [Role.KITCHEN]: 'KITCHEN_STAFF'
+    };
+
+    const targetRole = await prisma.customRole.findUnique({
+      where: { tenantId_name: { tenantId: tenant.id, name: roleMapping[u.role] } }
+    });
+
+    await prisma.tenantUser.upsert({
+      where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        userId: user.id,
+        roleId: targetRole?.id,
+        isOwner: u.role === Role.ADMIN,
+      }
+    });
+  }
+  console.log('✅ Users & TenantUsers created');
+
+  // BƯỚC 3: Category
+  const categories = [
+    { name: 'Món chính', slug: 'mon-chinh', sortOrder: 1 },
+    { name: 'Đồ uống', slug: 'do-uong', sortOrder: 2 },
+    { name: 'Tráng miệng', slug: 'trang-mieng', sortOrder: 3 },
+  ];
+
+  const categoryMap: Record<string, string> = {};
+  for (const c of categories) {
+    const cat = await prisma.category.upsert({
+      where: { tenantId_slug: { tenantId: tenant.id, slug: c.slug } },
+      update: {},
+      create: { ...c, tenantId: tenant.id },
+    });
+    categoryMap[c.slug] = cat.id;
+  }
+  console.log('✅ Categories created');
+
+  // BƯỚC 4: MenuItem
+  const menuItems = [
+    { name: 'Phở bò đặc biệt', price: 85000, description: 'Phở bò truyền thống, nước dùng hầm 12 tiếng', categoryId: categoryMap['mon-chinh'] },
+    { name: 'Bún bò Huế', price: 75000, description: 'Bún bò cay đặc trưng miền Trung', categoryId: categoryMap['mon-chinh'] },
+    { name: 'Cà phê sữa đá', price: 35000, description: 'Cà phê Robusta pha phin truyền thống', categoryId: categoryMap['do-uong'] },
+    { name: 'Nước chanh tươi', price: 25000, description: 'Chanh tươi, đường, đá viên', categoryId: categoryMap['do-uong'] },
+    { name: 'Chè đậu xanh', price: 30000, description: 'Chè đậu xanh đánh bông mịn', categoryId: categoryMap['trang-mieng'] },
+    { name: 'Bánh flan', price: 35000, description: 'Bánh flan caramel mềm mịn', categoryId: categoryMap['trang-mieng'] },
+  ];
+
+  const menuItemMap: Record<string, string> = {};
+  for (const m of menuItems) {
+    let existing = await prisma.menuItem.findFirst({ where: { name: m.name, tenantId: tenant.id } });
+    if (existing) {
+      menuItemMap[m.name] = existing.id;
+    } else {
+      const created = await prisma.menuItem.create({ data: { ...m, tenantId: tenant.id } });
+      menuItemMap[m.name] = created.id;
+    }
+  }
+  console.log('✅ MenuItems created');
+
+  // BƯỚC 5: Table
+  const tables = [
+    { tableNumber: 1, label: 'Bàn 1 - Tầng trệt', status: TableStatus.AVAILABLE },
+    { tableNumber: 2, label: 'Bàn 2 - Tầng trệt', status: TableStatus.AVAILABLE },
+    { tableNumber: 3, label: 'Bàn 3 - Tầng lửng', status: TableStatus.AVAILABLE },
+    { tableNumber: 4, label: 'Bàn VIP', status: TableStatus.AVAILABLE },
+  ];
+
+  for (const t of tables) {
+    await prisma.table.upsert({
+      where: { branchId_tableNumber: { branchId: branch.id, tableNumber: t.tableNumber } },
+      update: {},
+      create: { ...t, tenantId: tenant.id, branchId: branch.id },
+    });
+  }
+  console.log('✅ Tables created');
+
+  // BƯỚC 6: Ingredient
+  const ingredients = [
+    { name: 'Bánh phở', unit: 'gram', stock: 5000, minStock: 500 },
+    { name: 'Thịt bò', unit: 'gram', stock: 3000, minStock: 300 },
+    { name: 'Cà phê', unit: 'gram', stock: 2000, minStock: 200 },
+    { name: 'Đường', unit: 'gram', stock: 10000, minStock: 1000 },
+    { name: 'Sữa đặc', unit: 'ml', stock: 5000, minStock: 500 },
+  ];
+
+  const ingredientMap: Record<string, string> = {};
+  for (const i of ingredients) {
+    let existing = await prisma.ingredient.findFirst({ where: { name: i.name, tenantId: tenant.id } });
+    if (existing) {
+      ingredientMap[i.name] = existing.id;
+    } else {
+      const created = await prisma.ingredient.create({ data: { ...i, tenantId: tenant.id } });
+      ingredientMap[i.name] = created.id;
+    }
+    // Tạo BranchIngredient cho branch mặc định
+    const ingId = ingredientMap[i.name];
+    await prisma.branchIngredient.upsert({
+      where: { branchId_ingredientId: { branchId: branch.id, ingredientId: ingId } },
+      update: {},
+      create: {
+        branchId: branch.id,
+        ingredientId: ingId,
+        stock: i.stock,
+        lowStockThreshold: i.minStock,
+      },
+    });
+  }
+  console.log('✅ Ingredients + BranchIngredients created');
+
+  // BƯỚC 7: BOM
+  const boms = [
+    // Phở bò đặc biệt
+    { menuItemId: menuItemMap['Phở bò đặc biệt'], ingredientId: ingredientMap['Bánh phở'], quantity: 200 },
+    { menuItemId: menuItemMap['Phở bò đặc biệt'], ingredientId: ingredientMap['Thịt bò'], quantity: 150 },
+    // Cà phê sữa đá
+    { menuItemId: menuItemMap['Cà phê sữa đá'], ingredientId: ingredientMap['Cà phê'], quantity: 20 },
+    { menuItemId: menuItemMap['Cà phê sữa đá'], ingredientId: ingredientMap['Đường'], quantity: 30 },
+    { menuItemId: menuItemMap['Cà phê sữa đá'], ingredientId: ingredientMap['Sữa đặc'], quantity: 40 },
+  ];
+
+  for (const b of boms) {
+    if (b.menuItemId && b.ingredientId) {
+      await prisma.bOM.upsert({
+        where: {
+          menuItemId_ingredientId: {
+            menuItemId: b.menuItemId,
+            ingredientId: b.ingredientId,
+          },
+        },
+        update: {},
+        create: b,
+      });
+    }
+  }
+  console.log('✅ BOM created');
+
+  // BƯỚC 8: Voucher
+  const vouchers = [
+    { code: 'WELCOME10', discountType: DiscountType.PERCENT, discountValue: 10, maxUsage: 100, isActive: true },
+    { code: 'FIXED50K', discountType: DiscountType.FIXED, discountValue: 50000, maxUsage: 50, isActive: true },
+  ];
+
+  for (const v of vouchers) {
+    await prisma.voucher.upsert({
+      where: { tenantId_code: { tenantId: tenant.id, code: v.code } },
+      update: {},
+      create: { ...v, tenantId: tenant.id },
+    });
+  }
+  console.log('✅ Vouchers created');
+
+  console.log('🎉 Seed dữ liệu Multi-Tenant hoàn tất!');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Lỗi khi seed dữ liệu:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

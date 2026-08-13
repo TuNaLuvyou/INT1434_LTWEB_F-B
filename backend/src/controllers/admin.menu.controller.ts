@@ -1,0 +1,314 @@
+import { Response } from 'express';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware';
+import prisma from '../config/prisma';
+import { Prisma } from '@prisma/client';
+import cloudinary from '../config/cloudinary';
+import { checkUsageLimit } from '../services/usage-limit.service';
+
+/**
+ * Trích xuất public_id từ URL Cloudinary để xóa ảnh
+ * Ví dụ: https://res.cloudinary.com/cloud_name/image/upload/v12345678/hiaimenugo/menu-items/abc.jpg -> hiaimenugo/menu-items/abc
+ */
+const getPublicIdFromUrl = (url: string): string | null => {
+  try {
+    const parts = url.split('/image/upload/');
+    if (parts.length < 2) return null;
+    
+    const pathWithVersion = parts[1];
+    const pathParts = pathWithVersion.split('/');
+    
+    // Nếu phần đầu tiên là version (bắt đầu bằng 'v'), loại bỏ nó
+    if (pathParts[0].startsWith('v')) {
+      pathParts.shift();
+    }
+    
+    const remainingPath = pathParts.join('/');
+    
+    // Loại bỏ đuôi mở rộng file (.png, .jpg...)
+    const dotIndex = remainingPath.lastIndexOf('.');
+    if (dotIndex !== -1) {
+      return remainingPath.substring(0, dotIndex);
+    }
+    return remainingPath;
+  } catch (error) {
+    console.error('[Cloudinary] Lỗi phân tích public_id từ URL:', error);
+    return null;
+  }
+};
+
+// 1. GET /api/admin/menu-items - Lấy danh sách món ăn cho quản lý (bao gồm các món ẩn isActive=false)
+export const getAdminMenuItems = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const items = await prisma.menuItem.findMany({
+      where: { tenantId },
+      include: {
+        category: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: items,
+    });
+  } catch (error) {
+    console.error('[Admin Menu CRUD] Lỗi lấy danh sách món:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi truy vấn danh sách món ăn' });
+  }
+};
+
+// 2. POST /api/admin/menu-items - Thêm mới món ăn
+export const createMenuItem = async (req: AuthenticatedRequest, res: Response) => {
+  let uploadedImageUrl: string | null = null;
+  try {
+    const { name, englishName, description, price, categoryId, isActive, isSoldOut, hasSizes, isAvailableOnPos, isAvailableOnQr } = req.body;
+
+    if (!name || !price || !categoryId) {
+      // Nếu có ảnh đã tải lên Cloudinary bằng Multer, cần rollback xóa đi
+      if (req.file) {
+        uploadedImageUrl = req.file.path;
+        const publicId = getPublicIdFromUrl(uploadedImageUrl!);
+        if (publicId) await cloudinary.uploader.destroy(publicId);
+      }
+      return res.status(400).json({ success: false, message: 'Vui lòng cung cấp đầy đủ thông tin: Tên, Giá và Danh mục' });
+    }
+
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    // Kiểm tra category tồn tại và thuộc về tenant này
+    const categoryExists = await prisma.category.findUnique({
+      where: { id: categoryId },
+    });
+
+    if (!categoryExists || categoryExists.tenantId !== tenantId) {
+      if (req.file) {
+        uploadedImageUrl = req.file.path;
+        const publicId = getPublicIdFromUrl(uploadedImageUrl!);
+        if (publicId) await cloudinary.uploader.destroy(publicId);
+      }
+      return res.status(400).json({ success: false, message: 'Danh mục món ăn không hợp lệ hoặc không thuộc cửa hàng' });
+    }
+
+    if (tenantId) {
+      await checkUsageLimit(tenantId, 'MENU_ITEM');
+    }
+
+    uploadedImageUrl = req.file ? req.file.path : null;
+
+    const newItem = await prisma.menuItem.create({
+      data: {
+        tenantId,
+        name,
+        englishName: englishName || null,
+        description: description || null,
+        price: Number(price),
+        categoryId,
+        imageUrl: uploadedImageUrl,
+        isActive: isActive === 'true' || isActive === true,
+        isSoldOut: isSoldOut === 'true' || isSoldOut === true,
+        hasSizes: hasSizes !== undefined ? (hasSizes === 'true' || hasSizes === true) : true,
+        isAvailableOnPos: isAvailableOnPos !== undefined ? (isAvailableOnPos === 'true' || isAvailableOnPos === true) : true,
+        isAvailableOnQr: isAvailableOnQr !== undefined ? (isAvailableOnQr === 'true' || isAvailableOnQr === true) : true,
+      },
+      include: {
+        category: {
+          select: { name: true },
+        },
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Thêm món ăn thành công',
+      data: newItem,
+    });
+  } catch (error) {
+    console.error('[Admin Menu CRUD] Lỗi thêm món ăn:', error);
+    // Rollback xóa ảnh trên Cloudinary nếu DB lưu thất bại
+    if (req.file) {
+      const publicId = getPublicIdFromUrl(req.file.path);
+      if (publicId) {
+        try {
+          await cloudinary.uploader.destroy(publicId);
+        } catch (delError) {
+          console.error('[Cloudinary] Lỗi rollback ảnh:', delError);
+        }
+      }
+    }
+    return res.status(500).json({ success: false, message: error instanceof Error ? error.message : 'Lỗi server khi lưu thông tin món ăn' });
+  }
+};
+
+// 3. PUT /api/admin/menu-items/:id - Cập nhật món ăn
+export const updateMenuItem = async (req: AuthenticatedRequest, res: Response) => {
+  let newUploadedImageUrl: string | null = null;
+  const id = req.params.id as string;
+
+  try {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const { name, englishName, description, price, categoryId, isActive, isSoldOut, hasSizes, isAvailableOnPos, isAvailableOnQr } = req.body;
+
+    // Tìm món ăn cũ trong DB
+    const existingItem = await prisma.menuItem.findUnique({
+      where: { id },
+    });
+
+    if (!existingItem || existingItem.tenantId !== tenantId) {
+      if (req.file) {
+        const publicId = getPublicIdFromUrl(req.file.path);
+        if (publicId) await cloudinary.uploader.destroy(publicId);
+      }
+      return res.status(404).json({ success: false, message: 'Món ăn không tồn tại' });
+    }
+
+    // Nếu thay đổi categoryId, kiểm tra category mới có tồn tại không và thuộc tenant
+    if (categoryId && categoryId !== existingItem.categoryId) {
+      const categoryExists = await prisma.category.findUnique({
+        where: { id: categoryId },
+      });
+      if (!categoryExists || categoryExists.tenantId !== tenantId) {
+        if (req.file) {
+          const publicId = getPublicIdFromUrl(req.file.path);
+          if (publicId) await cloudinary.uploader.destroy(publicId);
+        }
+        return res.status(400).json({ success: false, message: 'Danh mục món ăn mới không tồn tại hoặc không hợp lệ' });
+      }
+    }
+
+    // Xử lý ảnh mới
+    let finalImageUrl = existingItem.imageUrl;
+    if (req.file) {
+      newUploadedImageUrl = req.file.path;
+      finalImageUrl = newUploadedImageUrl;
+
+      // Xóa ảnh cũ trên Cloudinary nếu có
+      if (existingItem.imageUrl) {
+        const oldPublicId = getPublicIdFromUrl(existingItem.imageUrl);
+        if (oldPublicId) {
+          try {
+            await cloudinary.uploader.destroy(oldPublicId);
+          } catch (delError) {
+            console.error('[Cloudinary] Lỗi khi xóa ảnh cũ trên Cloudinary:', delError);
+          }
+        }
+      }
+    }
+
+    const updatedItem = await prisma.menuItem.update({
+      where: { id },
+      data: {
+        name: name !== undefined ? name : existingItem.name,
+        englishName: englishName !== undefined ? englishName : existingItem.englishName,
+        description: description !== undefined ? description : existingItem.description,
+        price: price !== undefined ? Number(price) : existingItem.price,
+        categoryId: categoryId !== undefined ? categoryId : existingItem.categoryId,
+        imageUrl: finalImageUrl,
+        isActive: isActive !== undefined ? (isActive === 'true' || isActive === true) : existingItem.isActive,
+        isSoldOut: isSoldOut !== undefined ? (isSoldOut === 'true' || isSoldOut === true) : existingItem.isSoldOut,
+        hasSizes: hasSizes !== undefined ? (hasSizes === 'true' || hasSizes === true) : existingItem.hasSizes,
+        isAvailableOnPos: isAvailableOnPos !== undefined ? (isAvailableOnPos === 'true' || isAvailableOnPos === true) : existingItem.isAvailableOnPos,
+        isAvailableOnQr: isAvailableOnQr !== undefined ? (isAvailableOnQr === 'true' || isAvailableOnQr === true) : existingItem.isAvailableOnQr,
+      },
+      include: {
+        category: {
+          select: { name: true },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Cập nhật món ăn thành công',
+      data: updatedItem,
+    });
+  } catch (error) {
+    console.error('[Admin Menu CRUD] Lỗi cập nhật món ăn:', error);
+    // Rollback xóa ảnh mới tải lên nếu DB cập nhật bị lỗi
+    if (req.file) {
+      const publicId = getPublicIdFromUrl(req.file.path);
+      if (publicId) {
+        try {
+          await cloudinary.uploader.destroy(publicId);
+        } catch (delError) {
+          console.error('[Cloudinary] Lỗi rollback ảnh:', delError);
+        }
+      }
+    }
+    return res.status(500).json({ success: false, message: 'Lỗi server khi cập nhật món ăn' });
+  }
+};
+
+// 4. DELETE /api/admin/menu-items/:id - Xóa món ăn (Smart Delete)
+export const deleteMenuItem = async (req: AuthenticatedRequest, res: Response) => {
+  const id = req.params.id as string;
+
+  try {
+    const tenantId = req.user?.tenantId;
+    if (!tenantId) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const existingItem = await prisma.menuItem.findUnique({
+      where: { id },
+    });
+
+    if (!existingItem || existingItem.tenantId !== tenantId) {
+      return res.status(404).json({ success: false, message: 'Món ăn không tồn tại' });
+    }
+
+    // Thử xóa vĩnh viễn (Hard Delete) trước
+    try {
+      await prisma.menuItem.delete({ where: { id } });
+
+      // Nếu xóa DB thành công → mới xóa ảnh trên Cloudinary
+      if (existingItem.imageUrl) {
+        const publicId = getPublicIdFromUrl(existingItem.imageUrl);
+        if (publicId) {
+          try {
+            await cloudinary.uploader.destroy(publicId);
+          } catch (delError) {
+            console.error('[Cloudinary] Lỗi xóa ảnh:', delError);
+          }
+        }
+      }
+
+      return res.json({
+        success: true,
+        deleted: true,
+        message: 'Đã xóa vĩnh viễn món ăn thành công.',
+      });
+
+    } catch (deleteError) {
+      // Nếu bị chặn do khóa ngoại (P2003) → chuyển sang Soft Delete
+      if (deleteError instanceof Prisma.PrismaClientKnownRequestError && deleteError.code === 'P2003') {
+        await prisma.menuItem.update({
+          where: { id },
+          data: { isActive: false },
+        });
+
+        return res.json({
+          success: true,
+          deleted: false,
+          message: 'Món ăn đã được ẩn khỏi thực đơn (vì đã từng phát sinh trong đơn hàng củ khách).',
+        });
+      }
+
+      // Lỗi khác thì trả về 500
+      throw deleteError;
+    }
+
+  } catch (error) {
+    console.error('[Admin Menu CRUD] Lỗi xóa món ăn:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi server khi xóa món ăn.' });
+  }
+};
