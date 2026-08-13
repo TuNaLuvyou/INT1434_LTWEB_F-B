@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 
 let plansInitialized = false;
 let plansInitializedAt = 0;
-const PLANS_INIT_TTL = 60_000; // 60s — tránh chạy ~40 câu query upsert mỗi request
+const PLANS_INIT_TTL = 1000 * 60 * 60 * 24; // 24h — chỉ chạy một lần mỗi ngày (hoặc lúc khởi động) để tạo gói cước mặc định
 
 export const ensureDefaultSubscriptionPlans = async () => {
   const now = Date.now();
@@ -86,11 +86,11 @@ export const ensureDefaultSubscriptionPlans = async () => {
 
     if (plan) {
       // 1. Sync Limits
-      for (const lim of p.limits) {
-        await prisma.usageLimit.upsert({
+      await Promise.all(p.limits.map(lim => 
+        prisma.usageLimit.upsert({
           where: {
             planId_resourceCode: {
-              planId: plan.id,
+              planId: plan!.id,
               resourceCode: lim.resourceCode
             }
           },
@@ -98,19 +98,19 @@ export const ensureDefaultSubscriptionPlans = async () => {
             maxLimit: lim.maxLimit
           },
           create: {
-            planId: plan.id,
+            planId: plan!.id,
             resourceCode: lim.resourceCode,
             maxLimit: lim.maxLimit
           }
-        });
-      }
+        })
+      ));
 
       // 2. Sync Features
-      for (const featCode of p.features) {
-        await prisma.planFeature.upsert({
+      await Promise.all(p.features.map(featCode => 
+        prisma.planFeature.upsert({
           where: {
             planId_code: {
-              planId: plan.id,
+              planId: plan!.id,
               code: featCode
             }
           },
@@ -118,12 +118,12 @@ export const ensureDefaultSubscriptionPlans = async () => {
             isActive: true
           },
           create: {
-            planId: plan.id,
+            planId: plan!.id,
             code: featCode,
             isActive: true
           }
-        });
-      }
+        })
+      ));
     }
   }
 
