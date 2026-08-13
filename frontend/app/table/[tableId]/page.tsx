@@ -138,6 +138,12 @@ export default async function MenuPage({ params, searchParams }: PageProps) {
         '--color-secondary': secondaryColor,
       } as React.CSSProperties}
     >
+      <style dangerouslySetInnerHTML={{ __html: `
+        body { 
+          background-color: #f9fafb !important;
+          overscroll-behavior-y: none;
+        }
+      `}} />
       <header
         className="sticky top-0 z-40 border-b border-gray-100/80 bg-white/95 backdrop-blur-md shadow-2xs"
         style={{ background: `linear-gradient(135deg, ${primaryColor}0D 0%, ${secondaryColor}05 100%)`, backgroundColor: 'white' }}
