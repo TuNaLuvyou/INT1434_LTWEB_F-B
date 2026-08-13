@@ -1,8 +1,11 @@
 import { notFound } from 'next/navigation';
 import MenuItemList, { MenuItemForDisplay } from './MenuItemList';
 import { MenuCacheManager } from '@/components/offline/MenuCacheManager';
+import type { Viewport } from 'next';
 
-
+export const viewport: Viewport = {
+  themeColor: '#f9fafb',
+};
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
