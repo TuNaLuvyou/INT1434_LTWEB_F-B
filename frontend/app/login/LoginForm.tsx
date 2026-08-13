@@ -67,7 +67,11 @@ export default function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
       if (redirectUrl) {
         router.replace(redirectUrl);
       } else {
-        router.replace('/');
+        if (currentUser.role === 'ADMIN' && !currentUser.currentBranchId) {
+          router.replace('/branch-select');
+        } else {
+          router.replace('/');
+        }
       }
     } catch (error) {
       setError('root', { message: 'Không thể kết nối server. Thử lại sau.' });

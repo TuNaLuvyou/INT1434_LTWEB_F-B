@@ -149,7 +149,7 @@ export default function Home() {
   const visibleApps = apps.filter((app) => app.visible !== false);
 
   // Loading splash screen
-  if (!pageReady && !noBranchBlocked) {
+  if ((!pageReady && !noBranchBlocked) || (user?.role === 'ADMIN' && !user?.currentBranchId)) {
     return (
       <div className="h-screen w-screen bg-zinc-950 flex flex-col items-center justify-center">
         <div className="flex flex-col items-center gap-6">
