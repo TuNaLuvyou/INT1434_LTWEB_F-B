@@ -146,9 +146,8 @@ export default async function MenuPage({ params, searchParams }: PageProps) {
       } as React.CSSProperties}
     >
       <style dangerouslySetInnerHTML={{ __html: `
-        body { 
+        html, body { 
           background-color: #f9fafb !important;
-          overscroll-behavior-y: none;
         }
       `}} />
       <header
