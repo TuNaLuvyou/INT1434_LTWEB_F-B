@@ -311,11 +311,10 @@ Hệ thống bao gồm **~40 Prisma Models** được phân chia theo các nhóm
 
 ## 👥 Thành viên
 
-| Họ tên | MSSV | Vai trò |
-|--------|------|---------|
-| Trần Tú | D23XXXX | Frontend Lead |
-| Thành viên 2 | D23XXXX | Backend |
-| Thành viên 3 | D23XXXX | Database & DevOps |
+| Họ tên | MSSV |
+|--------|------|
+| Trần Hoàng Đạt | N23DCCN009 |
+| Phạm Văn Đoàn | N23DCCN010 |
 
 ---
 
