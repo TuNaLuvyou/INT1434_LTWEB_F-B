@@ -1441,7 +1441,7 @@ export default function MenuItemList({ initialItems, categories, branding, table
 
       {/* Màn hình Cảm ơn & Thanh toán thành công (Bàn trống) */}
       {isSessionClosed && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300 touch-none overscroll-none">
           <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500 mb-6 animate-bounce">
             <CheckCircle size={40} />
           </div>
