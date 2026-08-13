@@ -5,6 +5,10 @@ import type { Viewport } from 'next';
 
 export const viewport: Viewport = {
   themeColor: '#f9fafb',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';

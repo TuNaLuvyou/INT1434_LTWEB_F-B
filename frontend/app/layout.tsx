@@ -29,6 +29,14 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
 };
 
+import type { Viewport } from 'next';
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 import { I18nProvider } from "@/context/i18nContext";
 
 export default function RootLayout({
