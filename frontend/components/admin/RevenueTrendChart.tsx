@@ -405,22 +405,24 @@ export default function RevenueTrendChart() {
       </div>
 
       {/* Chart */}
-      <div className="relative">
-        {loading ? (
-          <div className="h-[260px] flex items-center justify-center">
-            <Loader2 className="animate-spin text-violet-500" size={28} />
+      <div className="relative w-full aspect-[760/260]">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-zinc-900/40 backdrop-blur-sm rounded-2xl transition-all">
+            <Loader2 className="h-8 w-8 text-violet-500 animate-spin" />
           </div>
-        ) : error ? (
-          <div className="h-[260px] flex items-center justify-center text-xs text-rose-400">{error}</div>
-        ) : points.length === 0 ? (
-          <div className="h-[260px] flex items-center justify-center text-xs text-zinc-500">
+        )}
+        
+        {error ? (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-rose-400">{error}</div>
+        ) : points.length === 0 && !loading ? (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">
             Chưa có dữ liệu doanh thu trong khoảng thời gian đã chọn.
           </div>
         ) : (
           <svg
             ref={svgRef}
             viewBox={`0 0 ${W} ${H}`}
-            className="w-full h-auto cursor-crosshair select-none"
+            className="absolute inset-0 w-full h-full cursor-crosshair select-none"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
