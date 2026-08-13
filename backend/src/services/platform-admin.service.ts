@@ -1,13 +1,20 @@
 import prisma from '../config/prisma';
 import bcrypt from 'bcrypt';
+import { clearFeatureCacheForTenant } from '../middlewares/feature-cache';
 
 let plansInitialized = false;
 let plansInitializedAt = 0;
+let plansInitPromise: Promise<void> | null = null;
 const PLANS_INIT_TTL = 1000 * 60 * 60 * 24; // 24h — chỉ chạy một lần mỗi ngày (hoặc lúc khởi động) để tạo gói cước mặc định
 
 export const ensureDefaultSubscriptionPlans = async () => {
   const now = Date.now();
   if (plansInitialized && now - plansInitializedAt < PLANS_INIT_TTL) return;
+
+  // Single-flight: nếu có nhiều request cùng lúc miss cache, chỉ 1 lần chạy init,
+  // các request khác chờ chung promise — tránh chạy hàng loạt upsert trùng nhau.
+  if (!plansInitPromise) {
+    plansInitPromise = (async () => {
 
   const defaultPlans = [
     {
@@ -129,6 +136,11 @@ export const ensureDefaultSubscriptionPlans = async () => {
 
   plansInitialized = true;
   plansInitializedAt = Date.now();
+    })().finally(() => {
+      plansInitPromise = null;
+    });
+  }
+  return plansInitPromise;
 };
 
 export const getTenants = async () => {
@@ -422,6 +434,9 @@ export const updateTenantSubscriptionPlan = async (tenantId: string, planName: s
 
   // Enforce branch limits after plan change
   await enforceBranchLimits(tenantId);
+
+  // Xoá cache feature cũ để tenant áp dụng ngay gói mới (tránh lỗi nhớ gói cũ tối đa 60s)
+  clearFeatureCacheForTenant(tenantId);
 
   return result;
 };

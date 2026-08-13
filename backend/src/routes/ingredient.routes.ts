@@ -6,10 +6,11 @@ import {
   getBranchStock, transferToBranch, getExportedStats,
 } from '../controllers/ingredient.controller';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
+import { requireFeature } from '../middlewares/feature.guard';
 
 // ── adminRouter: ADMIN / MANAGER only ────────────────────────────
 const adminRouter = Router();
-adminRouter.use(authMiddleware, requireRole(['ADMIN', 'MANAGER']));
+adminRouter.use(authMiddleware, requireRole(['ADMIN', 'MANAGER']), requireFeature('INVENTORY_ACCESS') as any);
 
 // ── Kho tổng & Kho chi nhánh ──────────────────────────────────────
 adminRouter.get('/',           requireRole(['ADMIN', 'MANAGER']), getIngredients);

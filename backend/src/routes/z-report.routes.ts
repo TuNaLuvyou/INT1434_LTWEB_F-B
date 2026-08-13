@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
+import { requireFeature } from '../middlewares/feature.guard';
 import {
   getZReportData,
   downloadZReportPDF,
@@ -8,8 +9,8 @@ import {
 
 const zReportRouter = Router();
 
-// Tất cả các route Z-Report yêu cầu xác thực và quyền ADMIN hoặc MANAGER
-zReportRouter.use(authMiddleware, requireRole(['ADMIN', 'MANAGER']));
+// Tất cả các route Z-Report yêu cầu xác thực, quyền ADMIN/MANAGER và gói có ADVANCED_REPORTS
+zReportRouter.use(authMiddleware, requireRole(['ADMIN', 'MANAGER']), requireFeature('ADVANCED_REPORTS') as any);
 
 /**
  * GET /api/z-report/data?from=<ISO>&to=<ISO>

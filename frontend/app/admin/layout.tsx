@@ -6,6 +6,23 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import { useAuthStore } from "@/stores/auth.store";
 import { Loader2, LogOut, Store } from 'lucide-react';
 import { logout } from '@/lib/auth/client';
+import { warmUpRoutes, warmUpClientChunks } from '@/lib/warm-up-routes';
+
+// Mọi route tính năng trong admin — prefetch ngầm đúng lúc người dùng vào admin
+// để Next.js compile & tải sẵn chunks ở dưới nền, bấm tính năng nào cũng tức thì.
+const ADMIN_ROUTES = [
+  '/admin/dashboard',
+  '/admin/menu',
+  '/admin/inventory',
+  '/admin/vouchers',
+  '/admin/z-report',
+  '/admin/integrations',
+  '/admin/roles',
+  '/admin/bank-account',
+  '/admin/audit-logs',
+  '/admin/invoices',
+  '/admin/settings',
+];
 
 export default function AdminLayout({
   children,
@@ -19,6 +36,35 @@ export default function AdminLayout({
   useEffect(() => {
     fetchCurrentUser();
   }, [fetchCurrentUser]);
+
+  // Prefetch + warm-up TẤT CẢ tính năng admin còn lại NGAY LẬP TỨC khi layout
+  // mount (đúng lúc /admin/dashboard đang load) — KHÔNG defer:
+  //  - Bỏ qua route đang đứng (đã được load sẵn bởi navigation).
+  //  - Chạy ngay trong effect đầu tiên để webpack dev bắt đầu compile các page
+  //    admin khác song song với việc render dashboard, thay vì đợi idle rồi
+  //    mới warm-up (lúc đó bấm tính năng khác vẫn phải chờ compile).
+  //  - router.prefetch: tải chunks + RSC payload về client cache (hoạt động ở prod)
+  //  - warmUpRoutes: request RSC thật để server compile & render page sẵn
+  //  - warmUpClientChunks: dynamic import page module để webpack dev compile sẵn
+  //    client JS chunk (quan trọng ở dev — prefetch bị tắt)
+  // Bấm tính năng nào cũng tức thì, không phải chờ render/compile lần đầu.
+  useEffect(() => {
+    if (!user || user.role === 'PLATFORM_ADMIN' || !user.currentBranchId) return;
+
+    // Chỉ warm-up các route khác route hiện tại (đang được load sẵn bởi navigation)
+    const otherRoutes = ADMIN_ROUTES.filter((r) => r !== pathname);
+    if (otherRoutes.length === 0) return;
+
+    for (const route of otherRoutes) {
+      try {
+        router.prefetch(route);
+      } catch {
+        // Bỏ qua prefetch lỗi, không ảnh hưởng ứng dụng
+      }
+    }
+    warmUpClientChunks(otherRoutes);
+    warmUpRoutes(otherRoutes);
+  }, [user, router, pathname]);
 
   useEffect(() => {
     if (!isLoading && !user) {

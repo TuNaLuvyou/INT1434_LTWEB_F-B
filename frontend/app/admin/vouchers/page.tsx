@@ -22,6 +22,8 @@ import MembershipTab from "./MembershipTab";
 import MemberListTab from "./MemberListTab";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminTabs from "@/components/admin/AdminTabs";
+import FeatureLock from "@/components/admin/FeatureLock";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 
 interface Voucher {
   id: string;
@@ -40,11 +42,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 export default function AdminVouchersPage() {
   const [activeTab, setActiveTab] = useState<'vouchers' | 'tiers' | 'members'>('vouchers');
 
+  // Kiểm tra gói cước ngay lập tức từ auth store (features đã có sẵn lúc đăng nhập),
+  // không phải chờ API round-trip — tránh hiện UI trống rồi mới hiện overlay khóa.
+  const { hasFeature } = useFeatureGate();
+  const promoLocked = !hasFeature("PROMOTION_ENGINE");
+
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // Fallback API-side: nếu store chưa nạp features, dựa vào lỗi từ API
   const [featureLocked, setFeatureLocked] = useState(false);
 
   // Form States
@@ -90,8 +98,9 @@ export default function AdminVouchersPage() {
   };
 
   useEffect(() => {
+    if (promoLocked) return; // Đã khóa bởi gói cước — không cần gọi API
     fetchVouchers();
-  }, []);
+  }, [promoLocked]);
 
   const handleCreateVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,27 +211,12 @@ export default function AdminVouchersPage() {
         />
 
 
-        {/* Feature Lock Overlay */}
-        {featureLocked && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center">
-            <div className="absolute inset-0 backdrop-blur-sm bg-zinc-950/60" />
-            <div className="relative flex flex-col items-center gap-4 max-w-md text-center px-6">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600/20 to-indigo-600/20 border border-violet-500/20 flex items-center justify-center">
-                <Sparkles className="h-8 w-8 text-violet-400" />
-              </div>
-              <h3 className="text-lg font-bold text-white">Tính năng chưa được hỗ trợ</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                Gói cước hiện tại của bạn không hỗ trợ tính năng Khuyến mãi & Loyalty (PROMOTION_ENGINE). 
-                Vui lòng nâng cấp gói cước để sử dụng tính năng này.
-              </p>
-              <a
-                href="/admin/settings"
-                className="mt-2 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)]"
-              >
-                Nâng cấp ngay
-              </a>
-            </div>
-          </div>
+        {/* Feature Lock Overlay — hiện ngay lập tức nếu gói không có PROMOTION_ENGINE */}
+        {(promoLocked || featureLocked) && (
+          <FeatureLock
+            featureName="Khuyến Mãi & Loyalty (PROMOTION_ENGINE)"
+            description="Gói cước hiện tại của bạn không hỗ trợ tính năng Khuyến mãi & Loyalty (PROMOTION_ENGINE). Vui lòng nâng cấp gói cước để sử dụng tính năng này."
+          />
         )}
 
         <div className="flex-1 min-h-0 overflow-hidden flex flex-col space-y-4">

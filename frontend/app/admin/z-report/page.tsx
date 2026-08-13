@@ -12,6 +12,8 @@ import { fetchBranches } from "@/lib/api/admin";
 import { useAuthStore } from "@/stores/auth.store";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminTabs from "@/components/admin/AdminTabs";
+import FeatureLock from "@/components/admin/FeatureLock";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -101,6 +103,8 @@ function Toast({ type, message }: ToastProps) {
 
 export default function ZReportPage() {
   const { user } = useAuthStore();
+  const { hasFeature } = useFeatureGate();
+  const reportLocked = !hasFeature("ADVANCED_REPORTS");
 
   // Date range — default: today
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -131,6 +135,7 @@ export default function ZReportPage() {
 
   useEffect(() => {
     async function initData() {
+      if (reportLocked) return;
       try {
         if (user?.role === "ADMIN" || user?.role === "PLATFORM_ADMIN") {
           const branchRes = await fetchBranches();
@@ -143,7 +148,7 @@ export default function ZReportPage() {
       }
     }
     initData();
-  }, [user]);
+  }, [user, reportLocked]);
 
   // ── Fetch preview data ──────────────────────────────────────────────────────
   const fetchReport = useCallback(async () => {
@@ -169,8 +174,9 @@ export default function ZReportPage() {
 
   // Tự động tải báo cáo khi thay đổi chi nhánh chọn
   useEffect(() => {
+    if (reportLocked) return;
     fetchReport();
-  }, [fetchReport]);
+  }, [fetchReport, reportLocked]);
 
   // ── Download PDF ────────────────────────────────────────────────────────────
   const handleDownload = async () => {
@@ -278,6 +284,12 @@ export default function ZReportPage() {
       />
 
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col p-3 sm:p-6 max-w-7xl w-full mx-auto relative z-10">
+        {reportLocked && (
+          <FeatureLock
+            featureName="Báo Cáo Nâng Cao (ADVANCED_REPORTS)"
+            description="Gói cước hiện tại của bạn không hỗ trợ Báo cáo Z-Report & Phân tích nâng cao. Vui lòng nâng cấp gói cước để sử dụng."
+          />
+        )}
         {/* Scope Switcher Tabs for Admin */}
         {user?.role === "ADMIN" && (
           <AdminTabs

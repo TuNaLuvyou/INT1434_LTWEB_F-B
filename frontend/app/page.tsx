@@ -278,6 +278,7 @@ export default function Home() {
               <Link 
                 key={app.title} 
                 href={app.href}
+                prefetch
                 className={`group relative block overflow-hidden rounded-2xl sm:rounded-3xl border border-zinc-900 bg-zinc-900/40 p-5 sm:p-6 lg:p-8 transition-all duration-300 hover:scale-[1.01] hover:bg-zinc-900/60 shadow-xl ${app.borderHover || 'hover:border-zinc-800'}`}
               >
                 {/* Glow effect on hover */}

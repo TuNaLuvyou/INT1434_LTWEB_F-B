@@ -43,6 +43,8 @@ import {
 } from "@/lib/api/integrations";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminTabs from "@/components/admin/AdminTabs";
+import FeatureLock from "@/components/admin/FeatureLock";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 
 interface ApiKeyItem {
   id: string;
@@ -119,6 +121,8 @@ const KEY_SCOPE_OPTIONS = [
 
 export default function IntegrationsPage() {
   const [activeTab, setActiveTab] = useState<"webhooks" | "apikeys">("webhooks");
+  const { hasFeature } = useFeatureGate();
+  const apiKeysLocked = !hasFeature("API_ACCESS");
 
   // API Keys State
   const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
@@ -233,8 +237,8 @@ export default function IntegrationsPage() {
   // Load Data
   useEffect(() => {
     loadWebhooks();
-    loadApiKeys();
-  }, []);
+    if (!apiKeysLocked) loadApiKeys();
+  }, [apiKeysLocked]);
 
   // API Key Actions
   const handleCreateApiKey = async (e: React.FormEvent) => {
@@ -726,6 +730,12 @@ export default function IntegrationsPage() {
 
       {/* ── TAB 2: API KEYS ────────────────────────────────────────────────── */}
       {activeTab === "apikeys" && (
+        apiKeysLocked ? (
+          <FeatureLock
+            featureName="API Keys (API_ACCESS)"
+            description="Gói cước hiện tại của bạn không hỗ trợ API Access — kết nối phần mềm bên thứ 3 vào hệ thống. Vui lòng nâng cấp gói cước để sử dụng."
+          />
+        ) : (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -882,7 +892,8 @@ export default function IntegrationsPage() {
               </div>
             </div>
           )}
-        </div>
+          </div>
+        )
       )}
 
       {/* ── MODAL: TẠO WEBHOOK MỚI ────────────────────────────────────────── */}

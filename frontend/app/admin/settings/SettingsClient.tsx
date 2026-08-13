@@ -9,6 +9,7 @@ import BrandingTab from './BrandingTab';
 import { useI18n } from '@/context/i18nContext';
 import AdminHeader from '@/components/admin/AdminHeader';
 import AdminTabs from '@/components/admin/AdminTabs';
+import FeatureLock from '@/components/admin/FeatureLock';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
@@ -193,6 +194,8 @@ export default function SettingsClient() {
       setIsSyncing(false);
     }
   };
+
+  const brandingLocked = !(systemInfo?.features?.includes("WHITE_LABEL") || systemInfo?.features?.includes("ALL_FEATURES"));
 
   if (isLoading) {
     return (
@@ -452,7 +455,15 @@ export default function SettingsClient() {
           <BranchManagement />
         )}
         {activeTab === 'branding' && (
-          <BrandingTab />
+          brandingLocked ? (
+            <FeatureLock
+              featureName="Thương Hiệu & Logo (WHITE_LABEL)"
+              description="Gói cước hiện tại của bạn không hỗ trợ tuỳ chỉnh thương hiệu — màu sắc, Logo và hình ảnh menu. Vui lòng nâng cấp gói cước để sử dụng."
+              variant="inline"
+            />
+          ) : (
+            <BrandingTab />
+          )
         )}
         </div>
       </main>

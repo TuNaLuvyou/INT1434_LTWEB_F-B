@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, Loader2 } from "lucide-react";
 import { getAccessTokenFromCookie, setAccessToken } from "@/lib/auth/client";
+import FeatureLock from "@/components/admin/FeatureLock";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -54,6 +56,8 @@ const inputCls =
   "bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-[11px] text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-violet-500 transition-all font-mono";
 
 export default function RevenueTrendChart() {
+  const { hasFeature } = useFeatureGate();
+  const chartLocked = !hasFeature("ADVANCED_REPORTS");
   const [tab, setTab] = useState<Tab>("day");
   const [methodView, setMethodView] = useState<MethodView>("both");
 
@@ -251,6 +255,18 @@ export default function RevenueTrendChart() {
     { key: "transfer", label: "Chuyển khoản" },
     { key: "cash", label: "Tiền mặt" },
   ];
+
+  if (chartLocked) {
+    return (
+      <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl shrink-0">
+        <FeatureLock
+          featureName="Báo Cáo Nâng Cao (ADVANCED_REPORTS)"
+          description="Gói cước hiện tại của bạn không hỗ trợ Phân tích & Báo cáo nâng cao. Vui lòng nâng cấp gói cước để mở khoá biểu đồ doanh thu."
+          variant="inline"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-4 sm:p-5 shrink-0">

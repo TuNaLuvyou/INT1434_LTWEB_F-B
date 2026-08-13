@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Be_Vietnam_Pro, Geist_Mono, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import AuthInit from "@/components/auth/AuthInit";
+import RoutePrefetcher from "@/components/app/RoutePrefetcher";
 import { Toaster } from "react-hot-toast";
 import { OfflineProvider } from "@/components/offline/OfflineProvider";
 import { OfflineBanner } from "@/components/offline/OfflineBanner";
@@ -54,6 +55,7 @@ export default function RootLayout({
           <OfflineProvider />
           <OfflineBanner />
           <AuthInit />
+          <RoutePrefetcher />
           {children}
           <Toaster 
             position="top-right" 

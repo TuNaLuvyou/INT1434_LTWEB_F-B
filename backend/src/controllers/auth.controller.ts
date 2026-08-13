@@ -117,7 +117,9 @@ export const selectTenant = async (req: Request, res: Response): Promise<void> =
       data: {
         accessToken: result.accessToken,
         tenant: result.tenant,
-        permissions: result.permissions
+        permissions: result.permissions,
+        features: result.features,
+        planName: result.planName,
       },
     });
   } catch (error: any) {

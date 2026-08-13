@@ -25,6 +25,8 @@ import {
 import { useAuthStore } from "@/stores/auth.store";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AdminTabs from "@/components/admin/AdminTabs";
+import FeatureLock from "@/components/admin/FeatureLock";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 
 type Tab = "main" | "branch" | "exported" | "logs";
 
@@ -156,6 +158,8 @@ function TransferModal({
 export default function AdminInventoryPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === "ADMIN" || user?.role === "PLATFORM_ADMIN";
+  const { hasFeature } = useFeatureGate();
+  const inventoryLocked = !hasFeature("INVENTORY_ACCESS");
   const [activeTab, setActiveTab] = useState<Tab>("branch");
   const [mounted, setMounted] = useState(false);
 
@@ -236,13 +240,20 @@ export default function AdminInventoryPage() {
   }, [logsPage]);
 
   // ── Initial load ──────────────────────────────────────────────
-  useEffect(() => { loadBranches(); }, [loadBranches]);
   useEffect(() => {
+    if (inventoryLocked) {
+      setLoading(false);
+      return;
+    }
+    loadBranches();
+  }, [inventoryLocked, loadBranches]);
+  useEffect(() => {
+    if (inventoryLocked) return;
     if (activeTab === "main") loadMainStock();
     else if (activeTab === "branch") loadBranchStock();
     else if (activeTab === "exported") loadExportedStats();
     else if (activeTab === "logs") loadLogs();
-  }, [activeTab, loadMainStock, loadBranchStock, loadExportedStats, loadLogs]);
+  }, [inventoryLocked, activeTab, loadMainStock, loadBranchStock, loadExportedStats, loadLogs]);
 
   const handleRefresh = () => {
     if (activeTab === "main") loadMainStock();
@@ -315,7 +326,13 @@ export default function AdminInventoryPage() {
       />
 
       {/* Content Area */}
-      <main className="flex-1 min-h-0 overflow-hidden flex flex-col p-3 sm:p-6 max-w-7xl w-full mx-auto">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col p-3 sm:p-6 max-w-7xl w-full mx-auto relative">
+        {inventoryLocked && (
+          <FeatureLock
+            featureName="Kho Hàng (INVENTORY_ACCESS)"
+            description="Gói cước hiện tại của bạn không hỗ trợ Quản lý kho — nguyên liệu, BOM và tồn kho. Vui lòng nâng cấp gói cước để sử dụng."
+          />
+        )}
         <AdminTabs
           items={visibleTabs.map(({ key, label, icon: Icon }) => ({
             key,

@@ -2,6 +2,7 @@ import prisma from '../config/prisma';
 import { Role } from '@prisma/client';
 import { hashPassword, comparePassword } from '../utils/password.utils';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.utils';
+import { getTenantPlanInfo } from './tenant-plan.service';
 
 export const registerUser = async (data: any) => {
   const existingUser = await prisma.user.findUnique({
@@ -156,7 +157,9 @@ export const selectTenant = async (userId: string, tenantId: string, branchId?: 
 
   const refreshToken = generateRefreshToken({ userId: user.id, tenantId, branchId: activeBranchId });
 
-  return { accessToken, refreshToken, tenant: tu.tenant, permissions };
+  const planInfo = await getTenantPlanInfo(tenantId);
+
+  return { accessToken, refreshToken, tenant: tu.tenant, permissions, features: planInfo.features, planName: planInfo.planName };
 };
 
 export const refreshTokens = async (token: string) => {
@@ -254,5 +257,14 @@ export const getMe = async (userId: string, tenantId?: string, branchId?: string
     });
   }
 
-  return { ...userWithoutPassword, tenants, currentTenant, currentBranch };
+  // Gói cước (features) của tenant hiện tại — lấy 1 lần lúc đăng nhập/me
+  let features: string[] = [];
+  let planName: string | null = null;
+  if (tenantId) {
+    const planInfo = await getTenantPlanInfo(tenantId);
+    features = planInfo.features;
+    planName = planInfo.planName;
+  }
+
+  return { ...userWithoutPassword, tenants, currentTenant, currentBranch, features, planName };
 };
