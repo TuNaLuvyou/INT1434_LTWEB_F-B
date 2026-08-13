@@ -127,6 +127,9 @@ export default function ReceiptPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4 flex flex-col items-center justify-center">
+      <style dangerouslySetInnerHTML={{ __html: `
+        html, body { background-color: #f3f4f6 !important; }
+      `}} />
       {/* Header Bar */}
       <div className="w-full max-w-md bg-white rounded-2xl p-4 shadow-sm border border-gray-200/80 mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs">
