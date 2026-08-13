@@ -1,7 +1,14 @@
 import prisma from '../config/prisma';
 import bcrypt from 'bcrypt';
 
+let plansInitialized = false;
+let plansInitializedAt = 0;
+const PLANS_INIT_TTL = 60_000; // 60s — tránh chạy ~40 câu query upsert mỗi request
+
 export const ensureDefaultSubscriptionPlans = async () => {
+  const now = Date.now();
+  if (plansInitialized && now - plansInitializedAt < PLANS_INIT_TTL) return;
+
   const defaultPlans = [
     {
       name: 'Starter',
@@ -119,6 +126,9 @@ export const ensureDefaultSubscriptionPlans = async () => {
       }
     }
   }
+
+  plansInitialized = true;
+  plansInitializedAt = Date.now();
 };
 
 export const getTenants = async () => {
