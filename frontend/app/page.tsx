@@ -20,7 +20,6 @@ export default function Home() {
   const router = useRouter();
   const { user, isLoading, fetchCurrentUser } = useAuthStore();
   const [isMounted, setIsMounted] = useState(false);
-  const [pageReady, setPageReady] = useState(false);
   const [stats, setStats] = useState({
     pendingOrdersCount: 0,
     occupiedTablesCount: 0,
@@ -32,13 +31,7 @@ export default function Home() {
     fetchCurrentUser();
   }, [fetchCurrentUser]);
 
-  // Ready khi auth đã resolve
-  useEffect(() => {
-    if (isMounted && !isLoading) {
-      const timer = setTimeout(() => setPageReady(true), 200);
-      return () => clearTimeout(timer);
-    }
-  }, [isMounted, isLoading]);
+  const hasToken = isMounted ? !!getAccessTokenFromCookie() : false;
 
   // Chưa đăng nhập → redirect login
   useEffect(() => {
@@ -71,7 +64,11 @@ export default function Home() {
         });
         const json = await res.json();
         if (json.success && json.data) {
-          setStats(json.data);
+          setStats({
+            pendingOrdersCount: json.data.pendingOrdersCount ?? 0,
+            occupiedTablesCount: json.data.occupiedTablesCount ?? 0,
+            todayRevenue: json.data.todayRevenue ?? 0,
+          });
         }
       } catch (err) {}
     };
@@ -80,9 +77,7 @@ export default function Home() {
       const interval = setInterval(fetchStats, 30000);
       return () => clearInterval(interval);
     }
-  }, [isMounted, user?.currentBranchId]);
-
-  const hasToken = isMounted ? !!getAccessTokenFromCookie() : false;
+  }, [isMounted, hasToken, user?.currentBranchId]);
 
   const isGuest = !hasToken;
   const isAuthLoading = hasToken && isLoading;
@@ -117,7 +112,7 @@ export default function Home() {
       icon: BarChart3,
       color: "from-violet-600 to-purple-500",
       accent: "violet",
-      metrics: { label: "Doanh thu hôm nay", value: isMounted ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stats.todayRevenue) : "0 ₫" },
+      metrics: { label: "Doanh thu hôm nay", value: isMounted ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stats.todayRevenue || 0) : "0 ₫" },
       borderHover: "hover:border-violet-800",
       visible: !isAuthLoading && (isGuest || (user && ["ADMIN", "MANAGER"].includes(user.role)))
     },
@@ -148,8 +143,8 @@ export default function Home() {
 
   const visibleApps = apps.filter((app) => app.visible !== false);
 
-  // Loading splash screen
-  if ((!pageReady && !noBranchBlocked) || (user?.role === 'ADMIN' && !user?.currentBranchId)) {
+  // Loading splash screen (chỉ hiện khi chưa có user và đang load auth, hoặc ADMIN chưa chọn branch)
+  if ((isLoading && !user && !noBranchBlocked) || (user?.role === 'ADMIN' && !user?.currentBranchId)) {
     return (
       <div className="h-screen w-screen bg-zinc-950 flex flex-col items-center justify-center">
         <div className="flex flex-col items-center gap-6">

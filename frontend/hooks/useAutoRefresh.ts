@@ -51,13 +51,9 @@ export function useAutoRefresh() {
           setAccessToken(result.data.accessToken);
           console.log('[Auth] Token automatically refreshed');
           
-          // Cập nhật lại thông tin user trong store nếu refresh thành công
-          const { fetchCurrentUser, user } = useAuthStore.getState();
-          if (!user) {
-            fetchCurrentUser();
-          } else {
-            useAuthStore.setState({ isLoading: false });
-          }
+          // Re-sync user info từ API /me để giữ nguyên tenant/branch context
+          const { fetchCurrentUser } = useAuthStore.getState();
+          await fetchCurrentUser();
         } else {
           console.warn('[Auth] Auto-refresh failed');
           const currentToken = getAccessTokenFromCookie();
@@ -86,10 +82,13 @@ export function useAutoRefresh() {
       }
     };
 
-    // 1. Gọi ngay 1 lần khi người dùng vừa load web
-    refreshToken();
+    // 1. Chỉ gọi refresh nếu chưa có token hoặc chưa có user
+    const currentToken = getAccessTokenFromCookie();
+    if (!currentToken || !useAuthStore.getState().user) {
+      refreshToken();
+    }
 
-    // 2. Sau đó thiết lập vòng lặp 13 phút
+    // 2. Vòng lặp định kỳ 13 phút
     const intervalId = setInterval(refreshToken, refreshInterval);
 
     return () => clearInterval(intervalId);

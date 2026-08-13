@@ -37,33 +37,26 @@ export default function AdminLayout({
     fetchCurrentUser();
   }, [fetchCurrentUser]);
 
-  // Prefetch + warm-up TẤT CẢ tính năng admin còn lại NGAY LẬP TỨC khi layout
-  // mount (đúng lúc /admin/dashboard đang load) — KHÔNG defer:
-  //  - Bỏ qua route đang đứng (đã được load sẵn bởi navigation).
-  //  - Chạy ngay trong effect đầu tiên để webpack dev bắt đầu compile các page
-  //    admin khác song song với việc render dashboard, thay vì đợi idle rồi
-  //    mới warm-up (lúc đó bấm tính năng khác vẫn phải chờ compile).
-  //  - router.prefetch: tải chunks + RSC payload về client cache (hoạt động ở prod)
-  //  - warmUpRoutes: request RSC thật để server compile & render page sẵn
-  //  - warmUpClientChunks: dynamic import page module để webpack dev compile sẵn
-  //    client JS chunk (quan trọng ở dev — prefetch bị tắt)
-  // Bấm tính năng nào cũng tức thì, không phải chờ render/compile lần đầu.
+  // Prefetch các tính năng admin bằng router.prefetch nhẹ nhàng rải rác theo thời gian
   useEffect(() => {
     if (!user || user.role === 'PLATFORM_ADMIN' || !user.currentBranchId) return;
 
-    // Chỉ warm-up các route khác route hiện tại (đang được load sẵn bởi navigation)
     const otherRoutes = ADMIN_ROUTES.filter((r) => r !== pathname);
     if (otherRoutes.length === 0) return;
 
-    for (const route of otherRoutes) {
-      try {
-        router.prefetch(route);
-      } catch {
-        // Bỏ qua prefetch lỗi, không ảnh hưởng ứng dụng
+    let index = 0;
+    const interval = setInterval(() => {
+      if (index >= otherRoutes.length) {
+        clearInterval(interval);
+        return;
       }
-    }
-    warmUpClientChunks(otherRoutes);
-    warmUpRoutes(otherRoutes);
+      try {
+        router.prefetch(otherRoutes[index]);
+      } catch {}
+      index++;
+    }, 400);
+
+    return () => clearInterval(interval);
   }, [user, router, pathname]);
 
   useEffect(() => {

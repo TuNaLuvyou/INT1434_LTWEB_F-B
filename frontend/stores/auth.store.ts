@@ -41,7 +41,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     // Sequence number để bỏ qua kết quả của các request cũ/đã bị hủy nếu có request mới hơn.
     // Không dùng mutation trực tiếp trong state — dùng biến module-scoped để tránh render lại.
     const seq = ++fetchSeq;
-    set({ isLoading: true, error: null });
+    if (!get().user) {
+      set({ isLoading: true, error: null });
+    }
     try {
       const token = getAccessTokenFromCookie();
       if (!token) {

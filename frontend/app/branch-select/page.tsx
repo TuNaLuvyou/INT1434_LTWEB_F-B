@@ -70,6 +70,7 @@ export default function BranchSelectPage() {
   const handleSelect = async (branchId: string) => {
     setSelectedId(branchId);
     setError('');
+    try { router.prefetch('/'); } catch {}
     const tenantId = user?.currentTenantId || user?.tenants?.[0]?.id;
     if (!tenantId) return;
     const ok = await selectTenant(tenantId, branchId);
