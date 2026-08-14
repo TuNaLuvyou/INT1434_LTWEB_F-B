@@ -85,27 +85,32 @@ export function useSocket({
   // Cập nhật refs khi props thay đổi
   useEffect(() => { 
     const oldRoom = roomRef.current;
-    roomRef.current = room; 
     
-    const socket = socketRef.current;
-    if (socket && socket.connected && oldRoom !== room) {
-      if (oldRoom && oldRoom !== 'table:' && oldRoom !== 'table:null' && oldRoom !== 'table:undefined') {
-        socket.emit('leave-room', { room: oldRoom });
-      }
-      setIsInRoom(false);
-      if (room && room !== 'table:' && room !== 'table:null' && room !== 'table:undefined') {
-        socket.emit('join-room', { room, token: tokenRef.current });
+    if (oldRoom !== room) {
+      roomRef.current = room;
+      const socket = socketRef.current;
+      
+      if (socket && socket.connected) {
+        if (oldRoom && oldRoom !== 'table:' && oldRoom !== 'table:null' && oldRoom !== 'table:undefined') {
+          socket.emit('leave-room', { room: oldRoom });
+        }
+        setIsInRoom(false);
+        if (room && room !== 'table:' && room !== 'table:null' && room !== 'table:undefined') {
+          socket.emit('join-room', { room, token: tokenRef.current });
+        }
       }
     }
   }, [room]);
   
   useEffect(() => { 
-    tokenRef.current = token; 
-    // Re-join if token changes
-    const socket = socketRef.current;
-    const currentRoom = roomRef.current;
-    if (socket && socket.connected && currentRoom && currentRoom !== 'table:' && currentRoom !== 'table:null' && currentRoom !== 'table:undefined') {
-      socket.emit('join-room', { room: currentRoom, token: tokenRef.current });
+    const oldToken = tokenRef.current;
+    if (oldToken !== token) {
+      tokenRef.current = token; 
+      const socket = socketRef.current;
+      const currentRoom = roomRef.current;
+      if (socket && socket.connected && currentRoom && currentRoom !== 'table:' && currentRoom !== 'table:null' && currentRoom !== 'table:undefined') {
+        socket.emit('join-room', { room: currentRoom, token: tokenRef.current });
+      }
     }
   }, [token]);
 
@@ -115,14 +120,12 @@ export function useSocket({
   const joinRoom = useCallback((socket: Socket) => {
     const r = roomRef.current;
     if (!r || r === 'table:' || r === 'table:null' || r === 'table:undefined') {
-      console.log(`[useSocket] Bỏ qua emit join-room vì room không hợp lệ hoặc trống: "${r}"`);
       return;
     }
     socket.emit('join-room', {
       room: r,
       token: tokenRef.current,
     });
-    console.log(`[useSocket] Đã emit join-room: "${r}"`);
   }, []);
 
   const connect = useCallback(() => {
@@ -146,6 +149,12 @@ export function useSocket({
     setConnectionState('disconnected');
   }, []);
 
+  // Ref lưu handlers để dùng trong socket listener mà không cần đưa vào dependency
+  const handlersRef = useRef({ onRoomJoined, onRoomError });
+  useEffect(() => {
+    handlersRef.current = { onRoomJoined, onRoomError };
+  }, [onRoomJoined, onRoomError]);
+
   useEffect(() => {
     // Lấy singleton socket (chưa kết nối)
     const socket = getSocket();
@@ -156,7 +165,6 @@ export function useSocket({
     const handleConnect = () => {
       setIsConnected(true);
       setConnectionState('connected');
-      console.log(`[useSocket] ✅ Kết nối: ${socket.id}`);
       // Re-join room mỗi lần connect/reconnect
       joinRoom(socket);
     };
@@ -172,15 +180,13 @@ export function useSocket({
     };
 
     const handleReconnect = (attempt: number) => {
-      console.log(`[useSocket] 🔄 Reconnect thành công sau ${attempt} lần`);
       // 'connect' event sẽ fire sau → tự join room lại
     };
 
     const handleRoomJoined = ({ room: joinedRoom }: { room: string }) => {
       if (joinedRoom === roomRef.current) {
         setIsInRoom(true);
-        console.log(`[useSocket] 🏠 Đã vào room "${joinedRoom}"`);
-        onRoomJoined?.(joinedRoom);
+        handlersRef.current.onRoomJoined?.(joinedRoom);
       }
     };
 
@@ -188,8 +194,7 @@ export function useSocket({
       if (errorRoom === roomRef.current) {
         setIsInRoom(false);
         setConnectionState('error');
-        console.error(`[useSocket] ⛔ Lỗi room "${errorRoom}": ${message}`);
-        onRoomError?.(errorRoom, message);
+        handlersRef.current.onRoomError?.(errorRoom, message);
       }
     };
 
@@ -220,17 +225,16 @@ export function useSocket({
       socket.off('room-joined', handleRoomJoined);
       socket.off('room-error', handleRoomError);
 
-      // Leave room khi unmount
-      if (socket.connected) {
-        socket.emit('leave-room', { room: roomRef.current });
-        console.log(`[useSocket] 👋 Leave room "${roomRef.current}"`);
+      // Leave room khi unmount (sử dụng snapshot của room hiện tại để rời đúng phòng)
+      const currentRoomToLeave = roomRef.current;
+      if (socket.connected && currentRoomToLeave && currentRoomToLeave !== 'table:' && currentRoomToLeave !== 'table:null') {
+        socket.emit('leave-room', { room: currentRoomToLeave });
       }
 
       setIsInRoom(false);
       // Không disconnect socket singleton — các component khác đang dùng chung
-      // socket.disconnect() chỉ gọi ở resetSocket() khi cần
     };
-  }, [room, autoConnect, joinRoom, onRoomJoined, onRoomError]);
+  }, []); // <-- BỎ dependency array để không bị tear down / setup lại mỗi khi đổi room!
 
   return {
     socket: socketRef.current,

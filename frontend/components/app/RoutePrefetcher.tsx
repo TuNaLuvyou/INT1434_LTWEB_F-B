@@ -58,13 +58,14 @@ export default function RoutePrefetcher() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
 
+  // Chỉ lấy các giá trị primitive để tránh trigger useEffect liên tục khi tham chiếu object user thay đổi
+  const isAuth = Boolean(user) || Boolean(getAccessTokenFromCookie());
+  const hasBranch = Boolean(user?.currentBranchId) || Boolean(user?.currentBranch?.id);
+
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let cancelWarmUp: (() => void) | undefined;
-    const isAuth = Boolean(user) || Boolean(getAccessTokenFromCookie());
-    // PHASE 1 chỉ bắt đầu khi người dùng đã chọn chi nhánh — không phải lúc đăng nhập.
-    const hasBranch = Boolean(user?.currentBranchId) || Boolean(user?.currentBranch?.id);
 
     const prefetchAll = (routes: string[]) => {
       let index = 0;
@@ -97,7 +98,8 @@ export default function RoutePrefetcher() {
       if (timer) clearTimeout(timer);
       cancelWarmUp?.();
     };
-  }, [router, user]);
+  }, [router, isAuth, hasBranch]); // Chỉ depend vào giá trị boolean, thay vì cả object user
 
   return null;
 }
+
