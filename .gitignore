@@ -1,5 +1,7 @@
 node_modules/
 .env
+.env*
+.envdeploy
 
 # macOS
 .DS_Store
