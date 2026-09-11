@@ -57,20 +57,26 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middlewares
+// Middlewares — CORS: cho phép Vercel preview/prod và localhost
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || process.env.NODE_ENV !== 'production') {
+    if (!origin) return callback(null, true);
+    if (process.env.NODE_ENV !== 'production') {
       return callback(null, true);
     }
     const allowedOrigins = [
       process.env.FRONTEND_URL,
+      process.env.NEXTJS_URL,
       'http://localhost:3000',
       'http://127.0.0.1:3000',
-    ].filter(Boolean);
-    if (allowedOrigins.includes(origin)) {
+    ].filter(Boolean) as string[];
+    // Cho phép mọi subdomain vercel.app (preview deployments)
+    const isVercelPreview = origin.endsWith('.vercel.app');
+    if (allowedOrigins.includes(origin) || isVercelPreview) {
       return callback(null, true);
     }
+    // Log để debug trên Render
+    console.warn(`[CORS] Blocked origin: ${origin} | allowed: ${allowedOrigins.join(',')}`);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,

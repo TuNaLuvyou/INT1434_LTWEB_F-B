@@ -75,13 +75,23 @@ function canJoinRoom(room: string, role: string): boolean {
  * └─────────────────┴─────────────────────────────┴──────────────────────┘
  */
 export function initSocket(httpServer: HttpServer): SocketIOServer {
-  const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.NEXTJS_URL,
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ].filter(Boolean) as string[];
   const isDev = process.env.NODE_ENV !== 'production';
 
   // QUAN TRỌNG: Không dùng '*' khi credentials: true — browser sẽ từ chối gửi cookie.
-  // In dev mode, allow true (reflects request origin). In prod, use FRONTEND_URL.
-  const corsOrigin: any = isDev ? true : allowedOrigin;
-  console.log(`[Socket.io] Khởi tạo... CORS origin: ${corsOrigin}`);
+  // Prod: allow FRONTEND_URL + mọi .vercel.app preview
+  const corsOrigin: any = isDev ? true : (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) return callback(null, true);
+    console.warn(`[Socket.io CORS] Blocked origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'), false);
+  };
+  console.log(`[Socket.io] Khởi tạo... CORS allow: ${isDev ? 'all (dev)' : allowedOrigins.join(',') + ' + *.vercel.app'}`);
 
   io = new SocketIOServer(httpServer, {
     cors: {

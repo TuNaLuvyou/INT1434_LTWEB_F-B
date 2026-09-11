@@ -46,18 +46,19 @@ export function getSocket(): Socket {
       timeout: 20000,
     });
 
-    // Global debug listeners (chỉ trong dev)
-    if (process.env.NODE_ENV !== 'production') {
-      socket.on('connect', () => {
-        console.log('[Socket] ✅ Kết nối thành công:', socket!.id);
-      });
-      socket.on('disconnect', (reason) => {
-        console.warn('[Socket] ❌ Ngắt kết nối:', reason);
-      });
-      socket.on('connect_error', (err) => {
-        console.warn('[Socket] ⚠️ Lỗi kết nối (sẽ tự retry):', err.message);
-      });
-    }
+    // Debug listeners — luôn log connect_error để debug Vercel/Render prod
+    socket.on('connect', () => {
+      console.log('[Socket] ✅ Kết nối thành công:', socket!.id, '→', url);
+    });
+    socket.on('disconnect', (reason) => {
+      console.warn('[Socket] ❌ Ngắt kết nối:', reason);
+    });
+    socket.on('connect_error', (err) => {
+      console.warn('[Socket] ⚠️ Lỗi kết nối (sẽ tự retry):', err.message, '| url:', url);
+    });
+    socket.on('reconnect_attempt', (n) => {
+      console.log('[Socket] 🔄 Reconnect attempt', n);
+    });
   }
 
   return socket;

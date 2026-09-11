@@ -377,6 +377,16 @@ export default function MenuItemList({ initialItems, categories, branding, table
     }
   }, [tableNumber, initSession, router, fetchSessionDetails]);
 
+  // ── Polling fallback cho tiến độ món (khi Socket trên Vercel/Render sleep hoặc CORS fail) ──
+  // Dù realtime đã fix ở useSocket, vẫn poll 5s để đảm bảo tiến độ không kẹt ở bước 1
+  useEffect(() => {
+    if (!sessionId || isSessionClosed) return;
+    const id = setInterval(() => {
+      fetchSessionDetails(sessionId);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [sessionId, isSessionClosed, fetchSessionDetails]);
+
   // ── Lắng nghe sự kiện phiên đã đóng ──
   useEffect(() => {
     const handleSessionClosed = (event: Event) => {
