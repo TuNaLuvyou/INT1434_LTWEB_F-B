@@ -1531,7 +1531,8 @@ export default function MenuItemList({ initialItems, categories, branding, table
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 transition-colors"
+            className="px-6 py-2.5 rounded-xl text-white text-sm font-bold transition-all active:scale-95 shadow-md hover:opacity-90"
+            style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
           >
             Thử lại
           </button>
