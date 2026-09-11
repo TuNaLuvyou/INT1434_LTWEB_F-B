@@ -1055,6 +1055,17 @@ export default function KDSPage() {
     }
   };
 
+  const handleArchiveAll = () => {
+    const readyIds = kanbanColumns.ready.orders.map(({ order }) => order.id);
+    if (readyIds.length === 0) {
+      toast.error("Không có đơn nào đã hoàn thành để lưu trữ");
+      return;
+    }
+    if (!confirm(`Lưu trữ toàn bộ ${readyIds.length} đơn đã hoàn thành?`)) return;
+    readyIds.forEach((id) => completeOrder(id));
+    toast.success(`Đã lưu trữ ${readyIds.length} đơn`);
+  };
+
   const completeOrder = (sessionId: string) => {
     // 1. OPTIMISTIC UPDATE: Đưa vào Lịch sử & xóa đơn khỏi UI NGAY LẬP TỨC (0ms)
     const session = rawSessions.find(s => s.id === sessionId);
@@ -1118,6 +1129,14 @@ export default function KDSPage() {
             >
               <ChefHat className="h-3.5 w-3.5 animate-pulse" />
               <span className="hidden sm:inline">Báo Hết Món</span>
+            </button>
+            <button 
+              onClick={handleArchiveAll}
+              className="text-xs bg-emerald-600/15 border border-emerald-500/20 hover:bg-emerald-600 hover:text-white px-2 sm:px-3.5 py-1.5 rounded-lg flex items-center gap-1 sm:gap-1.5 text-emerald-400 font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+            >
+              <Archive className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Lưu trữ toàn bộ</span>
+              <span className="sm:hidden">Lưu tất cả</span>
             </button>
             <button 
               onClick={() => setIsArchiveOpen(true)}
