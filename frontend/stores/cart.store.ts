@@ -58,7 +58,7 @@ export type CartStore = {
    * Set sessionId và tableId vào store.
    * Throws nếu bàn không tồn tại (để caller redirect 404).
    */
-  initSession: (tableId: string) => Promise<{ sessionId: string; isNew: boolean }>;
+  initSession: (tableId: string, lat?: number, lng?: number) => Promise<{ sessionId: string; isNew: boolean }>;
 
   /**
    * Thêm item vào cart.
@@ -183,19 +183,28 @@ export const useCartStore = create<CartStore>()(
       isSessionClosed: false,
       sessionClosedStatus: null,
 
-      initSession: async (tableId: string) => {
+      initSession: async (tableId: string, lat?: number, lng?: number) => {
         const state = get();
+
+        const body: any = { tableId };
+        if (lat !== undefined && lng !== undefined) {
+          body.lat = lat;
+          body.lng = lng;
+        }
 
         const res = await fetch(`${API_URL}/api/sessions/join`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tableId }),
+          body: JSON.stringify(body),
         });
 
         if (!res.ok) {
-          // 404: bàn không tồn tại | 400: tableId không hợp lệ
+          // 404: bàn không tồn tại | 400: tableId không hợp lệ | 403: geofence block
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.message || `HTTP ${res.status}`);
+          const err: any = new Error(data.message || `HTTP ${res.status}`);
+          err.code = data.code;
+          err.statusCode = res.status;
+          throw err;
         }
 
         const { data } = await res.json() as {

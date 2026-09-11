@@ -54,7 +54,7 @@ export async function createTakeawaySession(req: Request, res: Response): Promis
  */
 export async function joinSession(req: Request, res: Response): Promise<void> {
   try {
-    const { tableId: posTableId, source, qrToken } = req.body as { tableId?: string; source?: string; qrToken?: string };
+    const { tableId: posTableId, source, qrToken, lat, lng } = req.body as { tableId?: string; source?: string; qrToken?: string; lat?: number; lng?: number };
 
     let tableId = posTableId;
     let qrPayload: { tenantId?: string; branchId?: string; tableId: string } | null = null;
@@ -75,6 +75,51 @@ export async function joinSession(req: Request, res: Response): Promise<void> {
     }
 
     const createdViaPos = source === 'POS';
+
+    // Geofence check ngay khi quét QR (chặn menu nếu ở xa)
+    if (!createdViaPos) {
+      // cần tenantId để đọc config — lấy từ qrPayload hoặc tra bảng Table trước
+      let tenantIdForGeofence: string | undefined = qrPayload?.tenantId;
+      if (!tenantIdForGeofence) {
+        const tableLookup = await prisma.table.findUnique({ where: { id: tableId.trim() }, select: { tenantId: true } });
+        if (!tableLookup) {
+          // thử với tableNumber
+          const num = parseInt(tableId.trim(), 10);
+          if (!isNaN(num)) {
+            const byNumber = await prisma.table.findFirst({ where: { tableNumber: num }, select: { tenantId: true } });
+            if (byNumber) tenantIdForGeofence = byNumber.tenantId;
+          }
+        } else {
+          tenantIdForGeofence = tableLookup.tenantId;
+        }
+      }
+      if (tenantIdForGeofence) {
+        const config = await prisma.systemConfig.findUnique({ where: { tenantId: tenantIdForGeofence } });
+        const isGeofenceEnabled = config?.isGeofenceEnabled ?? false;
+        if (isGeofenceEnabled) {
+          if (lat === undefined || lng === undefined || lat === null || lng === null) {
+            res.status(403).json({ success: false, code: 'GEOFENCE_REQUIRED', message: 'Vui lòng cấp quyền vị trí để xem thực đơn. Bạn cần ở gần nhà hàng mới có thể đặt món.' });
+            return;
+          }
+          if (config?.restaurantLat == null || config?.restaurantLng == null) {
+            res.status(500).json({ success: false, code: 'GEOFENCE_NOT_CONFIGURED', message: 'Nhà hàng chưa cấu hình vị trí. Vui lòng liên hệ nhân viên.' });
+            return;
+          }
+          const maxDistance = config.maxOrderDistance ?? 100;
+          const R = 6371000;
+          const dLat = (config.restaurantLat! - Number(lat)) * Math.PI / 180;
+          const dLng = (config.restaurantLng! - Number(lng)) * Math.PI / 180;
+          const a = Math.sin(dLat/2)**2 + Math.cos(Number(lat)*Math.PI/180)*Math.cos(config.restaurantLat!*Math.PI/180)*Math.sin(dLng/2)**2;
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const distance = R * c;
+          if (distance > maxDistance) {
+            res.status(403).json({ success: false, code: 'GEOFENCE_OUT_OF_RANGE', message: `Bạn đang ở quá xa nhà hàng (${Math.round(distance)}m). Vui lòng đến gần nhà hàng (trong ${maxDistance}m) và quét lại QR tại bàn.` , distance: Math.round(distance), maxDistance });
+            return;
+          }
+        }
+      }
+    }
+
     const { session, isNew, table } = await sessionService.joinOrCreateSession(
       tableId.trim(),
       createdViaPos,
@@ -83,7 +128,7 @@ export async function joinSession(req: Request, res: Response): Promise<void> {
 
     let isGeofenceEnabled = false;
     if (!createdViaPos) {
-      const config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
+      const config = await prisma.systemConfig.findUnique({ where: { tenantId: table.tenantId } });
       isGeofenceEnabled = config?.isGeofenceEnabled ?? false;
     }
 

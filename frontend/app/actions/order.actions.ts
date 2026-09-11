@@ -66,10 +66,11 @@ export async function submitOrder(
   const { sessionId, tableId, items, lat, lng } = parsed.data;
 
   try {
-    // ── Check Geofencing ──────────────────────────────────────────────────
-    const systemConfig = await prisma.systemConfig.findUnique({
-      where: { id: 'singleton' }
-    });
+    // ── Check Geofencing (per-tenant) ────────────────────────────────────
+    // Lấy tenantId từ session để đọc đúng config (fix: trước dùng singleton id sai trên multi-tenant)
+    const sessionForGeo = await prisma.tableSession.findUnique({ where: { id: sessionId }, select: { tenantId: true } });
+    const tenantIdForGeo = sessionForGeo?.tenantId;
+    const systemConfig = tenantIdForGeo ? await prisma.systemConfig.findUnique({ where: { tenantId: tenantIdForGeo } }) : null;
 
     if (systemConfig?.isGeofenceEnabled) {
       if (lat === undefined || lng === undefined) {

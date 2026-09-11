@@ -123,6 +123,8 @@ export default function MenuItemList({ initialItems, categories, branding, table
   const [loadingItemIds, setLoadingItemIds] = useState<Record<string, boolean>>({});
   const [dbOrderItems, setDbOrderItems] = useState<any[]>([]);
   const [isOccupiedByPos, setIsOccupiedByPos] = useState(false);
+  const [isGeofenceBlocked, setIsGeofenceBlocked] = useState(false);
+  const [geofenceMsg, setGeofenceMsg] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [selectedOptionsItem, setSelectedOptionsItem] = useState<any | null>(null);
@@ -349,33 +351,47 @@ export default function MenuItemList({ initialItems, categories, branding, table
   const clearCartRef = useRef(false);
 
   useEffect(() => {
-    if (tableNumber) {
+    if (!tableNumber) {
+      setIsInitializing(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
       setIsInitializing(true);
       if (storedTableId && storedTableId !== tableNumber && !clearCartRef.current) {
         clearCartRef.current = true;
         clearCart();
       }
-      initSession(tableNumber).then(({ sessionId }) => {
-        return fetchSessionDetails(sessionId);
-      }).then(() => {
+      // Lấy tọa độ trước khi join để chặn ngay từ lúc quét QR nếu ở xa (Vercel/Render cần HTTPS mới lấy được)
+      let coords: { lat: number; lng: number } | null = null;
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        try {
+          coords = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
+            let done = false;
+            const timer = setTimeout(() => { if (!done) { done = true; resolve(null); } }, 8000);
+            navigator.geolocation.getCurrentPosition(
+              (pos) => { if (!done) { done = true; clearTimeout(timer); resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); } },
+              () => { if (!done) { done = true; clearTimeout(timer); resolve(null); } },
+              { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+            );
+          });
+        } catch { coords = null; }
+      }
+      try {
+        const { sessionId } = await initSession(tableNumber, coords?.lat, coords?.lng);
+        if (cancelled) return;
+        await fetchSessionDetails(sessionId);
+        if (cancelled) return;
         setIsInitializing(false);
-        // Yêu cầu quyền định vị ngay sau khi quét QR nếu quán bật geofence
-        const isGeo = useCartStore.getState().isGeofenceEnabled;
-        if (isGeo && typeof navigator !== 'undefined' && navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-            () => console.log('[Geofence] đã cấp quyền vị trí'),
-            (err) => {
-              if (err.code === 1) {
-                showToast({ type: 'error', message: 'Vui lòng cấp quyền vị trí để đặt món. Hãy bật định vị trong cài đặt trình duyệt.' });
-              }
-            },
-            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-          );
-        }
-      }).catch((err) => {
+      } catch (err: any) {
+        if (cancelled) return;
         setIsInitializing(false);
+        const code = err?.code;
         const msg = (err as Error)?.message || '';
-        if (msg.includes('409') || msg.toLowerCase().includes('đã có người đặt')) {
+        if (code === 'GEOFENCE_OUT_OF_RANGE' || code === 'GEOFENCE_REQUIRED' || msg.includes('quá xa') || msg.includes('cấp quyền vị trí')) {
+          setIsGeofenceBlocked(true);
+          setGeofenceMsg(msg || 'Bạn cần ở gần nhà hàng để xem thực đơn.');
+        } else if (msg.includes('409') || msg.toLowerCase().includes('đã có người đặt')) {
           setIsOccupiedByPos(true);
         } else {
           console.error('[MenuItemList] Khởi tạo session thất bại:', err);
@@ -383,29 +399,10 @@ export default function MenuItemList({ initialItems, categories, branding, table
             router.replace('/404');
           }
         }
-      });
-    } else {
-      setIsInitializing(false);
-    }
-  }, [tableNumber, initSession, router, fetchSessionDetails]);
-
-  // Nếu geofence bật sau khi session đã init (polling), cũng yêu cầu quyền
-  useEffect(() => {
-    if (!isGeofenceEnabled || !sessionId || isSessionClosed) return;
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
-    // Chỉ xin 1 lần
-    let cancelled = false;
-    navigator.geolocation.getCurrentPosition(
-      () => {},
-      (err) => {
-        if (!cancelled && err.code === 1) {
-          showToast({ type: 'error', message: 'Vui lòng cấp quyền vị trí để đặt món.' });
-        }
-      },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-    );
+      }
+    })();
     return () => { cancelled = true; };
-  }, [isGeofenceEnabled, sessionId, isSessionClosed]);
+  }, [tableNumber, initSession, router, fetchSessionDetails]);
 
   // ── Polling fallback cho tiến độ món (khi Socket trên Vercel/Render sleep hoặc CORS fail) ──
   // Dù realtime đã fix ở useSocket, vẫn poll 5s để đảm bảo tiến độ không kẹt ở bước 1
@@ -1517,6 +1514,27 @@ export default function MenuItemList({ initialItems, categories, branding, table
               </div>
             </>
           )}
+        </div>
+      )}
+      {/* Màn hình chặn Geofence - ở xa quán */}
+      {isGeofenceBlocked && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
+          <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mb-6 animate-pulse">
+            <AlertTriangle size={40} />
+          </div>
+          <h2 className="text-xl font-black text-gray-900 mb-2">Bạn đang ở quá xa nhà hàng</h2>
+          <p className="text-sm text-gray-500 max-w-sm mb-3 leading-relaxed">
+            {geofenceMsg || 'Vui lòng đến gần nhà hàng và quét lại mã QR tại bàn để xem thực đơn.'}
+          </p>
+          <p className="text-xs text-gray-400 max-w-sm mb-6">
+            Tính năng này yêu cầu bạn cấp quyền vị trí và ở trong phạm vi cho phép. Hãy bật GPS và cho phép trình duyệt truy cập vị trí.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 transition-colors"
+          >
+            Thử lại
+          </button>
         </div>
       )}
       {/* Màn hình Bàn đã có người đặt tại quầy */}
