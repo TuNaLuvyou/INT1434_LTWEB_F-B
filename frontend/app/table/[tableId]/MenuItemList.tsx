@@ -359,6 +359,19 @@ export default function MenuItemList({ initialItems, categories, branding, table
         return fetchSessionDetails(sessionId);
       }).then(() => {
         setIsInitializing(false);
+        // Yêu cầu quyền định vị ngay sau khi quét QR nếu quán bật geofence
+        const isGeo = useCartStore.getState().isGeofenceEnabled;
+        if (isGeo && typeof navigator !== 'undefined' && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            () => console.log('[Geofence] đã cấp quyền vị trí'),
+            (err) => {
+              if (err.code === 1) {
+                showToast({ type: 'error', message: 'Vui lòng cấp quyền vị trí để đặt món. Hãy bật định vị trong cài đặt trình duyệt.' });
+              }
+            },
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+          );
+        }
       }).catch((err) => {
         setIsInitializing(false);
         const msg = (err as Error)?.message || '';
@@ -375,6 +388,24 @@ export default function MenuItemList({ initialItems, categories, branding, table
       setIsInitializing(false);
     }
   }, [tableNumber, initSession, router, fetchSessionDetails]);
+
+  // Nếu geofence bật sau khi session đã init (polling), cũng yêu cầu quyền
+  useEffect(() => {
+    if (!isGeofenceEnabled || !sessionId || isSessionClosed) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    // Chỉ xin 1 lần
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      () => {},
+      (err) => {
+        if (!cancelled && err.code === 1) {
+          showToast({ type: 'error', message: 'Vui lòng cấp quyền vị trí để đặt món.' });
+        }
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+    return () => { cancelled = true; };
+  }, [isGeofenceEnabled, sessionId, isSessionClosed]);
 
   // ── Polling fallback cho tiến độ món (khi Socket trên Vercel/Render sleep hoặc CORS fail) ──
   // Dù realtime đã fix ở useSocket, vẫn poll 5s để đảm bảo tiến độ không kẹt ở bước 1

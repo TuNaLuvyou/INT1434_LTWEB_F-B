@@ -1124,6 +1124,9 @@ export default function CashierClient({
       setSuccessMsg("✓ Đã huỷ toàn bộ món chờ duyệt thành công.");
       setTimeout(() => setSuccessMsg(null), 5000);
 
+      // Cập nhật pendingCount về 0 để tắt âm thanh ngay lập tức
+      setTables(prev => prev.map(t => t.session?.sessionId === selectedSessionId ? { ...t, session: { ...t.session!, pendingCount: 0 } } : t));
+
       await fetchSessionItems(selectedSessionId);
     } catch (error: any) {
       console.error("Lỗi khi huỷ đơn hàng:", error);
@@ -1168,9 +1171,9 @@ export default function CashierClient({
             const nextSessionItems = itemsResult.data as SessionItemsResponse;
             setSessionItems(nextSessionItems);
 
-            // Cập nhật pendingCount cho bàn sau khi huỷ
+            // Cập nhật pendingCount cho bàn sau khi huỷ (chỉ đếm PENDING để tắt âm thanh)
             const allItems = Object.values(nextSessionItems.groups || {}).flat();
-            const newPending = allItems.filter((item) => item.status === "PENDING" || item.status === "PREPARING").length;
+            const newPending = allItems.filter((item) => item.status === "PENDING").length;
             setTables((prev) =>
               prev.map((table) => {
                 if (table.session?.sessionId !== selectedSessionId) return table;
