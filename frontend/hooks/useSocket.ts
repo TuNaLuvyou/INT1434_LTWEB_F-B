@@ -90,17 +90,24 @@ export function useSocket({
       roomRef.current = room;
       const socket = socketRef.current;
       
-      if (socket && socket.connected) {
-        if (oldRoom && oldRoom !== 'table:' && oldRoom !== 'table:null' && oldRoom !== 'table:undefined') {
-          socket.emit('leave-room', { room: oldRoom });
-        }
-        setIsInRoom(false);
-        if (room && room !== 'table:' && room !== 'table:null' && room !== 'table:undefined') {
-          socket.emit('join-room', { room, token: tokenRef.current });
+      if (socket) {
+        if (socket.connected) {
+          if (oldRoom && oldRoom !== 'table:' && oldRoom !== 'table:null' && oldRoom !== 'table:undefined') {
+            socket.emit('leave-room', { room: oldRoom });
+          }
+          setIsInRoom(false);
+          if (room && room !== 'table:' && room !== 'table:null' && room !== 'table:undefined') {
+            socket.emit('join-room', { room, token: tokenRef.current });
+          }
+        } else if (autoConnect && room && room !== 'table:' && room !== 'table:null' && room !== 'table:undefined') {
+          // Room vừa thành hợp lệ (ví dụ: tableId/sessionId đã có) nhưng socket chưa connect
+          // -> trigger connect, sau khi connect handleConnect sẽ tự joinRoom
+          setConnectionState('connecting');
+          socket.connect();
         }
       }
     }
-  }, [room]);
+  }, [room, autoConnect]);
   
   useEffect(() => { 
     const oldToken = tokenRef.current;
@@ -113,6 +120,18 @@ export function useSocket({
       }
     }
   }, [token]);
+
+  // Reactive autoConnect: khi autoConnect chuyển từ false -> true (ví dụ: sessionId/tableId đã có) thì connect
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    const currentRoom = roomRef.current;
+    const isValidRoom = currentRoom && currentRoom !== 'table:' && currentRoom !== 'table:null' && currentRoom !== 'table:undefined';
+    if (autoConnect && !socket.connected && isValidRoom) {
+      setConnectionState('connecting');
+      socket.connect();
+    }
+  }, [autoConnect]);
 
   /**
    * Join room sau khi kết nối — gọi lại sau mỗi lần reconnect

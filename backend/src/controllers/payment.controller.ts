@@ -151,27 +151,32 @@ export async function confirmManualPaymentHandler(req: Request, res: Response): 
 
     const result = await paymentService.confirmManualPayment(paymentId, cashierId, !!keepOccupied);
 
+    // Emit payment:completed TRƯỚC khi trả response để đảm bảo khách nhận realtime
+    // (confirmManualPayment đã emit session:closed, ở đây emit thêm payment:completed cho room table)
+    if ((result as any).tableId && (result as any).tenantId && (result as any).branchId) {
+      try {
+        emitPaymentCompleted(
+          (result as any).tenantId,
+          (result as any).branchId,
+          (result as any).tableId,
+          {
+            sessionId: (result as any).sessionId || '',
+            tableId: (result as any).tableId,
+            paymentId,
+            total: (result as any).total || 0,
+            paidAt: new Date().toISOString(),
+          }
+        );
+      } catch (emitErr) {
+        console.error('[confirmManualPayment] emitPaymentCompleted failed:', emitErr);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: 'Xac nhan thanh toan thanh cong!',
       data: result,
     });
-
-    // Emit payment:completed → khách xem QR thấy màn hình thành công
-    if ((result as any).tableId && (result as any).tenantId && (result as any).branchId) {
-      emitPaymentCompleted(
-        (result as any).tenantId,
-        (result as any).branchId,
-        (result as any).tableId,
-        {
-          sessionId: (result as any).sessionId || '',
-          tableId: (result as any).tableId,
-          paymentId,
-          total: (result as any).total || 0,
-          paidAt: new Date().toISOString(),
-        }
-      );
-    }
   } catch (error: any) {
     if (error instanceof AppError) {
       res.status(error.statusCode).json({
