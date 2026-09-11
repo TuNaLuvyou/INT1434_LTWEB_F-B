@@ -43,6 +43,9 @@ import { logger } from './utils/logger';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Cần thiết khi chạy sau Reverse Proxy (Render, Vercel, Nginx) để rate-limiter và cookie hoạt động chuẩn
+app.set('trust proxy', 1);
+
 // HTTP Request Logger Middleware — log qua logger.ts (đã format timestamp)
 app.use((req, res, next) => {
   const start = Date.now();
