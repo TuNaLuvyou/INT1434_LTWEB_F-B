@@ -83,24 +83,29 @@ export async function submitOrder(
       const restLng = systemConfig.restaurantLng;
       const maxDistance = systemConfig.maxOrderDistance ?? 100;
 
-      if (restLat !== null && restLng !== null) {
-        // Tính khoảng cách Haversine (mét)
-        const R = 6371000; // Bán kính Trái Đất (mét)
-        const dLat = (restLat - lat) * Math.PI / 180;
-        const dLng = (restLng - lng) * Math.PI / 180;
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(lat * Math.PI / 180) * Math.cos(restLat * Math.PI / 180) *
-          Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distance = R * c;
+      if (restLat === null || restLng === null) {
+        return {
+          success: false,
+          message: 'Nhà hàng chưa cấu hình vị trí. Vui lòng liên hệ nhân viên để đặt món.',
+        };
+      }
 
-        if (distance > maxDistance) {
-          return {
-            success: false,
-            message: `Bạn đang ở quá xa nhà hàng (${Math.round(distance)}m). Vui lòng quét mã QR tại bàn để đặt món.`,
-          };
-        }
+      // Tính khoảng cách Haversine (mét)
+      const R = 6371000; // Bán kính Trái Đất (mét)
+      const dLat = (restLat - lat) * Math.PI / 180;
+      const dLng = (restLng - lng) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat * Math.PI / 180) * Math.cos(restLat * Math.PI / 180) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distance = R * c;
+
+      if (distance > maxDistance) {
+        return {
+          success: false,
+          message: `Bạn đang ở quá xa nhà hàng (${Math.round(distance)}m). Vui lòng quét mã QR tại bàn để đặt món.`,
+        };
       }
     }
 

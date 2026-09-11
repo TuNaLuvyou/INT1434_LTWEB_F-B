@@ -120,7 +120,6 @@ export default function MenuItemList({ initialItems, categories, branding, table
 
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastGeoLocation = useRef<{ lat: number; lng: number; timestamp: number } | null>(null);
   const [loadingItemIds, setLoadingItemIds] = useState<Record<string, boolean>>({});
   const [dbOrderItems, setDbOrderItems] = useState<any[]>([]);
   const [isOccupiedByPos, setIsOccupiedByPos] = useState(false);
@@ -611,7 +610,6 @@ export default function MenuItemList({ initialItems, categories, branding, table
             message: '🍳 Gửi món lên hệ thống thành công! Nhà bếp đang xử lý.',
           });
         } else {
-          lastGeoLocation.current = null; // Xoá cache định vị khi gặp lỗi để khách thử lại vị trí mới
           let errMsg = result.message || 'Có lỗi xảy ra khi gọi món.';
           if (result.errors && (result.errors as any).itemErrors) {
             const specificErrors = (result.errors as any).itemErrors.map((e: any) => e.message);
@@ -621,7 +619,6 @@ export default function MenuItemList({ initialItems, categories, branding, table
           showToast({ type: 'error', message: errMsg });
         }
       } catch (networkErr) {
-        lastGeoLocation.current = null; // Xoá cache định vị khi gặp lỗi mạng
         const errMsg = 'Mất kết nối mạng. Vui lòng kiểm tra lại kết nối và thử lại.';
         setSubmitError(errMsg);
         showToast({ type: 'error', message: errMsg });
@@ -632,11 +629,6 @@ export default function MenuItemList({ initialItems, categories, branding, table
     };
 
     if (isGeofenceEnabled) {
-      // 1. Kiểm tra cache định vị (nếu toạ độ đã lấy thành công trong vòng 60 giây qua, dùng luôn để tránh đè cổng định vị)
-      if (lastGeoLocation.current && Date.now() - lastGeoLocation.current.timestamp < 60000) {
-        executeSubmit(lastGeoLocation.current.lat, lastGeoLocation.current.lng);
-        return;
-      }
 
       if (!navigator.geolocation) {
         const errMsg = 'Trình duyệt không hỗ trợ định vị GPS để gọi món.';
@@ -667,13 +659,10 @@ export default function MenuItemList({ initialItems, categories, branding, table
 
       getCoordinates(
         (lat, lng) => {
-          // Lưu vào bộ đệm cache định vị
-          lastGeoLocation.current = { lat, lng, timestamp: Date.now() };
           executeSubmit(lat, lng);
         },
         (error) => {
           console.error('Customer geolocation error:', error);
-          lastGeoLocation.current = null; // Xoá cache định vị khi lấy toạ độ thất bại
           let errMsg = 'Không thể xác định vị trí GPS.';
           if (error.code === 1) {
             errMsg = 'Quyền truy cập GPS bị chặn. Vui lòng cấp quyền định vị cho trình duyệt trên thanh địa chỉ để đặt món.';
