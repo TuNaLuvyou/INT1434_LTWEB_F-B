@@ -3,7 +3,7 @@ import {
   getIngredients, createIngredient, updateIngredient,
   deleteIngredient, adjustStock, getLogs, reverseStock,
   getBom, addBomEntry, updateBomEntry, deleteBomEntry,
-  getBranchStock, transferToBranch, getExportedStats,
+  getBranchStock, getExportedStats,
 } from '../controllers/ingredient.controller';
 import { authMiddleware, requireRole } from '../middlewares/auth.middleware';
 import { requireFeature } from '../middlewares/feature.guard';
@@ -19,8 +19,6 @@ adminRouter.put('/:id',        requireRole(['ADMIN', 'MANAGER']), updateIngredie
 adminRouter.delete('/:id',     requireRole(['ADMIN', 'MANAGER']), deleteIngredient);
 // Nhập vào kho tổng / kho chi nhánh
 adminRouter.patch('/:id/stock', requireRole(['ADMIN', 'MANAGER']), adjustStock);
-// Xuất từ kho tổng sang kho chi nhánh: ADMIN only
-adminRouter.post('/transfer-to-branch', requireRole(['ADMIN']), transferToBranch);
 
 // ── Kho chi nhánh: ADMIN + Manager ──────────────────────────────
 adminRouter.get('/branch-stock', getBranchStock);

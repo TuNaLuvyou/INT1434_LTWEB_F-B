@@ -59,18 +59,3 @@ export const fetchExportedStats = async () => {
   });
   return res.json();
 };
-
-export const transferIngredientToBranch = async (payload: {
-  ingredientId: string;
-  branchId: string;
-  quantity: number;
-  note?: string;
-}) => {
-  const res = await fetch(`${API_URL}/api/ingredients/transfer-to-branch`, {
-    method: 'POST',
-    headers: getHeaders({ 'Content-Type': 'application/json' }),
-    credentials: 'include',
-    body: JSON.stringify(payload),
-  });
-  return res.json();
-};

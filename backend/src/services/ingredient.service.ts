@@ -233,64 +233,6 @@ export const getBranchStock = async (tenantId: string, branchId: string) => {
   });
 };
 
-// ── Chuyển từ Kho tổng → Kho chi nhánh (admin only) ──
-export const transferToBranch = async (
-  ingredientId: string,
-  branchId: string,
-  quantity: number,
-  adminUserId: string,
-  tenantId: string,
-  note?: string
-) => {
-  const ingredient = await prisma.ingredient.findUnique({ where: { id: ingredientId } });
-  if (!ingredient) throw new Error('Ingredient not found');
-  if (ingredient.tenantId !== tenantId) throw new Error('Ingredient không thuộc tenant này');
-
-  const mainStock = Number(ingredient.stock);
-  if (mainStock < quantity) {
-    throw Object.assign(
-      new Error(`Kho tổng không đủ. Hiện có: ${mainStock} ${ingredient.unit}, cần: ${quantity} ${ingredient.unit}`),
-      { code: 'INSUFFICIENT_MAIN_STOCK' }
-    );
-  }
-
-  // Upsert BranchIngredient — tăng kho chi nhánh
-  const existingBi = await prisma.branchIngredient.findUnique({
-    where: { branchId_ingredientId: { branchId, ingredientId } }
-  });
-
-  if (existingBi) {
-    await prisma.branchIngredient.update({
-      where: { id: existingBi.id },
-      data: { stock: Number(existingBi.stock) + quantity },
-    });
-  } else {
-    await prisma.branchIngredient.create({
-      data: { branchId, ingredientId, stock: quantity, lowStockThreshold: ingredient.minStock },
-    });
-  }
-
-  // Giảm kho tổng
-  await prisma.ingredient.update({
-    where: { id: ingredientId },
-    data: { stock: { decrement: quantity } },
-  });
-
-  // Ghi log
-  await prisma.inventoryLog.create({
-    data: {
-      tenantId,
-      branchId,
-      ingredientId,
-      delta: quantity, // dương = tăng kho chi nhánh
-      reason: note ? `TRANSFER_IN: ${note}` : 'TRANSFER_IN',
-      createdBy: adminUserId,
-    },
-  });
-
-  return { success: true, quantity, ingredientName: ingredient.name };
-};
-
 export const getExportedStats = async (tenantId: string, branchId?: string) => {
   const ingredients = await prisma.ingredient.findMany({
     where: { tenantId },

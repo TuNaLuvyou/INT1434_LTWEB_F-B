@@ -269,38 +269,6 @@ export const getBranchStock = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// ── Xuất từ Kho tổng → Kho chi nhánh (ADMIN only) ───────────────────────────
-
-export const transferToBranch = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const tenantId = authReq.user?.tenantId;
-    const adminUserId = authReq.user?.userId;
-    const role = authReq.user?.role;
-
-    if (!tenantId || !adminUserId) { res.status(403).json({ success: false, message: 'Forbidden' }); return; }
-    if (role !== 'ADMIN') { res.status(403).json({ success: false, message: 'Chỉ Admin mới có thể xuất từ kho tổng' }); return; }
-
-    const { ingredientId, branchId, quantity, note } = z.object({
-      ingredientId: z.string().min(1),
-      branchId: z.string().min(1),
-      quantity: z.coerce.number().positive('Số lượng phải > 0'),
-      note: z.string().optional(),
-    }).parse(req.body);
-
-    const result = await svc.transferToBranch(ingredientId, branchId, quantity, adminUserId, tenantId, note);
-    res.json({ success: true, data: result });
-  } catch (e: any) {
-    if (e instanceof z.ZodError) {
-      res.status(400).json({ success: false, errors: e.issues });
-    } else if (e?.code === 'INSUFFICIENT_MAIN_STOCK') {
-      res.status(400).json({ success: false, message: e.message });
-    } else {
-      res.status(500).json({ success: false, message: e.message || 'Lỗi server' });
-    }
-  }
-};
-
 // ── Tab Đã xuất: thống kê nguyên liệu đã sử dụng ────────────────────────────
 
 export const getExportedStats = async (req: Request, res: Response): Promise<void> => {

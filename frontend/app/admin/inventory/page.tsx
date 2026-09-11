@@ -9,7 +9,6 @@ import {
   Edit3, 
   Trash2, 
   AlertTriangle,
-  ArrowRight,
   Warehouse,
   Store,
   PackageOpen,
@@ -20,7 +19,7 @@ import IngredientModal from "@/components/inventory/IngredientModal";
 import StockAdjustModal from "@/components/inventory/StockAdjustModal";
 import {
   fetchIngredients, deleteIngredient, fetchInventoryLogs,
-  fetchBranches, fetchCurrentUser, fetchBranchStock, fetchExportedStats, transferIngredientToBranch,
+  fetchCurrentUser, fetchBranchStock, fetchExportedStats,
 } from "@/lib/api/admin";
 import { useAuthStore } from "@/stores/auth.store";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -43,117 +42,6 @@ function ContentLoader({ label = "Đang tải dữ liệu..." }: { label?: strin
   );
 }
 
-// ── Modal Xuất từ Kho tổng → Chi nhánh ──────────────────────────────────────
-function TransferModal({ 
-  ingredient, 
-  branches, 
-  onClose, 
-  onSaved 
-}: { 
-  ingredient: any; 
-  branches: any[]; 
-  onClose: () => void; 
-  onSaved: () => void; 
-}) {
-  const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
-  const [quantity, setQuantity] = useState("");
-  const [note, setNote] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!branchId || !quantity || Number(quantity) <= 0) {
-      setError("Vui lòng nhập số lượng hợp lệ");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const data = await transferIngredientToBranch({
-        ingredientId: ingredient.id,
-        branchId,
-        quantity: Number(quantity),
-        note,
-      });
-      if (!data.success) throw new Error(data.message || "Lỗi");
-      onSaved();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="p-6">
-          <h3 className="text-lg font-bold text-white mb-1">Xuất sang Chi nhánh</h3>
-          <p className="text-sm text-zinc-400 mb-5">
-            Xuất <span className="text-violet-400 font-semibold">{ingredient.name}</span> từ Kho tổng sang Kho chi nhánh
-          </p>
-          <div className="flex items-center gap-3 p-3 bg-zinc-800/50 rounded-xl mb-5 text-sm">
-            <Warehouse className="h-4 w-4 text-violet-400 shrink-0" />
-            <span className="text-zinc-300">Tồn kho tổng hiện tại:</span>
-            <span className="font-mono font-bold text-white ml-auto">{fmt(Number(ingredient.stock))} {ingredient.unit}</span>
-          </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase tracking-wider">Chi nhánh nhận hàng</label>
-              <select
-                value={branchId}
-                onChange={e => setBranchId(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-zinc-100 text-sm focus:outline-none focus:border-violet-500"
-              >
-                {branches.map((b: any) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase tracking-wider">Số lượng xuất ({ingredient.unit})</label>
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={quantity}
-                onChange={e => setQuantity(e.target.value)}
-                placeholder="Nhập số lượng..."
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-zinc-100 text-sm focus:outline-none focus:border-violet-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase tracking-wider">Ghi chú (tùy chọn)</label>
-              <input
-                type="text"
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                placeholder="Nhập ghi chú..."
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-zinc-100 text-sm focus:outline-none focus:border-violet-500"
-              />
-            </div>
-            {error && <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">{error}</p>}
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 text-sm font-medium hover:bg-zinc-800 transition-all">
-                Huỷ
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                <ArrowRight className="h-4 w-4" />
-                {loading ? "Đang xử lý..." : "Xuất hàng"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminInventoryPage() {
   const { user } = useAuthStore();
@@ -172,7 +60,6 @@ export default function AdminInventoryPage() {
   const [mainIngredients, setMainIngredients] = useState<any[]>([]);
   // Kho chi nhánh
   const [branchIngredients, setBranchIngredients] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
   // Đã xuất
   const [exportedStats, setExportedStats] = useState<any[]>([]);
   // Logs
@@ -188,15 +75,6 @@ export default function AdminInventoryPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editTarget, setEditTarget] = useState<any | null>(null);
   const [stockTarget, setStockTarget] = useState<any | null>(null);
-  const [transferTarget, setTransferTarget] = useState<any | null>(null);
-
-  // ── Fetch branches ────────────────────────────────────────────
-  const loadBranches = useCallback(async () => {
-    try {
-      const d = await fetchBranches();
-      if (d.data) setBranches(d.data ?? []);
-    } catch {}
-  }, []);
 
   // ── Kho tổng ──────────────────────────────────────────────────
   const loadMainStock = useCallback(async () => {
@@ -240,13 +118,6 @@ export default function AdminInventoryPage() {
   }, [logsPage]);
 
   // ── Initial load ──────────────────────────────────────────────
-  useEffect(() => {
-    if (inventoryLocked) {
-      setLoading(false);
-      return;
-    }
-    loadBranches();
-  }, [inventoryLocked, loadBranches]);
   useEffect(() => {
     if (inventoryLocked) return;
     if (activeTab === "main") loadMainStock();
@@ -406,9 +277,6 @@ export default function AdminInventoryPage() {
                         </td>
                         <td className="px-5 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => setTransferTarget(item)} className="px-2.5 py-1 rounded bg-violet-500/15 border border-violet-500/20 text-violet-400 hover:bg-violet-500/25 text-xs font-semibold transition-all flex items-center gap-1">
-                              <ArrowRight className="h-3 w-3" />Xuất sang CN
-                            </button>
                             <button onClick={() => setStockTarget(item)} className="px-2.5 py-1 rounded bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/25 text-xs font-semibold transition-all">
                               Nhập/Xuất kho
                             </button>
@@ -687,14 +555,6 @@ export default function AdminInventoryPage() {
               loadMainStock();
             }
           }}
-        />
-      )}
-      {transferTarget && (
-        <TransferModal
-          ingredient={transferTarget}
-          branches={branches}
-          onClose={() => setTransferTarget(null)}
-          onSaved={() => { setTransferTarget(null); loadMainStock(); loadBranchStock(); }}
         />
       )}
     </div>
