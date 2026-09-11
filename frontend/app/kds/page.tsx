@@ -1131,14 +1131,6 @@ export default function KDSPage() {
               <span className="hidden sm:inline">Báo Hết Món</span>
             </button>
             <button 
-              onClick={handleArchiveAll}
-              className="text-xs bg-emerald-600/15 border border-emerald-500/20 hover:bg-emerald-600 hover:text-white px-2 sm:px-3.5 py-1.5 rounded-lg flex items-center gap-1 sm:gap-1.5 text-emerald-400 font-bold transition-all shadow-md active:scale-95 cursor-pointer"
-            >
-              <Archive className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Lưu trữ toàn bộ</span>
-              <span className="sm:hidden">Lưu tất cả</span>
-            </button>
-            <button 
               onClick={() => setIsArchiveOpen(true)}
               className="text-xs bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white px-2 sm:px-3.5 py-1.5 rounded-lg flex items-center gap-1 sm:gap-1.5 text-zinc-300 font-bold transition-all shadow-md active:scale-95 cursor-pointer"
             >
@@ -1204,10 +1196,7 @@ export default function KDSPage() {
         {/* Column 1: PENDING */}
         <div className="flex flex-col bg-zinc-900/20 border border-zinc-900 rounded-3xl p-4 sm:p-5 max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-210px)] overflow-hidden">
           <div className="flex items-center justify-between pb-4 border-b border-zinc-900 mb-4 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
-              <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Hàng Chờ</h2>
-            </div>
+            <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Hàng Chờ</h2>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-amber-400 font-bold border border-zinc-800">
               {kanbanColumns.pending.itemCount} món
             </span>
@@ -1282,10 +1271,7 @@ export default function KDSPage() {
         {/* Column 2: PREPARING */}
         <div className="flex flex-col bg-zinc-900/20 border border-zinc-900 rounded-3xl p-4 sm:p-5 max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-210px)] overflow-hidden">
           <div className="flex items-center justify-between pb-4 border-b border-zinc-900 mb-4 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-orange-500" />
-              <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Đang nấu</h2>
-            </div>
+            <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Đang nấu</h2>
             <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-orange-400 font-bold border border-zinc-800">
               {kanbanColumns.preparing.itemCount} món
             </span>
@@ -1355,13 +1341,15 @@ export default function KDSPage() {
         {/* Column 3: READY */}
         <div className="flex flex-col bg-zinc-900/20 border border-zinc-900 rounded-3xl p-4 sm:p-5 max-h-[calc(100vh-200px)] md:max-h-[calc(100vh-210px)] overflow-hidden">
           <div className="flex items-center justify-between pb-4 border-b border-zinc-900 mb-4 shrink-0">
+            <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Sẵn Sàng</h2>
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <h2 className="font-bold text-sm tracking-wide text-zinc-200 uppercase">Sẵn Sàng</h2>
+              <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-emerald-400 font-bold border border-zinc-800">
+                {kanbanColumns.ready.itemCount} món
+              </span>
+              <button onClick={handleArchiveAll} className="text-[11px] bg-emerald-600/15 border border-emerald-500/20 hover:bg-emerald-600 hover:text-white px-2.5 py-1 rounded-lg flex items-center gap-1 text-emerald-400 font-bold transition-all active:scale-95 cursor-pointer">
+                <Archive className="h-3 w-3" /> Lưu trữ toàn bộ
+              </button>
             </div>
-            <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-zinc-900 text-emerald-400 font-bold border border-zinc-800">
-              {kanbanColumns.ready.itemCount} món
-            </span>
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-none">

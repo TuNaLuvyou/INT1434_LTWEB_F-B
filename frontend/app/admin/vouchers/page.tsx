@@ -246,7 +246,6 @@ export default function AdminVouchersPage() {
                   <Ticket className="h-5 w-5 text-violet-400" />
                   Thêm Voucher Mới
                 </h2>
-                <p className="text-xs text-zinc-500 mt-1">Tạo mã ưu đãi giảm giá phần trăm hoặc số tiền cố định.</p>
               </div>
 
               <form onSubmit={handleCreateVoucher} className="space-y-4">
@@ -275,7 +274,6 @@ export default function AdminVouchersPage() {
                         : "border-zinc-900 bg-zinc-950 text-zinc-500 hover:text-zinc-300"
                         }`}
                     >
-                      <Percent className="h-3.5 w-3.5" />
                       Phần trăm (%)
                     </button>
                     <button
@@ -378,9 +376,6 @@ export default function AdminVouchersPage() {
             <div className="bg-zinc-900/40 border border-zinc-900 rounded-3xl p-4 sm:p-5 lg:col-span-2 flex flex-col space-y-4 flex-1 min-h-[400px]">
               <div className="shrink-0">
                 <h2 className="text-base font-bold text-white">Danh Sách Voucher</h2>
-                <p className="text-xs text-zinc-500 mt-1">
-                  Quản lý các mã giảm giá đang hoạt động hoặc đã lưu vết trong hệ thống.
-                </p>
               </div>
 
               {loading ? (
