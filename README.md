@@ -9,9 +9,7 @@
 ![Socket.IO](https://img.shields.io/badge/Socket.IO-4.8-white?logo=socketdotio)
 ![License](https://img.shields.io/badge/license-ISC-lightgrey)
 
-**Môn học:** INT1434 — Lập trình Web  
-**Lớp:** D23COCN01-N  
-**Nhóm:** HiAI-MenuGo
+**Giải pháp chuyển đổi số thông minh cho F&B — Gọi món QR · POS · Bếp KDS · Real-time Analytics**
 
 </div>
 
@@ -28,7 +26,7 @@
 - [Cấu trúc thư mục](#-cấu-trúc-thư-mục)
 - [API Documentation](#-api-documentation)
 - [RBAC - Phân quyền](#-rbac---phân-quyền)
-- [Thành viên](#-thành-viên)
+- [Đội ngũ phát triển](#-đội-ngũ-phát-triển)
 
 ---
 
@@ -211,7 +209,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5001
 ## 📁 Cấu trúc thư mục
 
 ```
-INT1434_LTWEB_F-B/
+HiAI-MenuGo/
 ├── backend/                    # Express API Server
 │   ├── prisma/
 │   │   ├── schema.prisma       # Database schema (~40 models)
@@ -309,12 +307,12 @@ Hệ thống bao gồm **~40 Prisma Models** được phân chia theo các nhóm
 
 ---
 
-## 👥 Thành viên
+## 👥 Đội ngũ phát triển
 
-| Họ tên | MSSV |
-|--------|------|
-| Trần Hoàng Đạt | N23DCCN009 |
-| Phạm Văn Đoàn | N23DCCN010 |
+| Họ tên | Vai trò |
+|--------|---------|
+| Trần Hoàng Đạt | Core Developer |
+| Phạm Văn Đoàn | Core Developer |
 
 ---
 
@@ -325,5 +323,5 @@ ISC © 2026 HiAI-MenuGo Team
 ---
 
 <div align="center">
-Made with ❤️ by HiAI-MenuGo Team — INT1434 LTWEB
+Made with ❤️ by HiAI-MenuGo Team
 </div>
