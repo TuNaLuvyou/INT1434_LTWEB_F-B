@@ -372,6 +372,32 @@ export default function DashboardPage() {
     return "text-emerald-400";
   };
 
+  const getCookingDiffClass = (diffText?: string) => {
+    if (!diffText || diffText.includes("Chưa có") || diffText.includes("chưa có")) {
+      return "text-zinc-500";
+    }
+    if (diffText.includes("Nhanh hơn")) {
+      return "text-emerald-400";
+    }
+    if (diffText.includes("Chậm hơn")) {
+      return "text-rose-400";
+    }
+    return "text-zinc-400";
+  };
+
+  const getCookingDiffIcon = (diffText?: string) => {
+    if (!diffText || diffText.includes("Chưa có") || diffText.includes("chưa có")) {
+      return <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-zinc-500" />;
+    }
+    if (diffText.includes("Nhanh hơn")) {
+      return <ArrowDownRight className="h-3.5 w-3.5 text-emerald-400" />;
+    }
+    if (diffText.includes("Chậm hơn")) {
+      return <ArrowUpRight className="h-3.5 w-3.5 text-rose-400" />;
+    }
+    return <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-zinc-400" />;
+  };
+
   if (loading) {
     return (
       <div className="h-screen bg-zinc-950 flex flex-col items-center justify-center gap-3">
@@ -673,11 +699,11 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-1">
               <h3 className="font-mono text-base sm:text-2xl font-bold tracking-tight text-white leading-tight">
-                {stats?.avgCookingTime ?? 11.4} Phút
+                {stats?.avgCookingTime ? `${stats.avgCookingTime} Phút` : "0 Phút"}
               </h3>
-              <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-emerald-400">
-                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400" />
-                <span className="truncate">{stats?.cookingTimeDiff}</span>
+              <div className={`flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold ${getCookingDiffClass(stats?.cookingTimeDiff)}`}>
+                {getCookingDiffIcon(stats?.cookingTimeDiff)}
+                <span className="truncate">{stats?.cookingTimeDiff || "Chưa có dữ liệu"}</span>
               </div>
             </div>
           </div>

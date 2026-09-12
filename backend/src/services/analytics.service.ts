@@ -307,34 +307,33 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
 
   const revenueGrowth = comparisonRevenue > 0
     ? Number((((todayRevenue - comparisonRevenue) / comparisonRevenue) * 100).toFixed(1))
-    : 12.4;
+    : (todayRevenue > 0 ? 100 : 0);
   const ordersGrowth = comparisonOrders > 0
     ? Number((((todayOrders - comparisonOrders) / comparisonOrders) * 100).toFixed(1))
-    : 8.2;
+    : (todayOrders > 0 ? 100 : 0);
 
   // 2. Average Cooking Time
   const todayOrderItems = await prisma.orderItem.findMany({
     where: {
       ...orderItemWhere,
-      status: 'DONE',
+      status: { in: ['DONE', 'DELIVERED'] },
       updatedAt: { gte: start, lte: end }
     }
   });
 
-  let avgCookingTime = 11.4;
-  let cookingTimeDiff = "Nhanh hơn 1.2p";
+  let avgCookingTime = 0;
+  let cookingTimeDiff = "Chưa có dữ liệu";
   if (todayOrderItems.length > 0) {
     const totalCookTimeMs = todayOrderItems.reduce((sum, item) => {
       const duration = item.updatedAt.getTime() - item.createdAt.getTime();
       return sum + (duration > 0 ? duration : 0);
     }, 0);
     avgCookingTime = Number(((totalCookTimeMs / todayOrderItems.length) / 60000).toFixed(1));
-    if (avgCookingTime <= 0) avgCookingTime = 11.4;
 
     const yesterdayOrderItems = await prisma.orderItem.findMany({
       where: {
         ...orderItemWhere,
-        status: 'DONE',
+        status: { in: ['DONE', 'DELIVERED'] },
         updatedAt: { gte: compStart, lte: compEnd }
       }
     });
@@ -343,12 +342,17 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
         const duration = item.updatedAt.getTime() - item.createdAt.getTime();
         return sum + (duration > 0 ? duration : 0);
       }, 0);
-      let yesterdayAvg = (yesterdayTotalMs / yesterdayOrderItems.length) / 60000;
-      if (yesterdayAvg <= 0) yesterdayAvg = 12.6;
-      const diff = avgCookingTime - yesterdayAvg;
-      cookingTimeDiff = diff <= 0
-        ? `Nhanh hơn ${Math.abs(diff).toFixed(1)}p`
-        : `Chậm hơn ${diff.toFixed(1)}p`;
+      const yesterdayAvg = Number(((yesterdayTotalMs / yesterdayOrderItems.length) / 60000).toFixed(1));
+      const diff = Number((avgCookingTime - yesterdayAvg).toFixed(1));
+      if (diff < 0) {
+        cookingTimeDiff = `Nhanh hơn ${Math.abs(diff)}p`;
+      } else if (diff > 0) {
+        cookingTimeDiff = `Chậm hơn ${diff}p`;
+      } else {
+        cookingTimeDiff = "Tương đương kỳ trước";
+      }
+    } else {
+      cookingTimeDiff = "Kỳ trước chưa có dữ liệu";
     }
   }
 
@@ -361,7 +365,7 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
   });
   const customersGrowth = yesterdaySessions > 0
     ? Number((((todaySessions - yesterdaySessions) / yesterdaySessions) * 100).toFixed(1))
-    : 15.3;
+    : (todaySessions > 0 ? 100 : 0);
 
   // 4. Dynamic Sales Grouping (Hourly for 1 day, Daily for multi-days)
   let chartData: { hour: string; value: number }[] = [];
@@ -443,8 +447,8 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
     .reduce((sum, p) => sum + Number(p.total), 0);
   const totalPay = cashTotal + transferTotal;
 
-  let transferPercent = 60;
-  let cashPercent = 40;
+  let transferPercent = 0;
+  let cashPercent = 0;
 
   if (totalPay > 0) {
     transferPercent = Math.round((transferTotal / totalPay) * 100);
@@ -557,23 +561,22 @@ export const getTodayOverview = async (rangeType: string = 'today', customDateSt
     }
   });
 
-  const customerHistory = customersList.map(c => {
-    const matchedPayments = allPayments.filter(p => (p.customerId && p.customerId === c.id) || (p.customerPhone && p.customerPhone === c.phone));
+  const customerHistory = customersList.map((c: any) => {
+    const matchedPayments = allPayments.filter((p: any) => (p.customerId && p.customerId === c.id) || (p.customerPhone && p.customerPhone === c.phone));
     const orderCount = matchedPayments.length;
-    const totalSpentPayments = matchedPayments.reduce((sum, p) => sum + Number(p.total), 0);
-    const totalSpent = totalSpentPayments > 0 ? totalSpentPayments : Number(c.accumulatedPoints ? c.accumulatedPoints * 10000 : (c.points || 15) * 10000);
-    const sortedPay = matchedPayments.sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
-    const lastDate = sortedPay[0] ? new Date(sortedPay[0].paidAt) : new Date();
+    const totalSpent = matchedPayments.reduce((sum: number, p: any) => sum + Number(p.total), 0);
+    const sortedPay = matchedPayments.sort((a: any, b: any) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
+    const lastDate = sortedPay[0] ? new Date(sortedPay[0].paidAt) : null;
 
     return {
       id: c.id,
       name: c.name || c.phone || 'Khách hàng',
       phone: c.phone,
-      orderCount: orderCount > 0 ? orderCount : Math.max(1, Math.floor((c.points || 10) / 10)),
-      totalSpent: totalSpent,
+      orderCount,
+      totalSpent,
       points: c.points || 0,
-      membershipTier: c.membershipTier ? c.membershipTier.name : (c.points >= 100 ? 'Vàng' : 'Thành viên'),
-      lastTransaction: lastDate.toLocaleDateString('vi-VN')
+      membershipTier: c.membershipTier ? c.membershipTier.name : 'Thành viên',
+      lastTransaction: lastDate ? lastDate.toLocaleDateString('vi-VN') : 'Chưa có'
     };
   });
 
